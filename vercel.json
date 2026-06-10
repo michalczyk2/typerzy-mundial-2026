@@ -6,15 +6,15 @@
     },
     {
       "path": "/api/sync-results",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/recalculate-points",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/sync-standings",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
