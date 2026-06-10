@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync-matches",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/sync-results",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/recalculate-points",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/sync-standings",
+      "schedule": "0 */3 * * *"
+    }
+  ]
+}
