@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
+import { checkFootballConfig, fetchStandings } from '@/lib/api/football-provider'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -24,18 +25,62 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Tryb lokalny — brak synchronizacji' })
   }
 
-  try {
-    const db = createAdminClient()
+  const db = createAdminClient()
+  const configCheck = checkFootballConfig()
+
+  if (!configCheck.ok) {
+    console.error('[sync-standings] brak konfiguracji:', configCheck.error)
     await db.from('sync_logs').insert({
       sync_type: 'standings',
-      status: 'skipped',
+      status: 'error',
       records_updated: 0,
-      message: 'API meczowe nie skonfigurowane — sync pominięty',
+      message: configCheck.error,
     })
-    return NextResponse.json({ message: 'API meczowe nie skonfigurowane — sync pominięty' })
+    return NextResponse.json({ error: configCheck.error }, { status: 400 })
+  }
+
+  try {
+    const standings = await fetchStandings()
+
+    const rows = standings.map(s => ({
+      group_name: s.group_name,
+      team_code: s.team_code,
+      team_name: s.team_name,
+      played: s.played,
+      won: s.won,
+      drawn: s.drawn,
+      lost: s.lost,
+      goals_for: s.goals_for,
+      goals_against: s.goals_against,
+      points: s.points,
+      position: s.position,
+    }))
+
+    const { error } = await db
+      .from('standings')
+      .upsert(rows, { onConflict: 'group_name,team_code' })
+
+    if (error) throw error
+
+    await db.from('sync_logs').insert({
+      sync_type: 'standings',
+      status: 'success',
+      records_updated: rows.length,
+      message: `Zsynchronizowano ${rows.length} wpisów tabeli`,
+    })
+
+    console.log(`[sync-standings] upserted ${rows.length} standings`)
+    return NextResponse.json({ message: `Zsynchronizowano ${rows.length} wpisów tabeli`, count: rows.length })
   } catch (err) {
-    console.error('[sync-standings]', err)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[sync-standings]', msg)
+    await db.from('sync_logs').insert({
+      sync_type: 'standings',
+      status: 'error',
+      records_updated: 0,
+      message: msg.slice(0, 500),
+    })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

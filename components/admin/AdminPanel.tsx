@@ -23,8 +23,11 @@ async function callSyncEndpoint(endpoint: string): Promise<string> {
   }
 }
 
+type PendingUser = { id: string; nick: string; status: string; role: string; total_points: number }
+
 export function AdminPanel() {
-  const { users, matches, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
+  const { users, matches, currentUser, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [editing, setEditing] = useState<string|null>(null)
   const [editMode, setEditMode] = useState<EditMode>(null)
   const [scoreA, setScoreA] = useState('')
@@ -37,7 +40,19 @@ export function AdminPanel() {
   const [settingValues, setSettingValues] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<Record<string, string>>({})
 
+  const loadPendingUsers = () => {
+    fetch('/api/admin/users')
+      .then(r => r.json())
+      .then((data: { users?: PendingUser[] }) => {
+        const all = Array.isArray(data?.users) ? data.users : []
+        const pending = all.filter(u => u.status === 'pending' && u.id !== currentUser?.id)
+        setPendingUsers(pending)
+      })
+      .catch(err => console.error('[AdminPanel] loadPendingUsers:', err))
+  }
+
   useEffect(() => {
+    loadPendingUsers()
     fetch('/api/admin/scoring-settings')
       .then(r => r.json())
       .then(({ settings: rows }: { settings: ScoringSetting[] }) => {
@@ -97,7 +112,24 @@ export function AdminPanel() {
     setSyncStatus(s => ({ ...s, [endpoint]: msg }))
   }
 
-  const pendingUsers = users.filter(u => u.status === 'pending')
+  const handleUserAction = async (userId: string, status: 'active' | 'blocked') => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, status }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        console.error('[AdminPanel] handleUserAction error:', json)
+        return
+      }
+      updateUserStatus(userId, status)
+      loadPendingUsers()
+    } catch (err) {
+      console.error('[AdminPanel] handleUserAction fetch error:', err)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -114,8 +146,8 @@ export function AdminPanel() {
                   <Badge variant="pending" className="ml-2">Oczekuje</Badge>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => updateUserStatus(user.id, 'active')}>Akceptuj</Button>
-                  <Button size="sm" variant="danger" onClick={() => updateUserStatus(user.id, 'blocked')}>Zablokuj</Button>
+                  <Button size="sm" onClick={() => handleUserAction(user.id, 'active')}>Akceptuj</Button>
+                  <Button size="sm" variant="danger" onClick={() => handleUserAction(user.id, 'blocked')}>Zablokuj</Button>
                 </div>
               </div>
             ))}
