@@ -3,54 +3,76 @@ import { useState } from 'react'
 interface Props { code: string; name: string; size?: 'sm'|'md'|'lg'; className?: string }
 const sizes = { sm:20, md:28, lg:40 }
 
-// Maps FIFA 3-letter codes → ISO 3166-1 alpha-2 codes used by flagcdn.com.
-// Mock data already uses 2-letter ISO codes (mx, pl, ar…) and passes through unchanged.
+// Maps FIFA 3-letter codes → ISO 3166-1 alpha-2 codes required by flagcdn.com.
+//
+// Source of truth: rezarahiminia/worldcup2026 football.teams.json (iso2 field).
+// Mock data already uses 2-letter ISO codes (mx, pl, ar…) — they pass through
+// the `?? upper.toLowerCase()` fallback unchanged.
+//
+// Two extra fallback entries handle openfootball name-mismatch cases where
+// football-provider falls back to name.slice(0,3).toUpperCase():
+//   "Bosnia & Herzegovina" ≠ Reza "Bosnia and Herzegovina" → BOS
+//   "DR Congo"             ≠ Reza "Democratic Republic…"   → DR  (trimmed: DR)
 const FIFA_TO_ISO: Record<string, string> = {
-  // British home nations (FIFA splits them, ISO doesn't)
+  // ── British home nations ──────────────────────────────────────────────────
   ENG:'gb-eng', SCO:'gb-sct', WAL:'gb-wls', NIR:'gb-nir',
-  // Europe
-  GER:'de', NED:'nl', CZE:'cz', SVK:'sk', CRO:'hr', SRB:'rs',
-  SUI:'ch', DEN:'dk', SWE:'se', NOR:'no', FIN:'fi', ISL:'is',
-  TUR:'tr', GRE:'gr', ROU:'ro', BUL:'bg', ALB:'al', SVN:'si',
-  UKR:'ua', GEO:'ge', ARM:'am', AZE:'az', KAZ:'kz', HUN:'hu',
-  MKD:'mk', MNE:'me', BIH:'ba', KOS:'xk', LUX:'lu',
-  // CONCACAF
-  MEX:'mx', USA:'us', CAN:'ca', CRC:'cr', PAN:'pa',
-  HON:'hn', GTM:'gt', JAM:'jm', TRI:'tt', SLV:'sv', CUB:'cu',
-  HAI:'ht', DOM:'do', GUY:'gy', SUR:'sr', BRB:'bb', ATG:'ag',
-  // CONMEBOL
-  ARG:'ar', BRA:'br', URU:'uy', COL:'co', ECU:'ec',
-  CHI:'cl', PER:'pe', PAR:'py', BOL:'bo', VEN:'ve',
-  // CAF (Africa)
-  RSA:'za', MAR:'ma', SEN:'sn', GHA:'gh', NGR:'ng', NGA:'ng',
-  CMR:'cm', CIV:'ci', TUN:'tn', EGY:'eg', ALG:'dz',
-  MLI:'ml', BFA:'bf', GUI:'gn', GAM:'gm', COD:'cd', DRC:'cd',
-  ZIM:'zw', ZAM:'zm', ANG:'ao', MOZ:'mz', GAB:'ga', GNB:'gw',
-  BEN:'bj', TOG:'tg', LBR:'lr', KEN:'ke', UGA:'ug', TAN:'tz',
-  ETH:'et', RWA:'rw', CPV:'cv', COM:'km', MDG:'mg', MRI:'mu',
-  CTA:'cf', TCH:'td', NIG:'ne', SLE:'sl', GNE:'gq',
-  // AFC (Asia)
-  JPN:'jp', KOR:'kr', AUS:'au', CHN:'cn', IRN:'ir',
-  KSA:'sa', QAT:'qa', UAE:'ae', JOR:'jo', IRQ:'iq',
-  UZB:'uz', TJK:'tj', PHI:'ph', THA:'th', IDN:'id',
-  MYS:'my', VIE:'vn', BHR:'bh', OMA:'om', KWT:'kw',
-  SYR:'sy', LBN:'lb', IND:'in', PRK:'kp', ISR:'il',
-  YEM:'ye', AFG:'af', PAK:'pk', BAN:'bd', NEP:'np',
-  SGP:'sg', MYA:'mm', TLS:'tl', MNG:'mn', KGZ:'kg',
-  // OFC (Oceania)
-  NZL:'nz', FIJ:'fj', PNG:'pg', SOL:'sb', VAN:'vu', NCL:'nc',
+  // ── Europe ───────────────────────────────────────────────────────────────
+  AUT:'at',  BEL:'be',  BIH:'ba',  BUL:'bg',  CRO:'hr',  CZE:'cz',
+  DEN:'dk',  FIN:'fi',  FRA:'fr',  GER:'de',  GRE:'gr',  HUN:'hu',
+  ISL:'is',  ITA:'it',  KAZ:'kz',  KOS:'xk',  LUX:'lu',  MKD:'mk',
+  MNE:'me',  NED:'nl',  NOR:'no',  POL:'pl',  POR:'pt',  ROU:'ro',
+  RUS:'ru',  SRB:'rs',  SUI:'ch',  SVK:'sk',  SVN:'si',  SWE:'se',
+  TUR:'tr',  UKR:'ua',  GEO:'ge',  ARM:'am',  AZE:'az',  ALB:'al',
+  // ── CONCACAF ─────────────────────────────────────────────────────────────
+  CAN:'ca',  CRC:'cr',  CUB:'cu',  CUW:'cw',  DOM:'do',  GTM:'gt',
+  GUY:'gy',  HAI:'ht',  HON:'hn',  JAM:'jm',  MEX:'mx',  PAN:'pa',
+  SLV:'sv',  SUR:'sr',  TRI:'tt',  USA:'us',  BRB:'bb',  ATG:'ag',
+  // ── CONMEBOL ─────────────────────────────────────────────────────────────
+  ARG:'ar',  BOL:'bo',  BRA:'br',  CHI:'cl',  COL:'co',  ECU:'ec',
+  PAR:'py',  PER:'pe',  URU:'uy',  VEN:'ve',
+  // ── Africa (CAF) ─────────────────────────────────────────────────────────
+  ALG:'dz',  ANG:'ao',  BEN:'bj',  BFA:'bf',  CMR:'cm',  CIV:'ci',
+  COD:'cd',  CPV:'cv',  DRC:'cd',  EGY:'eg',  ETH:'et',  GAB:'ga',
+  GAM:'gm',  GHA:'gh',  GNB:'gw',  GUI:'gn',  GNE:'gq',  KEN:'ke',
+  LBR:'lr',  MAR:'ma',  MDG:'mg',  MLI:'ml',  MOZ:'mz',  MRI:'mu',
+  NGA:'ng',  NGR:'ng',  NIG:'ne',  RSA:'za',  RWA:'rw',  SEN:'sn',
+  SLE:'sl',  CTA:'cf',  TCH:'td',  TOG:'tg',  TAN:'tz',  TUN:'tn',
+  UGA:'ug',  ZAM:'zm',  ZIM:'zw',  COM:'km',
+  // ── Asia (AFC) ───────────────────────────────────────────────────────────
+  AFG:'af',  AUS:'au',  BAN:'bd',  BHR:'bh',  CHN:'cn',  IDN:'id',
+  IND:'in',  IRN:'ir',  IRQ:'iq',  ISR:'il',  JOR:'jo',  JPN:'jp',
+  KOR:'kr',  KSA:'sa',  KGZ:'kg',  KWT:'kw',  LBN:'lb',  MNG:'mn',
+  MYA:'mm',  MYS:'my',  NEP:'np',  OMA:'om',  PAK:'pk',  PHI:'ph',
+  PRK:'kp',  QAT:'qa',  SGP:'sg',  SRI:'lk',  SYR:'sy',  THA:'th',
+  TJK:'tj',  TLS:'tl',  UAE:'ae',  UZB:'uz',  VIE:'vn',  YEM:'ye',
+  // ── Oceania (OFC) ────────────────────────────────────────────────────────
+  FIJ:'fj',  NCL:'nc',  NZL:'nz',  PNG:'pg',  SOL:'sb',  VAN:'vu',
+  // ── Spain & Portugal (common omissions) ──────────────────────────────────
+  ESP:'es',
+  // ── OFB name-mismatch fallbacks ──────────────────────────────────────────
+  // "Bosnia & Herzegovina" (OFB) ≠ "Bosnia and Herzegovina" (Reza) → slice → BOS
+  BOS:'ba',
+  // "DR Congo" (OFB) → slice(0,3) = "DR " → after trim → "DR"
+  DR: 'cd',
 }
 
 export function FlagImg({ code, name, size='md', className }: Props) {
   const [err, setErr] = useState(false)
   const px = sizes[size]
-  const isoCode = FIFA_TO_ISO[code.toUpperCase()] ?? code.toLowerCase()
+  // Trim handles "DR " (DR Congo OFB fallback has a trailing space)
+  const upper = code.trim().toUpperCase()
+  const isoCode = FIFA_TO_ISO[upper] ?? upper.toLowerCase()
+
+  if (process.env.NODE_ENV === 'development' && !FIFA_TO_ISO[upper] && upper.length > 2) {
+    console.warn(`[FlagImg] no ISO mapping for code "${code}" (${name}) — using "${isoCode}"`)
+  }
+
   if (err) return (
     <span
       className="inline-flex items-center justify-center bg-gray-700 rounded text-xs font-bold text-gray-400"
       style={{width:px, height:px*0.67}}
     >
-      {code.toUpperCase().slice(0,3)}
+      {upper.slice(0,3)}
     </span>
   )
   return (
