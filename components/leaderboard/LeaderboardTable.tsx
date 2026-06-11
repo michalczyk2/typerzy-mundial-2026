@@ -71,10 +71,7 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
             const fire = streakStyle(entry.current_streak)
             const preds = lastPredictions[entry.id] ?? []
             return (
-              <tr key={entry.id} className={cn(
-                'border-b border-gray-800 last:border-0 transition-colors',
-                isMe ? 'bg-emerald-950/40' : 'bg-gray-900 hover:bg-gray-800/50',
-              )}>
+              <tr key={entry.id} className="border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50">
                 <td className="py-3 px-4 text-center">
                   {i < 3
                     ? <span className="text-lg">{medals[i]}</span>
@@ -90,16 +87,14 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
                       style={fire}
                     />
                   )}
-                  <div className="relative flex items-center gap-2">
-                    <span className={cn('font-semibold text-sm', isMe ? 'text-emerald-400' : 'text-white')}>
-                      {entry.nick}
-                    </span>
-                    {isMe && <span className="text-xs text-emerald-600">(ja)</span>}
+                  <div className="relative flex items-center gap-1.5">
+                    {isMe && <span className="text-sm leading-none">👤</span>}
+                    <span className="font-semibold text-sm text-white">{entry.nick}</span>
                   </div>
                 </td>
 
                 <td className="py-3 px-4 text-right">
-                  <span className={cn('font-black text-lg tabular-nums', isMe ? 'text-emerald-400' : 'text-white')}>
+                  <span className="font-black text-lg tabular-nums text-white">
                     {entry.total_points}
                   </span>
                 </td>
