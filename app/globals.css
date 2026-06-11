@@ -30,3 +30,9 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] { -moz-appearance: textfield; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+@keyframes streak-flicker {
+  0%, 100% { opacity: 0.55; }
+  40%       { opacity: 1.00; }
+  70%       { opacity: 0.70; }
+}

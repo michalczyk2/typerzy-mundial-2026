@@ -152,6 +152,12 @@ export interface LeaderboardEntry extends User {
   is_last: boolean
 }
 
+export interface LastPrediction {
+  is_correct_score: boolean
+  is_correct_outcome: boolean
+  points_earned: number
+}
+
 export interface MatchWithPrediction extends Match {
   my_prediction?: Prediction
   predictions?: Prediction[]

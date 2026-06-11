@@ -6,7 +6,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@/types'
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { setCurrentUser, setUsers, setMatches, setPredictions, setStandings, setBonusPoints, users } = useAppStore()
+  const { setCurrentUser, setUsers, setMatches, setPredictions, setStandings, setBonusPoints, setLastPredictions, users } = useAppStore()
 
   useEffect(() => {
     if (!IS_PRODUCTION_MODE) {
@@ -55,11 +55,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       const db = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
-      const [matchesRes, standingsRes, profilesRes, bonusRes] = await Promise.all([
+      const [matchesRes, standingsRes, profilesRes, bonusRes, lastPredsRes] = await Promise.all([
         db.from('matches').select('*').order('match_date', { ascending: true }),
         db.from('standings').select('*').order('position', { ascending: true }),
         db.from('profiles').select('id, nick, role, status, total_points, match_points, bonus_points_total, predictions_count, correct_outcomes, correct_scores, current_streak, best_streak, tournament_winner_pick, created_at').eq('status', 'active').neq('role', 'admin'),
         db.from('bonus_points').select('*'),
+        fetch('/api/data/last-predictions'),
       ])
 
       if (matchesRes.data) setMatches(matchesRes.data)
@@ -87,6 +88,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         })))
       }
       if (bonusRes.data) setBonusPoints(bonusRes.data)
+      if (lastPredsRes.ok) {
+        const lpJson = await lastPredsRes.json()
+        if (lpJson.last_predictions) setLastPredictions(lpJson.last_predictions)
+      }
     }
 
     init().catch(err => {
