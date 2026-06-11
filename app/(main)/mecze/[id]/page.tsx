@@ -149,7 +149,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Prediction — only for active users */}
-      {currentUser && currentUser.status === 'active' && (
+      {currentUser && currentUser.status === 'active' && currentUser.role !== 'admin' && (
         locked ? (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
             <div className="flex items-center gap-2">
@@ -267,7 +267,10 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h2 className="text-white font-bold mb-4 text-base">Typy grupy</h2>
           <div className="space-y-0">
-            {allMatchPredictions.map(pred => {
+            {allMatchPredictions.filter(pred => {
+              const u = users.find(u => u.id === pred.user_id)
+              return u?.role !== 'admin'
+            }).map(pred => {
               const user = users.find(u => u.id === pred.user_id)
               const isMe = pred.user_id === currentUser?.id
               return (

@@ -70,12 +70,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   try {
-    const { id, status, role } = await req.json()
+    const { id, status, role, nick } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     const update: Record<string, unknown> = {}
     if (status) update.status = status
     if (role) update.role = role
+    if (nick) update.nick = nick.trim()
 
     const db = createAdminClient()
     const { error } = await db.from('profiles').update(update).eq('id', id)

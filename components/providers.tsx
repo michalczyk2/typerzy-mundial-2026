@@ -54,7 +54,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       const [matchesRes, standingsRes, profilesRes, bonusRes] = await Promise.all([
         db.from('matches').select('*').order('match_date', { ascending: true }),
         db.from('standings').select('*').order('position', { ascending: true }),
-        db.from('profiles').select('id, nick, role, status, total_points, match_points, bonus_points_total, predictions_count, correct_outcomes, correct_scores, current_streak, best_streak, tournament_winner_pick, created_at').eq('status', 'active'),
+        db.from('profiles').select('id, nick, role, status, total_points, match_points, bonus_points_total, predictions_count, correct_outcomes, correct_scores, current_streak, best_streak, tournament_winner_pick, created_at').eq('status', 'active').neq('role', 'admin'),
         db.from('bonus_points').select('*'),
       ])
 

@@ -28,6 +28,8 @@ type PendingUser = { id: string; nick: string; status: string; role: string; tot
 export function AdminPanel() {
   const { users, matches, currentUser, setUsers, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
+  const [editingNickId, setEditingNickId] = useState<string|null>(null)
+  const [editNickValue, setEditNickValue] = useState('')
   const [editing, setEditing] = useState<string|null>(null)
   const [editMode, setEditMode] = useState<EditMode>(null)
   const [scoreA, setScoreA] = useState('')
@@ -128,6 +130,27 @@ export function AdminPanel() {
       setUsers(users.filter(u => u.id !== userId))
     } catch (err) {
       console.error('[AdminPanel] handleDeleteUser fetch error:', err)
+    }
+  }
+
+  const handleRenameUser = async (userId: string, nick: string) => {
+    const trimmed = nick.trim()
+    if (!trimmed) return
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, nick: trimmed }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        console.error('[AdminPanel] handleRenameUser error:', json)
+        return
+      }
+      setUsers(users.map(u => u.id === userId ? { ...u, nick: trimmed } : u))
+      setEditingNickId(null)
+    } catch (err) {
+      console.error('[AdminPanel] handleRenameUser fetch error:', err)
     }
   }
 
@@ -318,16 +341,38 @@ export function AdminPanel() {
         <h2 className="text-white font-bold text-lg mb-2">Wszyscy gracze</h2>
         <div className="space-y-2">
           {users.map(user => (
-            <div key={user.id} className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-white text-sm">{user.nick}</span>
+            <div key={user.id} className="flex items-center justify-between py-2 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {editingNickId === user.id ? (
+                  <input
+                    type="text"
+                    value={editNickValue}
+                    onChange={e => setEditNickValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleRenameUser(user.id, editNickValue)
+                      if (e.key === 'Escape') setEditingNickId(null)
+                    }}
+                    autoFocus
+                    className="h-8 w-32 bg-gray-800 border border-emerald-600 rounded text-white text-sm px-2 focus:outline-none"
+                  />
+                ) : (
+                  <span className="text-white text-sm">{user.nick}</span>
+                )}
                 {user.role === 'admin' && <Badge variant="admin">Admin</Badge>}
                 {user.status === 'pending' && <Badge variant="pending">Oczekuje</Badge>}
                 {user.status === 'blocked' && <Badge variant="default" className="text-red-400">Zablokowany</Badge>}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
-                {user.id !== currentUser?.id && (
+                {editingNickId === user.id ? (
+                  <>
+                    <Button size="sm" onClick={() => handleRenameUser(user.id, editNickValue)}>Zapisz</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingNickId(null)}>✕</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => { setEditingNickId(user.id); setEditNickValue(user.nick) }}>✎</Button>
+                )}
+                {user.id !== currentUser?.id && editingNickId !== user.id && (
                   <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id, user.nick)}>Usuń</Button>
                 )}
               </div>

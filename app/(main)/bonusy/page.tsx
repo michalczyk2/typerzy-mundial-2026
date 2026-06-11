@@ -77,7 +77,7 @@ export default function BonusyPage() {
 
       <h2 className="text-lg font-bold text-white mt-8 mb-4">Ranking bonusów</h2>
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        {users.filter(u=>u.status==='active').sort((a,b) => {
+        {users.filter(u=>u.status==='active' && u.role !== 'admin').sort((a,b) => {
           const aB = bonusPoints.filter(bp=>bp.user_id===a.id).reduce((s,bp)=>s+bp.points,0)
           const bB = bonusPoints.filter(bp=>bp.user_id===b.id).reduce((s,bp)=>s+bp.points,0)
           return bB - aB

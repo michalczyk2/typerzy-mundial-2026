@@ -8,7 +8,7 @@ export default function TabelaPage() {
   const { currentUser, users } = useAppStore()
 
   const leaderboard = useMemo((): LeaderboardEntry[] => {
-    const activeUsers = users.filter(u => u.status === 'active')
+    const activeUsers = users.filter(u => u.status === 'active' && u.role !== 'admin')
     const sorted = [...activeUsers].sort((a,b) => b.total_points - a.total_points)
     const maxPts = sorted[0]?.total_points ?? 0
     const minPts = sorted[sorted.length-1]?.total_points ?? 0
