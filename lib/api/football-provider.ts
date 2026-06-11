@@ -132,7 +132,143 @@ export interface FootballFixture {
   city: string | null
 }
 
+// === worldcup26.ir provider (primary data source) ===
+
+const WC26_API_URL = 'https://worldcup26.ir/get/games'
+const WC26_TIMEOUT_MS = 10_000
+
+// English team name → ISO 3166-1 alpha-2 lowercase, matching FlagImg convention
+const WC26_TEAM_CODE_MAP: Record<string, string> = {
+  // CONMEBOL
+  Argentina: 'ar', Brazil: 'br', Colombia: 'co', Uruguay: 'uy',
+  Ecuador: 'ec', Venezuela: 've', Bolivia: 'bo', Paraguay: 'py',
+  Chile: 'cl', Peru: 'pe',
+  // CONCACAF
+  Mexico: 'mx', 'United States': 'us', USA: 'us', Canada: 'ca',
+  'Costa Rica': 'cr', Panama: 'pa', Honduras: 'hn', Guatemala: 'gt',
+  'El Salvador': 'sv', Cuba: 'cu', Jamaica: 'jm', Haiti: 'ht',
+  'Trinidad and Tobago': 'tt', 'Trinidad & Tobago': 'tt',
+  // UEFA
+  France: 'fr', Germany: 'de', Spain: 'es', England: 'gb-eng',
+  Netherlands: 'nl', Portugal: 'pt', Belgium: 'be', Croatia: 'hr',
+  Switzerland: 'ch', Denmark: 'dk', Italy: 'it', Poland: 'pl',
+  Serbia: 'rs', Turkey: 'tr', Scotland: 'gb-sct', Romania: 'ro',
+  Austria: 'at', Hungary: 'hu', 'Czech Republic': 'cz', Slovakia: 'sk',
+  Ukraine: 'ua', Slovenia: 'si', Georgia: 'ge', Albania: 'al',
+  Wales: 'gb-wls', Finland: 'fi', Norway: 'no', Sweden: 'se',
+  Greece: 'gr', Bulgaria: 'bg', Luxembourg: 'lu', Iceland: 'is',
+  'North Macedonia': 'mk', Montenegro: 'me', Kosovo: 'xk',
+  'Bosnia and Herzegovina': 'ba', 'Bosnia & Herzegovina': 'ba',
+  // CAF
+  Morocco: 'ma', Senegal: 'sn', Nigeria: 'ng', Egypt: 'eg',
+  Cameroon: 'cm', Ghana: 'gh', Tunisia: 'tn', Algeria: 'dz',
+  'Ivory Coast': 'ci', "Côte d'Ivoire": 'ci', 'Cote d Ivoire': 'ci',
+  'South Africa': 'za', Mali: 'ml', Angola: 'ao',
+  'DR Congo': 'cd', 'Democratic Republic of Congo': 'cd', 'Congo DR': 'cd',
+  'Burkina Faso': 'bf', 'Cape Verde': 'cv', Kenya: 'ke',
+  Tanzania: 'tz', Comoros: 'km', Benin: 'bj', Rwanda: 'rw',
+  // AFC
+  Japan: 'jp', 'South Korea': 'kr', 'Korea Republic': 'kr',
+  Iran: 'ir', 'Saudi Arabia': 'sa', Australia: 'au', Qatar: 'qa',
+  Iraq: 'iq', Uzbekistan: 'uz', 'United Arab Emirates': 'ae', UAE: 'ae',
+  Bahrain: 'bh', Jordan: 'jo', China: 'cn', Indonesia: 'id',
+  // OFC
+  'New Zealand': 'nz', Fiji: 'fj', 'New Caledonia': 'nc',
+}
+
+interface WC26Game {
+  id: number | string
+  home_team_name_en: string
+  away_team_name_en: string
+  home_score: number | null
+  away_score: number | null
+  group: string | null
+  matchday: number | null
+  local_date: string | null
+  finished: boolean
+  time_elapsed: string | null
+  type: string | null
+  home_team_code?: string
+  away_team_code?: string
+  stadium?: string | null
+  city?: string | null
+}
+
+function wc26TeamCode(name: string, provided?: string): string {
+  if (provided) return provided.toLowerCase()
+  return WC26_TEAM_CODE_MAP[name] ?? name.slice(0, 3).toLowerCase()
+}
+
+function wc26Phase(type: string | null): MatchPhase {
+  if (!type) return 'group'
+  const t = type.toLowerCase().replace(/[_\s-]/g, '')
+  if (t.includes('32')) return 'round_of_32'
+  if (t.includes('16')) return 'round_of_16'
+  if (t.includes('quarter')) return 'quarterfinal'
+  if (t.includes('semi')) return 'semifinal'
+  if (t.includes('third') || t.includes('3rd') || t.includes('bronze')) return 'third_place'
+  if (t.includes('final')) return 'final'
+  return 'group'
+}
+
+function wc26Status(g: WC26Game): MatchStatus {
+  if (g.finished) return 'finished'
+  if (g.time_elapsed && g.time_elapsed.trim()) return 'live'
+  return 'scheduled'
+}
+
+function wc26ParseDate(raw: string | null): string {
+  if (!raw) return new Date().toISOString()
+  const d = new Date(raw)
+  return isNaN(d.getTime()) ? raw : d.toISOString()
+}
+
+export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), WC26_TIMEOUT_MS)
+    let res: Response
+    try {
+      res = await fetch(WC26_API_URL, { cache: 'no-store', signal: controller.signal })
+    } finally {
+      clearTimeout(timer)
+    }
+    if (!res.ok) return null
+    const raw: unknown = await res.json()
+    if (!Array.isArray(raw)) return null
+    return (raw as WC26Game[])
+      .filter(g => g.home_team_name_en && g.away_team_name_en)
+      .map(g => ({
+        external_id: `wc26_${g.id}`,
+        team_a: g.home_team_name_en,
+        team_b: g.away_team_name_en,
+        team_a_code: wc26TeamCode(g.home_team_name_en, g.home_team_code),
+        team_b_code: wc26TeamCode(g.away_team_name_en, g.away_team_code),
+        match_date: wc26ParseDate(g.local_date),
+        status: wc26Status(g),
+        score_a: g.home_score ?? null,
+        score_b: g.away_score ?? null,
+        halftime_a: null,
+        halftime_b: null,
+        phase: wc26Phase(g.type),
+        group_name: g.group ?? null,
+        round: g.matchday ?? 1,
+        stadium: g.stadium ?? null,
+        city: g.city ?? null,
+      }))
+  } catch {
+    return null
+  }
+}
+
 export async function fetchFixtures(): Promise<FootballFixture[]> {
+  // worldcup26.ir as primary source — real-time scores and live match data
+  const wc26 = await fetchWC26Fixtures()
+  if (wc26 !== null && wc26.length > 0) {
+    return wc26
+  }
+
+  // Fallback: openfootball open dataset
   const [ofbRes, codeMap] = await Promise.all([
     fetch(OPENFOOTBALL_URL, { cache: 'no-store' }),
     fetchTeamCodeMap(),
@@ -204,7 +340,7 @@ interface TeamStats {
   points: number
 }
 
-function calculateStandings(fixtures: FootballFixture[]): FootballStanding[] {
+export function calculateStandings(fixtures: FootballFixture[]): FootballStanding[] {
   const statsMap = new Map<string, TeamStats>()
 
   function get(group: string, team: string, code: string): TeamStats {

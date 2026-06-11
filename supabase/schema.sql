@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS scoring_settings (
 -- Sync logs
 CREATE TABLE IF NOT EXISTS sync_logs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sync_type       TEXT NOT NULL CHECK (sync_type IN ('matches','results','standings','points')),
+  sync_type       TEXT NOT NULL CHECK (sync_type IN ('matches','results','standings','points','wc26')),
   status          TEXT NOT NULL CHECK (status IN ('success','error','partial')),
   records_updated INT NOT NULL DEFAULT 0,
   message         TEXT,

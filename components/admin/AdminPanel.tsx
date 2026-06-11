@@ -12,6 +12,8 @@ type ScoringSetting = { key: string; label: string; value: number; description: 
 
 type EditMode = 'score' | 'meta' | null
 
+type WC26SyncLog = { created_at: string; status: string; message: string; records_updated: number }
+
 async function callSyncEndpoint(endpoint: string): Promise<string> {
   if (!IS_PRODUCTION_MODE) return `[MOCK] ${endpoint} — brak efektu w trybie lokalnym`
   try {
@@ -41,6 +43,9 @@ export function AdminPanel() {
   const [settings, setSettings] = useState<ScoringSetting[]>([])
   const [settingValues, setSettingValues] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<Record<string, string>>({})
+  const [wc26LastSync, setWc26LastSync] = useState<WC26SyncLog | null>(null)
+  const [wc26Loading, setWc26Loading] = useState(false)
+  const [wc26Msg, setWc26Msg] = useState('')
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -53,8 +58,17 @@ export function AdminPanel() {
       .catch(err => console.error('[AdminPanel] loadPendingUsers:', err))
   }
 
+  const loadWC26Sync = () => {
+    if (!IS_PRODUCTION_MODE) return
+    fetch('/api/sync-wc26')
+      .then(r => r.json())
+      .then(({ last_sync }: { last_sync: WC26SyncLog | null }) => setWc26LastSync(last_sync ?? null))
+      .catch(() => {})
+  }
+
   useEffect(() => {
     loadPendingUsers()
+    loadWC26Sync()
     fetch('/api/admin/scoring-settings')
       .then(r => r.json())
       .then(({ settings: rows }: { settings: ScoringSetting[] }) => {
@@ -112,6 +126,21 @@ export function AdminPanel() {
     setSyncStatus(s => ({ ...s, [endpoint]: 'Ładowanie...' }))
     const msg = await callSyncEndpoint(endpoint)
     setSyncStatus(s => ({ ...s, [endpoint]: msg }))
+  }
+
+  const handleWC26Sync = async () => {
+    setWc26Loading(true)
+    setWc26Msg('Synchronizuję...')
+    try {
+      const res = await fetch('/api/sync-wc26', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      setWc26Msg(res.ok ? `OK: ${json.message ?? 'Sukces'}` : `Błąd: ${json.error ?? 'Nieznany błąd'}`)
+      if (res.ok) loadWC26Sync()
+    } catch {
+      setWc26Msg('Błąd sieci')
+    } finally {
+      setWc26Loading(false)
+    }
   }
 
   const handleDeleteUser = async (userId: string, nick: string) => {
@@ -248,6 +277,40 @@ export function AdminPanel() {
             <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
           )}
         </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-white font-bold text-lg">Synchronizacja worldcup26.ir</h2>
+            <p className="text-gray-600 text-xs mt-0.5">Mecze, wyniki, tabele grupowe (primary source)</p>
+          </div>
+          {IS_PRODUCTION_MODE && wc26LastSync && (
+            <div className="text-right shrink-0 ml-4">
+              <p className="text-gray-600 text-xs">Ostatnia sync</p>
+              <p className={`text-xs font-medium ${wc26LastSync.status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <p className="text-gray-600 text-xs">{wc26LastSync.records_updated} meczów</p>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={handleWC26Sync} disabled={wc26Loading} className="flex items-center gap-2">
+            ⚡ {wc26Loading ? 'Synchronizuję...' : 'Synchronizuj dane'}
+          </Button>
+          {wc26Msg && (
+            <p className={`text-sm ${wc26Msg.startsWith('OK') ? 'text-emerald-400' : 'text-red-400'}`}>{wc26Msg}</p>
+          )}
+        </div>
+        {IS_PRODUCTION_MODE && wc26LastSync?.status === 'error' && !wc26Msg && (
+          <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded text-xs text-red-400">
+            Ostatnia sync nie powiodła się: {wc26LastSync.message}
+          </div>
+        )}
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
+        )}
       </Card>
 
       <Card>

@@ -132,7 +132,7 @@ export interface Standing {
 
 export interface SyncLog {
   id: string
-  sync_type: 'matches' | 'results' | 'standings' | 'points'
+  sync_type: 'matches' | 'results' | 'standings' | 'points' | 'wc26'
   status: 'success' | 'error' | 'partial'
   records_updated: number
   message: string
