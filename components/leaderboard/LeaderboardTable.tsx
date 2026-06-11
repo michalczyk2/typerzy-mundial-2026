@@ -88,8 +88,8 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
                     />
                   )}
                   <div className="relative flex items-center gap-1.5">
-                    {isMe && <span className="text-sm leading-none">👤</span>}
                     <span className="font-semibold text-sm text-white">{entry.nick}</span>
+                    {isMe && <span className="text-sm leading-none">👤</span>}
                   </div>
                 </td>
 
