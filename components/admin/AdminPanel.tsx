@@ -26,7 +26,7 @@ async function callSyncEndpoint(endpoint: string): Promise<string> {
 type PendingUser = { id: string; nick: string; status: string; role: string; total_points: number }
 
 export function AdminPanel() {
-  const { users, matches, currentUser, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
+  const { users, matches, currentUser, setUsers, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [editing, setEditing] = useState<string|null>(null)
   const [editMode, setEditMode] = useState<EditMode>(null)
@@ -110,6 +110,25 @@ export function AdminPanel() {
     setSyncStatus(s => ({ ...s, [endpoint]: 'Ładowanie...' }))
     const msg = await callSyncEndpoint(endpoint)
     setSyncStatus(s => ({ ...s, [endpoint]: msg }))
+  }
+
+  const handleDeleteUser = async (userId: string, nick: string) => {
+    if (!window.confirm(`Czy na pewno usunąć gracza ${nick}? Usunie to też jego typy.`)) return
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        console.error('[AdminPanel] handleDeleteUser error:', json)
+        return
+      }
+      setUsers(users.filter(u => u.id !== userId))
+    } catch (err) {
+      console.error('[AdminPanel] handleDeleteUser fetch error:', err)
+    }
   }
 
   const handleUserAction = async (userId: string, status: 'active' | 'blocked') => {
@@ -306,7 +325,12 @@ export function AdminPanel() {
                 {user.status === 'pending' && <Badge variant="pending">Oczekuje</Badge>}
                 {user.status === 'blocked' && <Badge variant="default" className="text-red-400">Zablokowany</Badge>}
               </div>
-              <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
+              <div className="flex items-center gap-3">
+                <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
+                {user.id !== currentUser?.id && (
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id, user.nick)}>Usuń</Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
