@@ -10,7 +10,7 @@ const navItems = [
   { href: '/tabela', label: 'Tabela' },
   { href: '/moje-typy', label: 'Moje typy' },
   { href: '/grupy', label: 'Grupy' },
-  { href: '/turniej', label: 'Turniej' },
+  { href: '/turniej', label: 'Drabinka' },
   { href: '/bonusy', label: 'Bonusy' },
 ]
 
@@ -22,13 +22,13 @@ export function Header() {
     <header className="bg-gray-950 border-b border-gray-800 sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         {/* Logo */}
-        <div className="flex items-center gap-3 shrink-0">
+        <Link href="/mecze" className="flex items-center gap-3 shrink-0 hover:opacity-80 transition-opacity">
           <span className="text-2xl">🌍</span>
           <div>
             <h1 className="text-white font-black text-sm leading-none tracking-wide">TYPERZY 2026</h1>
             <p className="text-gray-500 text-xs">FIFA World Cup</p>
           </div>
-        </div>
+        </Link>
 
         {/* Desktop navigation — hidden on mobile */}
         <nav className="hidden md:flex items-center gap-1 flex-1">

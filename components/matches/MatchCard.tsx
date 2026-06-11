@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import type { Match, Prediction, User } from '@/types'
 import { Badge } from '@/components/ui/Badge'
-import { FlagImg } from '@/components/ui/FlagImg'
+import { TeamBadge } from '@/components/ui/TeamBadge'
 import { formatMatchDate, formatMatchTime, isMatchLocked, getCountdown, getPhaseLabel } from '@/lib/utils'
 
 interface Props { match: Match; prediction?: Prediction; currentUser?: User | null }
@@ -41,10 +41,7 @@ export function MatchCard({ match, prediction, currentUser }: Props) {
 
         <div className="px-4 py-5">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 flex flex-col items-center gap-2">
-              {match.team_a_code && <FlagImg code={match.team_a_code} name={teamA} size="lg" />}
-              <span className="text-white font-semibold text-sm text-center leading-tight">{teamA}</span>
-            </div>
+            <TeamBadge code={match.team_a_code} name={teamA} size="lg" direction="col" className="flex-1" />
             <div className="flex flex-col items-center min-w-[90px]">
               {isFinished || isLive ? (
                 <>
@@ -64,10 +61,7 @@ export function MatchCard({ match, prediction, currentUser }: Props) {
               )}
               {match.city && <span className="text-xs text-gray-600 mt-2">{match.city}</span>}
             </div>
-            <div className="flex-1 flex flex-col items-center gap-2">
-              {match.team_b_code && <FlagImg code={match.team_b_code} name={teamB} size="lg" />}
-              <span className="text-white font-semibold text-sm text-center leading-tight">{teamB}</span>
-            </div>
+            <TeamBadge code={match.team_b_code} name={teamB} size="lg" direction="col" className="flex-1" />
           </div>
         </div>
 

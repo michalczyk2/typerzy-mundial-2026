@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import type { User, Match, Prediction, Standing, BonusPoint } from '@/types'
 import { MOCK_USERS, MOCK_MATCHES, MOCK_PREDICTIONS, MOCK_STANDINGS, MOCK_BONUS_POINTS } from '@/lib/mock-data'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
@@ -6,7 +7,7 @@ import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 type LoginResult = 'ok' | 'pending' | 'blocked' | 'wrong_code' | 'not_found'
 
 interface AppState {
-  currentUser: User | null
+  currentUser: User | null | undefined
   users: User[]
   matches: Match[]
   predictions: Prediction[]
@@ -31,7 +32,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: null,
+  currentUser: undefined,
   users: IS_PRODUCTION_MODE ? [] : MOCK_USERS,
   matches: IS_PRODUCTION_MODE ? [] : MOCK_MATCHES,
   predictions: IS_PRODUCTION_MODE ? [] : MOCK_PREDICTIONS,
@@ -106,7 +107,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ match_id: matchId, predicted_a: predictedA, predicted_b: predictedB }),
-      }).catch(err => console.error('[addPrediction]', err))
+      }).then(res => {
+        if (!res.ok) toast.error('Nie udało się zapisać typu. Spróbuj ponownie.')
+      }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))
     }
   },
 
@@ -124,7 +127,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b }),
-      }).catch(err => console.error('[updatePrediction]', err))
+      }).then(res => {
+        if (!res.ok) toast.error('Nie udało się zaktualizować typu. Spróbuj ponownie.')
+      }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))
     }
   },
 
@@ -135,7 +140,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
-      }).catch(err => console.error('[updateUserStatus]', err))
+      }).then(res => {
+        if (!res.ok) toast.error('Nie udało się zmienić statusu gracza.')
+      }).catch(() => toast.error('Błąd sieci — zmiana statusu może nie być zapisana.'))
     }
   },
 
@@ -150,7 +157,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, score_a: scoreA, score_b: scoreB, status: 'finished' }),
-      }).catch(err => console.error('[updateMatchScore]', err))
+      }).then(res => {
+        if (!res.ok) toast.error('Nie udało się zapisać wyniku meczu.')
+      }).catch(() => toast.error('Błąd sieci — wynik może nie być zapisany.'))
     }
   },
 
@@ -161,7 +170,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data }),
-      }).catch(err => console.error('[updateMatchFull]', err))
+      }).then(res => {
+        if (!res.ok) toast.error('Nie udało się zaktualizować meczu.')
+      }).catch(() => toast.error('Błąd sieci — zmiany meczu mogą nie być zapisane.'))
     }
   },
 }))

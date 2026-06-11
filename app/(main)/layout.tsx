@@ -16,7 +16,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [currentUser, router])
 
-  if (!currentUser) return null
+  if (currentUser === undefined) return <div className="min-h-screen bg-gray-950" />
+  if (currentUser === null) return null
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">

@@ -12,9 +12,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     if (!IS_PRODUCTION_MODE) {
       // Mock mode: restore session from localStorage
       const savedId = localStorage.getItem('typerzy_uid')
-      if (savedId) {
-        const user = users.find(u => u.id === savedId)
-        if (user && user.status !== 'blocked') setCurrentUser(user)
+      const user = savedId ? users.find(u => u.id === savedId) : null
+      if (user && user.status !== 'blocked') {
+        setCurrentUser(user)
+      } else {
+        setCurrentUser(null)
       }
       return
     }
@@ -44,6 +46,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           const { predictions } = await predsRes.json()
           setPredictions(predictions)
         }
+      } else {
+        setCurrentUser(null)
       }
 
       // 4. Load public data from Supabase anon client
@@ -85,7 +89,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       if (bonusRes.data) setBonusPoints(bonusRes.data)
     }
 
-    init().catch(err => console.error('[Providers init]', err))
+    init().catch(err => {
+      console.error('[Providers init]', err)
+      // If init threw before resolving auth (e.g. network error on /api/auth/me),
+      // currentUser is still undefined — set to null so layout redirects to login.
+      if (useAppStore.getState().currentUser === undefined) setCurrentUser(null)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

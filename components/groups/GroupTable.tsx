@@ -1,6 +1,6 @@
 'use client'
 import type { Standing } from '@/types'
-import { FlagImg } from '@/components/ui/FlagImg'
+import { TeamBadge } from '@/components/ui/TeamBadge'
 
 interface Props { groupName: string; standings: Standing[] }
 
@@ -34,8 +34,7 @@ export function GroupTable({ groupName, standings }: Props) {
             <tr key={s.team_code} className={`border-b border-gray-800 last:border-0 ${i < 2 ? 'bg-emerald-950/20' : ''}`}>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-2">
-                  <FlagImg code={s.team_code} name={s.team} size="sm" />
-                  <span className="text-white text-sm font-medium">{s.team}</span>
+                  <TeamBadge code={s.team_code} name={s.team} size="sm" nameClassName="text-white text-sm font-medium" />
                   {i < 2 && <span className="text-xs text-emerald-600 hidden sm:inline">▲ A</span>}
                 </div>
               </td>

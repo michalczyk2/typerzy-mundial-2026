@@ -9,7 +9,7 @@ const navItems = [
   { href:'/tabela', label:'Tabela', icon:'🏆' },
   { href:'/moje-typy', label:'Moje typy', icon:'📋' },
   { href:'/grupy', label:'Grupy', icon:'📊' },
-  { href:'/turniej', label:'Turniej', icon:'🏟️' },
+  { href:'/turniej', label:'Drabinka', icon:'🏟️' },
   { href:'/bonusy', label:'Bonusy', icon:'⭐' },
 ]
 
