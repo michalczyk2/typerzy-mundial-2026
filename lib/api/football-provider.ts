@@ -180,12 +180,12 @@ interface WC26Game {
   id: number | string
   home_team_name_en: string
   away_team_name_en: string
-  home_score: number | null
-  away_score: number | null
+  home_score: number | string | null
+  away_score: number | string | null
   group: string | null
-  matchday: number | null
+  matchday: number | string | null
   local_date: string | null
-  finished: boolean
+  finished: boolean | string
   time_elapsed: string | null
   type: string | null
   home_team_code?: string
@@ -212,13 +212,23 @@ function wc26Phase(type: string | null): MatchPhase {
 }
 
 function wc26Status(g: WC26Game): MatchStatus {
-  if (g.finished) return 'finished'
-  if (g.time_elapsed && g.time_elapsed.trim()) return 'live'
+  if (g.finished === true || g.finished === 'TRUE') return 'finished'
+  const elapsed = typeof g.time_elapsed === 'string' ? g.time_elapsed.trim() : ''
+  if (elapsed && elapsed !== 'finished') return 'live'
   return 'scheduled'
 }
 
+function wc26ParseScore(val: number | string | null | undefined): number | null {
+  if (val === null || val === undefined || val === 'null' || val === '') return null
+  const n = Number(val)
+  return isNaN(n) ? null : n
+}
+
+// API returns "MM/DD/YYYY HH:MM" local time — stored as-is in UTC column
 function wc26ParseDate(raw: string | null): string {
   if (!raw) return new Date().toISOString()
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
+  if (m) return `${m[3]}-${m[1]}-${m[2]}T${m[4]}:${m[5]}:00Z`
   const d = new Date(raw)
   return isNaN(d.getTime()) ? raw : d.toISOString()
 }
@@ -235,8 +245,13 @@ export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
     }
     if (!res.ok) return null
     const raw: unknown = await res.json()
-    if (!Array.isArray(raw)) return null
-    return (raw as WC26Game[])
+    const games: WC26Game[] = Array.isArray(raw)
+      ? (raw as WC26Game[])
+      : Array.isArray((raw as Record<string, unknown>)?.games)
+        ? ((raw as Record<string, unknown>).games as WC26Game[])
+        : []
+    if (games.length === 0) return null
+    return games
       .filter(g => g.home_team_name_en && g.away_team_name_en)
       .map(g => ({
         external_id: `wc26_${g.id}`,
@@ -246,13 +261,13 @@ export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
         team_b_code: wc26TeamCode(g.away_team_name_en, g.away_team_code),
         match_date: wc26ParseDate(g.local_date),
         status: wc26Status(g),
-        score_a: g.home_score ?? null,
-        score_b: g.away_score ?? null,
+        score_a: wc26ParseScore(g.home_score),
+        score_b: wc26ParseScore(g.away_score),
         halftime_a: null,
         halftime_b: null,
         phase: wc26Phase(g.type),
         group_name: g.group ?? null,
-        round: g.matchday ?? 1,
+        round: typeof g.matchday === 'string' ? (parseInt(g.matchday, 10) || 1) : (g.matchday ?? 1),
         stadium: g.stadium ?? null,
         city: g.city ?? null,
       }))
