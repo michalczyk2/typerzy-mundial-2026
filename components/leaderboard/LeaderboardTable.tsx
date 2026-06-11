@@ -1,12 +1,53 @@
 'use client'
-import type { LeaderboardEntry } from '@/types'
+import type { CSSProperties } from 'react'
+import type { LeaderboardEntry, LastPrediction } from '@/types'
 import { cn } from '@/lib/utils'
 
-interface Props { entries: LeaderboardEntry[]; currentUserId?: string }
+interface Props {
+  entries: LeaderboardEntry[]
+  currentUserId?: string
+  lastPredictions?: Record<string, LastPrediction[]>
+}
 
-const medals = ['🥇','🥈','🥉']
+const medals = ['🥇', '🥈', '🥉']
 
-export function LeaderboardTable({ entries, currentUserId }: Props) {
+// Returns inline style for the fire gradient background based on current_streak.
+// 0-1: no effect. 2: subtle. 3-4: medium. 5-7: hot. 8+: blazing.
+function streakStyle(streak: number): CSSProperties | null {
+  if (streak < 2) return null
+  let width: string
+  let rgb: string
+  let opacity: string
+  if (streak === 2) {
+    width = '22%'; rgb = '251,191,36'; opacity = '0.22' // amber-300
+  } else if (streak <= 4) {
+    width = '38%'; rgb = '251,146,60'; opacity = '0.30' // orange-400
+  } else if (streak <= 7) {
+    width = '55%'; rgb = '249,115,22'; opacity = '0.38' // orange-500
+  } else {
+    width = '80%'; rgb = '239,68,68';  opacity = '0.42' // red-500
+  }
+  return {
+    width,
+    background: `linear-gradient(90deg, rgba(${rgb},${opacity}) 0%, rgba(${rgb},${parseFloat(opacity) * 0.4}) 65%, transparent 100%)`,
+    animation: 'streak-flicker 2.2s ease-in-out infinite',
+  }
+}
+
+function PredDot({ pred }: { pred: LastPrediction | null }) {
+  if (!pred) {
+    return <div className="w-2 h-2 rounded-full bg-gray-700 shrink-0" title="Brak danych" />
+  }
+  if (pred.is_correct_score) {
+    return <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={`Dokładny wynik (+${pred.points_earned} pkt)`} />
+  }
+  if (pred.is_correct_outcome) {
+    return <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title={`Trafna końcówka (+${pred.points_earned} pkt)`} />
+  }
+  return <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Pudło (0 pkt)" />
+}
+
+export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} }: Props) {
   if (entries.length === 0) {
     return <div className="text-center py-12 text-gray-500">Brak danych — zostań pierwszym typerym!</div>
   }
@@ -20,26 +61,47 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
             <th className="text-right py-3 px-4 text-xs text-gray-500 font-medium">Pkt</th>
             <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Trafne</th>
             <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Dokładne</th>
-            <th className="text-right py-3 px-4 text-xs text-gray-500 font-medium hidden sm:table-cell">Bonusy</th>
+            <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Bonusy</th>
+            <th className="text-center py-3 px-3 text-xs text-gray-500 font-medium hidden sm:table-cell whitespace-nowrap">Ostatnie 5</th>
           </tr>
         </thead>
         <tbody>
           {entries.map((entry, i) => {
             const isMe = entry.id === currentUserId
+            const fire = streakStyle(entry.current_streak)
+            const preds = lastPredictions[entry.id] ?? []
             return (
-              <tr key={entry.id} className={cn('border-b border-gray-800 last:border-0 transition-colors',
-                isMe ? 'bg-emerald-950/40' : 'bg-gray-900 hover:bg-gray-800/50')}>
+              <tr key={entry.id} className={cn(
+                'border-b border-gray-800 last:border-0 transition-colors',
+                isMe ? 'bg-emerald-950/40' : 'bg-gray-900 hover:bg-gray-800/50',
+              )}>
                 <td className="py-3 px-4 text-center">
-                  {i < 3 ? <span className="text-lg">{medals[i]}</span> : <span className="text-gray-500 text-sm">{entry.position}</span>}
+                  {i < 3
+                    ? <span className="text-lg">{medals[i]}</span>
+                    : <span className="text-gray-500 text-sm">{entry.position}</span>
+                  }
                 </td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <span className={cn('font-semibold text-sm', isMe ? 'text-emerald-400' : 'text-white')}>{entry.nick}</span>
+
+                {/* Player name cell — fire streak background effect */}
+                <td className="py-3 px-4 relative overflow-hidden">
+                  {fire && (
+                    <div
+                      className="absolute inset-y-0 left-0 pointer-events-none"
+                      style={fire}
+                    />
+                  )}
+                  <div className="relative flex items-center gap-2">
+                    <span className={cn('font-semibold text-sm', isMe ? 'text-emerald-400' : 'text-white')}>
+                      {entry.nick}
+                    </span>
                     {isMe && <span className="text-xs text-emerald-600">(ja)</span>}
                   </div>
                 </td>
+
                 <td className="py-3 px-4 text-right">
-                  <span className={cn('font-black text-lg tabular-nums', isMe ? 'text-emerald-400' : 'text-white')}>{entry.total_points}</span>
+                  <span className={cn('font-black text-lg tabular-nums', isMe ? 'text-emerald-400' : 'text-white')}>
+                    {entry.total_points}
+                  </span>
                 </td>
                 <td className="py-3 px-2 text-right hidden sm:table-cell">
                   <span className="text-gray-300 text-sm tabular-nums">{entry.correct_outcomes}</span>
@@ -47,8 +109,17 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
                 <td className="py-3 px-2 text-right hidden sm:table-cell">
                   <span className="text-amber-400 text-sm tabular-nums">{entry.correct_scores}</span>
                 </td>
-                <td className="py-3 px-4 text-right hidden sm:table-cell">
+                <td className="py-3 px-2 text-right hidden sm:table-cell">
                   <span className="text-purple-400 text-sm tabular-nums">{entry.bonus_points}</span>
+                </td>
+
+                {/* Last 5 predictions dots */}
+                <td className="py-3 px-3 hidden sm:table-cell">
+                  <div className="flex items-center gap-1 justify-center">
+                    {Array.from({ length: 5 }).map((_, idx) => (
+                      <PredDot key={idx} pred={preds[idx] ?? null} />
+                    ))}
+                  </div>
                 </td>
               </tr>
             )

@@ -1,10 +1,20 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import type { User, Match, Prediction, Standing, BonusPoint } from '@/types'
+import type { User, Match, Prediction, Standing, BonusPoint, LastPrediction } from '@/types'
 import { MOCK_USERS, MOCK_MATCHES, MOCK_PREDICTIONS, MOCK_STANDINGS, MOCK_BONUS_POINTS } from '@/lib/mock-data'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 
 type LoginResult = 'ok' | 'pending' | 'blocked' | 'wrong_code' | 'not_found'
+
+function computeMockLastPredictions(preds: Prediction[]): Record<string, LastPrediction[]> {
+  const byUser: Record<string, LastPrediction[]> = {}
+  for (const p of preds.filter(p => p.is_locked)) {
+    if (!byUser[p.user_id]) byUser[p.user_id] = []
+    byUser[p.user_id].push({ is_correct_score: p.is_correct_score, is_correct_outcome: p.is_correct_outcome, points_earned: p.points_earned })
+  }
+  for (const uid in byUser) byUser[uid] = byUser[uid].slice(-5)
+  return byUser
+}
 
 interface AppState {
   currentUser: User | null | undefined
@@ -13,12 +23,14 @@ interface AppState {
   predictions: Prediction[]
   standings: Standing[]
   bonusPoints: BonusPoint[]
+  lastPredictions: Record<string, LastPrediction[]>
   setCurrentUser: (user: User | null) => void
   setUsers: (users: User[]) => void
   setMatches: (matches: Match[]) => void
   setPredictions: (predictions: Prediction[]) => void
   setStandings: (standings: Standing[]) => void
   setBonusPoints: (bonusPoints: BonusPoint[]) => void
+  setLastPredictions: (data: Record<string, LastPrediction[]>) => void
   // Sync login for mock mode
   login: (nick: string, code: string) => LoginResult
   // Async login for production mode (calls /api/auth/login)
@@ -38,6 +50,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   predictions: IS_PRODUCTION_MODE ? [] : MOCK_PREDICTIONS,
   standings: IS_PRODUCTION_MODE ? [] : MOCK_STANDINGS,
   bonusPoints: IS_PRODUCTION_MODE ? [] : MOCK_BONUS_POINTS,
+  lastPredictions: IS_PRODUCTION_MODE ? {} : computeMockLastPredictions(MOCK_PREDICTIONS),
 
   setCurrentUser: (user) => set({ currentUser: user }),
   setUsers: (users) => set({ users }),
@@ -45,6 +58,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPredictions: (predictions) => set({ predictions }),
   setStandings: (standings) => set({ standings }),
   setBonusPoints: (bonusPoints) => set({ bonusPoints }),
+  setLastPredictions: (lastPredictions) => set({ lastPredictions }),
 
   login: (nick, code) => {
     if (code !== 'TYPERZY2026') return 'wrong_code'
