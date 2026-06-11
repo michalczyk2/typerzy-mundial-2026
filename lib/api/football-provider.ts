@@ -214,7 +214,7 @@ function wc26Phase(type: string | null): MatchPhase {
 function wc26Status(g: WC26Game): MatchStatus {
   if (g.finished === true || g.finished === 'TRUE') return 'finished'
   const elapsed = typeof g.time_elapsed === 'string' ? g.time_elapsed.trim() : ''
-  if (elapsed && elapsed !== 'finished') return 'live'
+  if (elapsed && elapsed !== 'finished' && elapsed !== 'notstarted') return 'live'
   return 'scheduled'
 }
 
