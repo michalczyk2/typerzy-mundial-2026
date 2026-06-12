@@ -1,0 +1,122 @@
+[
+  {
+    "id": "robert-lewandowski",
+    "name": "Robert Lewandowski",
+    "nationality": "Polska",
+    "continent": "Europa",
+    "position": "Napastnik",
+    "positionGroup": "Atak",
+    "league": "LaLiga",
+    "leagueCountry": "Hiszpania",
+    "club": "FC Barcelona",
+    "age": 37
+  },
+  {
+    "id": "cristiano-ronaldo",
+    "name": "Cristiano Ronaldo",
+    "nationality": "Portugalia",
+    "continent": "Europa",
+    "position": "Napastnik",
+    "positionGroup": "Atak",
+    "league": "Saudi Pro League",
+    "leagueCountry": "Arabia Saudyjska",
+    "club": "Al Nassr",
+    "age": 41
+  },
+  {
+    "id": "lionel-messi",
+    "name": "Lionel Messi",
+    "nationality": "Argentyna",
+    "continent": "Ameryka Poludniowa",
+    "position": "Prawy skrzydlowy",
+    "positionGroup": "Atak",
+    "league": "MLS",
+    "leagueCountry": "USA",
+    "club": "Inter Miami",
+    "age": 38
+  },
+  {
+    "id": "kylian-mbappe",
+    "name": "Kylian Mbappe",
+    "nationality": "Francja",
+    "continent": "Europa",
+    "position": "Napastnik",
+    "positionGroup": "Atak",
+    "league": "LaLiga",
+    "leagueCountry": "Hiszpania",
+    "club": "Real Madrid",
+    "age": 27
+  },
+  {
+    "id": "erling-haaland",
+    "name": "Erling Haaland",
+    "nationality": "Norwegia",
+    "continent": "Europa",
+    "position": "Napastnik",
+    "positionGroup": "Atak",
+    "league": "Premier League",
+    "leagueCountry": "Anglia",
+    "club": "Manchester City",
+    "age": 25
+  },
+  {
+    "id": "vinicius-junior",
+    "name": "Vinicius Junior",
+    "nationality": "Brazylia",
+    "continent": "Ameryka Poludniowa",
+    "position": "Lewy skrzydlowy",
+    "positionGroup": "Atak",
+    "league": "LaLiga",
+    "leagueCountry": "Hiszpania",
+    "club": "Real Madrid",
+    "age": 25
+  },
+  {
+    "id": "jude-bellingham",
+    "name": "Jude Bellingham",
+    "nationality": "Anglia",
+    "continent": "Europa",
+    "position": "Srodkowy pomocnik",
+    "positionGroup": "Pomoc",
+    "league": "LaLiga",
+    "leagueCountry": "Hiszpania",
+    "club": "Real Madrid",
+    "age": 22
+  },
+  {
+    "id": "harry-kane",
+    "name": "Harry Kane",
+    "nationality": "Anglia",
+    "continent": "Europa",
+    "position": "Napastnik",
+    "positionGroup": "Atak",
+    "league": "Bundesliga",
+    "leagueCountry": "Niemcy",
+    "club": "Bayern Monachium",
+    "age": 32
+  },
+  {
+    "id": "mohamed-salah",
+    "name": "Mohamed Salah",
+    "nationality": "Egipt",
+    "continent": "Afryka",
+    "position": "Prawy skrzydlowy",
+    "positionGroup": "Atak",
+    "league": "Premier League",
+    "leagueCountry": "Anglia",
+    "club": "Liverpool",
+    "age": 33
+  },
+  {
+    "id": "lamine-yamal",
+    "name": "Lamine Yamal",
+    "nationality": "Hiszpania",
+    "continent": "Europa",
+    "position": "Prawy skrzydlowy",
+    "positionGroup": "Atak",
+    "league": "LaLiga",
+    "leagueCountry": "Hiszpania",
+    "club": "FC Barcelona",
+    "age": 18
+  }
+]

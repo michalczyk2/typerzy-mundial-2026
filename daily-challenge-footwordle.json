@@ -1,0 +1,32 @@
+[
+  {
+    "answer": "ARSENAL",
+    "type": "Klub",
+    "hint": "Angielski klub piłkarski"
+  },
+  {
+    "answer": "POLSKA",
+    "type": "Reprezentacja",
+    "hint": "Biało-czerwoni z Europy"
+  },
+  {
+    "answer": "BARCELONA",
+    "type": "Klub",
+    "hint": "Kataloński klub piłkarski"
+  },
+  {
+    "answer": "WEMBLEY",
+    "type": "Stadion",
+    "hint": "Legendarny stadion w Londynie"
+  },
+  {
+    "answer": "MESSI",
+    "type": "Piłkarz",
+    "hint": "Argentyński mistrz świata"
+  },
+  {
+    "answer": "LEWANDOWSKI",
+    "type": "Piłkarz",
+    "hint": "Polski napastnik z rekordami w Bundeslidze"
+  }
+]
