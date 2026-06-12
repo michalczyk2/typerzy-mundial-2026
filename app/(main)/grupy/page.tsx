@@ -1,11 +1,11 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAppStore } from '@/lib/store'
 import { GroupTable } from '@/components/groups/GroupTable'
 import { TeamBadge } from '@/components/ui/TeamBadge'
 import { formatMatchDate, formatMatchTime } from '@/lib/utils'
-import type { Match } from '@/types'
+import type { Match, Standing } from '@/types'
 
 const GROUP_PHASE_ORDER = ['A','B','C','D','E','F','G','H','I','J','K','L']
 
@@ -39,6 +39,67 @@ function GroupMatchCard({ match }: { match: Match }) {
   )
 }
 
+interface GroupData {
+  name: string
+  standings: Standing[]
+  matches: Match[]
+}
+
+function GroupCard({ group }: { group: GroupData }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const previewMatches = useMemo(() => {
+    const live = group.matches.filter(m => m.status === 'live')
+    const finished = group.matches
+      .filter(m => m.status === 'finished')
+      .sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+    const upcoming = group.matches
+      .filter(m => m.status === 'scheduled')
+      .sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+
+    const result: Match[] = [...live]
+    if (finished.length > 0 && result.length < 2) result.push(finished[0])
+    if (upcoming.length > 0 && result.length < 2) result.push(upcoming[0])
+    if (result.length < 2 && finished.length > 1) result.push(finished[1])
+    if (result.length < 2 && upcoming.length > 1) result.push(upcoming[1])
+    return result
+  }, [group.matches])
+
+  const displayedMatches = expanded ? group.matches : previewMatches
+  const hasMore = group.matches.length > previewMatches.length
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+      {group.standings.length > 0 ? (
+        <GroupTable groupName={group.name} standings={group.standings} />
+      ) : (
+        <div className="px-4 py-3 border-b border-gray-800">
+          <h3 className="text-white font-bold">Grupa {group.name}</h3>
+          <p className="text-gray-600 text-xs mt-1">Tabela dostępna po rozegraniu pierwszych meczów.</p>
+        </div>
+      )}
+
+      {group.matches.length > 0 && (
+        <div className="p-3 space-y-1.5">
+          {displayedMatches.map(match => (
+            <GroupMatchCard key={match.id} match={match} />
+          ))}
+          {hasMore && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="w-full text-center text-gray-500 hover:text-gray-300 text-xs py-1.5 transition-colors"
+            >
+              {expanded
+                ? 'Zwiń'
+                : `Pokaż wszystkie mecze grupy (${group.matches.length})`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function GrupyPage() {
   const { standings, matches } = useAppStore()
 
@@ -60,25 +121,9 @@ export default function GrupyPage() {
       {groups.length === 0 ? (
         <div className="text-center py-12 text-gray-500">Brak danych grupowych — zostaną załadowane po starcie turnieju.</div>
       ) : (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {groups.map(group => (
-            <div key={group.name} className="space-y-3">
-              {group.standings.length > 0 ? (
-                <GroupTable groupName={group.name} standings={group.standings} />
-              ) : (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
-                  <h3 className="text-white font-bold">Grupa {group.name}</h3>
-                  <p className="text-gray-600 text-xs mt-1">Tabela dostępna po rozegraniu pierwszych meczów.</p>
-                </div>
-              )}
-              {group.matches.length > 0 && (
-                <div className="space-y-1.5">
-                  {group.matches.map(match => (
-                    <GroupMatchCard key={match.id} match={match} />
-                  ))}
-                </div>
-              )}
-            </div>
+            <GroupCard key={group.name} group={group} />
           ))}
         </div>
       )}
