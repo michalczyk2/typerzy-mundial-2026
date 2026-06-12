@@ -5,9 +5,11 @@ import { BetForm } from '@/components/finanse/BetForm'
 import { BetList } from '@/components/finanse/BetList'
 import { FinanceStats, type FinanceSummary } from '@/components/finanse/FinanceStats'
 import { FinanceSettings } from '@/components/finanse/FinanceSettings'
+import { SimpleFinanceView } from '@/components/finanse/SimpleFinanceView'
 import type { Bet, BettingSettings, BettingTransaction } from '@/types'
 
 type Tab = 'summary' | 'bets' | 'settings'
+type ViewMode = 'simple' | 'advanced'
 
 function computeSummary(
   bets: Bet[],
@@ -81,6 +83,12 @@ export default function FinansePage() {
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [editBet, setEditBet] = useState<Bet | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('simple')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('finance_view_mode')
+    if (stored === 'advanced' || stored === 'simple') setViewMode(stored)
+  }, [])
 
   useEffect(() => {
     async function fetchAll() {
@@ -130,20 +138,49 @@ export default function FinansePage() {
     setShowForm(false)
   }
 
+  function switchMode(mode: ViewMode) {
+    setViewMode(mode)
+    localStorage.setItem('finance_view_mode', mode)
+  }
+
+  function goToSettings() {
+    switchMode('advanced')
+    setActiveTab('settings')
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4 pb-24 md:pb-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-white font-bold text-xl">Finanse</h1>
           <p className="text-gray-500 text-xs mt-0.5">Prywatny tracker zakładów — tylko Ty widzisz te dane</p>
         </div>
-        <button
-          onClick={() => { setEditBet(null); setShowForm(s => !s); setActiveTab('bets') }}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          {showForm && !editBet ? '✕ Anuluj' : '+ Dodaj zakład'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mode toggle */}
+          <div className="flex bg-gray-900 border border-gray-800 rounded-lg p-0.5 text-xs">
+            <button
+              onClick={() => switchMode('simple')}
+              className={`px-3 py-1.5 rounded-md transition-colors font-medium ${viewMode === 'simple' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              Uproszczony
+            </button>
+            <button
+              onClick={() => switchMode('advanced')}
+              className={`px-3 py-1.5 rounded-md transition-colors font-medium ${viewMode === 'advanced' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              Zaawansowany
+            </button>
+          </div>
+          {viewMode === 'advanced' && (
+            <button
+              onClick={() => { setEditBet(null); setShowForm(s => !s); setActiveTab('bets') }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              {showForm && !editBet ? '✕ Anuluj' : '+ Dodaj zakład'}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && (
@@ -153,7 +190,18 @@ export default function FinansePage() {
         </div>
       )}
 
-      {!loading && (
+      {!loading && viewMode === 'simple' && (
+        <SimpleFinanceView
+          bets={bets}
+          settings={settings}
+          transactions={transactions}
+          onBetSaved={handleBetSaved}
+          onBetDeleted={handleBetDeleted}
+          onGoToSettings={goToSettings}
+        />
+      )}
+
+      {!loading && viewMode === 'advanced' && (
         <>
           {/* Formularz — widoczny gdy showForm lub edytujemy */}
           {(showForm || editBet) && (
