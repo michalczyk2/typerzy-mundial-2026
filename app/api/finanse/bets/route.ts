@@ -118,57 +118,68 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ bet: data })
 }
 
+function safeNum(val: unknown, fallback: number): number {
+  const n = parseFloat(String(val))
+  return Number.isFinite(n) ? n : fallback
+}
+
 export async function PATCH(req: NextRequest) {
   const userId = await getUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  if (!IS_PRODUCTION_MODE) {
-    return NextResponse.json({ message: 'Tryb lokalny — brak efektu' })
-  }
 
   const body = await req.json().catch(() => ({}))
   const { id, date, sport, league, event_name, bet_type, bookmaker, stake, odds, status, cash_out_amount, note } = body
 
   if (!id) return NextResponse.json({ error: 'Brakuje id' }, { status: 400 })
+  if (!status) return NextResponse.json({ error: 'Brakuje statusu' }, { status: 400 })
 
   const db = createAdminClient()
-  const { data: existing } = await db
+
+  // Fetch all existing fields — used as fallback so we never write NaN to DB
+  const { data: existing, error: fetchErr } = await db
     .from('betting_bets')
-    .select('id')
+    .select('*')
     .eq('id', id)
     .eq('user_id', userId)
     .single()
 
-  if (!existing) return NextResponse.json({ error: 'Nie znaleziono zakładu' }, { status: 404 })
+  if (fetchErr || !existing) return NextResponse.json({ error: 'Nie znaleziono zakładu' }, { status: 404 })
 
-  const stakeNum = parseFloat(stake)
-  const oddsNum = parseFloat(odds)
-  const cashOut = cash_out_amount != null ? parseFloat(cash_out_amount) : null
+  const stakeNum = safeNum(stake, existing.stake)
+  const oddsNum = safeNum(odds, existing.odds)
+  const cashOut = cash_out_amount != null ? parseFloat(String(cash_out_amount)) : null
   const { payout, profit } = computePayoutAndProfit(stakeNum, oddsNum, status, cashOut)
+
+  if (!IS_PRODUCTION_MODE) {
+    // Local mode: return merged bet with new status/payout/profit without DB write
+    return NextResponse.json({
+      bet: { ...existing, status, stake: stakeNum, odds: oddsNum, cash_out_amount: cashOut, payout, profit },
+    })
+  }
 
   const { data, error } = await db
     .from('betting_bets')
     .update({
-      date,
-      sport: sport ?? '',
-      league: league ?? '',
-      event_name: event_name ?? '',
-      bet_type: bet_type ?? '',
-      bookmaker: bookmaker ?? '',
+      date: date ?? existing.date,
+      sport: sport !== undefined ? (sport ?? '') : (existing.sport ?? ''),
+      league: league !== undefined ? (league ?? '') : (existing.league ?? ''),
+      event_name: event_name !== undefined ? (event_name ?? '') : (existing.event_name ?? ''),
+      bet_type: bet_type !== undefined ? (bet_type ?? '') : (existing.bet_type ?? ''),
+      bookmaker: bookmaker !== undefined ? (bookmaker ?? '') : (existing.bookmaker ?? ''),
       stake: stakeNum,
       odds: oddsNum,
       status,
       cash_out_amount: cashOut,
       payout,
       profit,
-      note: note ?? null,
+      note: note !== undefined ? (note ?? null) : (existing.note ?? null),
     })
     .eq('id', id)
     .eq('user_id', userId)
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: 'Błąd aktualizacji' }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Błąd aktualizacji: ' + error.message }, { status: 500 })
   return NextResponse.json({ bet: data })
 }
 

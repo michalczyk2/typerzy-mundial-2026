@@ -79,6 +79,27 @@ interface Props {
 const inputCls =
   'bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 w-full'
 
+interface StatusSelectProps {
+  bet: Bet
+  patchingId: string | null
+  onStatusChange: (bet: Bet, newStatus: BetStatus) => void
+}
+
+function StatusSelect({ bet, patchingId, onStatusChange }: StatusSelectProps) {
+  return (
+    <select
+      className={`bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none cursor-pointer ${patchingId === bet.id ? 'opacity-40' : ''} ${STATUS_TEXT[bet.status]}`}
+      value={bet.status}
+      disabled={patchingId === bet.id}
+      onChange={e => onStatusChange(bet, e.target.value as BetStatus)}
+    >
+      {STATUSES.map(s => (
+        <option key={s.value} value={s.value}>{s.label}</option>
+      ))}
+    </select>
+  )
+}
+
 export function SimpleFinanceView({
   bets,
   settings,
@@ -162,7 +183,6 @@ export function SimpleFinanceView({
   }
 
   // ------------------------------------------------------------------ STATUS CHANGE
-  // PATCH requires ALL bet fields — we send the full existing bet merged with new status.
   async function handleStatusChange(bet: Bet, newStatus: BetStatus) {
     if (newStatus === bet.status) return
 
@@ -173,35 +193,42 @@ export function SimpleFinanceView({
       return
     }
 
+    const payload = {
+      id: bet.id,
+      date: bet.date,
+      sport: bet.sport ?? '',
+      league: bet.league ?? '',
+      event_name: bet.event_name ?? '',
+      bet_type: bet.bet_type ?? '',
+      bookmaker: bet.bookmaker ?? '',
+      stake: bet.stake,
+      odds: bet.odds,
+      status: newStatus,
+      cash_out_amount: null,
+      note: bet.note ?? null,
+    }
+    console.log('[SimpleFinance] PATCH →', payload)
+
     setPatchingId(bet.id)
     setPatchError(null)
     try {
       const res = await fetch('/api/finanse/bets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: bet.id,
-          date: bet.date,
-          sport: bet.sport,
-          league: bet.league,
-          event_name: bet.event_name,
-          bet_type: bet.bet_type,
-          bookmaker: bet.bookmaker,
-          stake: bet.stake,
-          odds: bet.odds,
-          status: newStatus,
-          cash_out_amount: null,
-          note: bet.note ?? null,
-        }),
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
       })
       const json = await res.json() as { bet?: Bet; error?: string }
       if (!res.ok || !json.bet) {
-        setPatchError(json.error ?? 'Błąd aktualizacji statusu')
+        console.error('[SimpleFinance] PATCH failed', { status: res.status, json, payload })
+        setPatchError('Nie udało się zmienić rezultatu. Sprawdź konsolę.')
         return
       }
+      console.log('[SimpleFinance] PATCH ok ←', json.bet)
       onBetSaved(json.bet)
-    } catch {
-      setPatchError('Błąd połączenia')
+    } catch (err) {
+      console.error('[SimpleFinance] PATCH exception', err, payload)
+      setPatchError('Nie udało się zmienić rezultatu. Sprawdź konsolę.')
     } finally {
       setPatchingId(null)
     }
@@ -240,12 +267,15 @@ export function SimpleFinanceView({
       })
       const json = await res.json() as { bet?: Bet; error?: string }
       if (!res.ok || !json.bet) {
-        setPatchError(json.error ?? 'Błąd zapisu cash out')
+        console.error('[SimpleFinance] PATCH cashout failed', { status: res.status, json })
+        setPatchError('Nie udało się zmienić rezultatu. Sprawdź konsolę.')
         return
       }
+      console.log('[SimpleFinance] PATCH cashout ok ←', json.bet)
       onBetSaved(json.bet)
-    } catch {
-      setPatchError('Błąd połączenia')
+    } catch (err) {
+      console.error('[SimpleFinance] PATCH cashout exception', err)
+      setPatchError('Nie udało się zmienić rezultatu. Sprawdź konsolę.')
     } finally {
       setPatchingId(null)
       setCashoutAmount('')
@@ -273,19 +303,6 @@ export function SimpleFinanceView({
   }
 
   // ------------------------------------------------------------------ RENDER
-
-  const StatusSelect = ({ bet }: { bet: Bet }) => (
-    <select
-      className={`bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-40 cursor-pointer ${patchingId === bet.id ? 'opacity-40' : ''} ${STATUS_TEXT[bet.status]}`}
-      value={bet.status}
-      disabled={patchingId === bet.id}
-      onChange={e => void handleStatusChange(bet, e.target.value as BetStatus)}
-    >
-      {STATUSES.map(s => (
-        <option key={s.value} value={s.value}>{s.label}</option>
-      ))}
-    </select>
-  )
 
   const DeleteBtn = ({ id }: { id: string }) => (
     <button
@@ -490,7 +507,7 @@ export function SimpleFinanceView({
                       {fmt(bet.odds)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
-                      <StatusSelect bet={bet} />
+                      <StatusSelect bet={bet} patchingId={patchingId} onStatusChange={handleStatusChange} />
                     </td>
                     <td className="py-2.5 px-3 text-right text-gray-300 whitespace-nowrap">
                       {bet.payout > 0 ? `${fmt(bet.payout)} zł` : '—'}
@@ -545,7 +562,7 @@ export function SimpleFinanceView({
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <StatusSelect bet={bet} />
+                  <StatusSelect bet={bet} patchingId={patchingId} onStatusChange={handleStatusChange} />
                   <DeleteBtn id={bet.id} />
                 </div>
               </div>
