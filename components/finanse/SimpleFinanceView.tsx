@@ -87,25 +87,34 @@ export function SimpleFinanceView({
   onBetDeleted,
   onGoToSettings,
 }: Props) {
+  // --- form state ---
   const [note, setNote] = useState('')
   const [stake, setStake] = useState('')
   const [odds, setOdds] = useState('')
-  const [status, setStatus] = useState<BetStatus>('pending')
+  const [formStatus, setFormStatus] = useState<BetStatus>('pending')
   const [cashOut, setCashOut] = useState('')
   const [date, setDate] = useState(today())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  // --- inline status patch state ---
   const [patchingId, setPatchingId] = useState<string | null>(null)
-  const [cashoutModal, setCashoutModal] = useState<{ id: string; stake: number } | null>(null)
-  const [cashoutAmount, setCashoutAmount] = useState('')
+  const [patchError, setPatchError] = useState<string | null>(null)
 
+  // --- cashout modal ---
+  const [cashoutModal, setCashoutModal] = useState<{ bet: Bet } | null>(null)
+  const [cashoutAmount, setCashoutAmount] = useState('')
+  const [cashoutError, setCashoutError] = useState<string | null>(null)
+
+  // --- delete modal ---
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const summary = computeSummary(bets, settings, transactions)
   const sortedBets = [...bets].sort((a, b) => b.date.localeCompare(a.date))
 
+  // ------------------------------------------------------------------ ADD BET
   async function handleAddBet(e: React.FormEvent) {
     e.preventDefault()
     setFormError(null)
@@ -113,7 +122,7 @@ export function SimpleFinanceView({
     const oddsNum = parseFloat(odds.replace(',', '.'))
     if (isNaN(stakeNum) || stakeNum <= 0) { setFormError('Podaj poprawną stawkę'); return }
     if (isNaN(oddsNum) || oddsNum < 1) { setFormError('Kurs musi być ≥ 1,00'); return }
-    if (status === 'cashout') {
+    if (formStatus === 'cashout') {
       const co = parseFloat(cashOut.replace(',', '.'))
       if (isNaN(co) || co < 0) { setFormError('Podaj kwotę cash out'); return }
     }
@@ -131,8 +140,8 @@ export function SimpleFinanceView({
           bookmaker: '',
           stake: stakeNum,
           odds: oddsNum,
-          status,
-          cash_out_amount: status === 'cashout' ? parseFloat(cashOut.replace(',', '.')) : null,
+          status: formStatus,
+          cash_out_amount: formStatus === 'cashout' ? parseFloat(cashOut.replace(',', '.')) : null,
           note: note || null,
         }),
       })
@@ -142,7 +151,7 @@ export function SimpleFinanceView({
       setNote('')
       setStake('')
       setOdds('')
-      setStatus('pending')
+      setFormStatus('pending')
       setCashOut('')
       setDate(today())
     } catch {
@@ -152,62 +161,152 @@ export function SimpleFinanceView({
     }
   }
 
+  // ------------------------------------------------------------------ STATUS CHANGE
+  // PATCH requires ALL bet fields — we send the full existing bet merged with new status.
   async function handleStatusChange(bet: Bet, newStatus: BetStatus) {
+    if (newStatus === bet.status) return
+
     if (newStatus === 'cashout') {
-      setCashoutModal({ id: bet.id, stake: bet.stake })
+      setCashoutModal({ bet })
       setCashoutAmount(bet.cash_out_amount != null ? String(bet.cash_out_amount) : '')
+      setCashoutError(null)
       return
     }
+
     setPatchingId(bet.id)
+    setPatchError(null)
     try {
       const res = await fetch('/api/finanse/bets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: bet.id, status: newStatus, cash_out_amount: null }),
+        body: JSON.stringify({
+          id: bet.id,
+          date: bet.date,
+          sport: bet.sport,
+          league: bet.league,
+          event_name: bet.event_name,
+          bet_type: bet.bet_type,
+          bookmaker: bet.bookmaker,
+          stake: bet.stake,
+          odds: bet.odds,
+          status: newStatus,
+          cash_out_amount: null,
+          note: bet.note ?? null,
+        }),
       })
-      const json = await res.json() as { bet?: Bet }
-      if (res.ok && json.bet) onBetSaved(json.bet)
+      const json = await res.json() as { bet?: Bet; error?: string }
+      if (!res.ok || !json.bet) {
+        setPatchError(json.error ?? 'Błąd aktualizacji statusu')
+        return
+      }
+      onBetSaved(json.bet)
+    } catch {
+      setPatchError('Błąd połączenia')
     } finally {
       setPatchingId(null)
     }
   }
 
+  // ------------------------------------------------------------------ CASHOUT CONFIRM
   async function handleCashoutConfirm() {
     if (!cashoutModal) return
     const co = parseFloat(cashoutAmount.replace(',', '.'))
-    if (isNaN(co) || co < 0) return
-    const modalId = cashoutModal.id
+    if (isNaN(co) || co < 0) {
+      setCashoutError('Podaj poprawną kwotę cash out')
+      return
+    }
+    const { bet } = cashoutModal
+    setCashoutError(null)
+    setPatchingId(bet.id)
     setCashoutModal(null)
-    setPatchingId(modalId)
     try {
       const res = await fetch('/api/finanse/bets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: modalId, status: 'cashout', cash_out_amount: co }),
+        body: JSON.stringify({
+          id: bet.id,
+          date: bet.date,
+          sport: bet.sport,
+          league: bet.league,
+          event_name: bet.event_name,
+          bet_type: bet.bet_type,
+          bookmaker: bet.bookmaker,
+          stake: bet.stake,
+          odds: bet.odds,
+          status: 'cashout',
+          cash_out_amount: co,
+          note: bet.note ?? null,
+        }),
       })
-      const json = await res.json() as { bet?: Bet }
-      if (res.ok && json.bet) onBetSaved(json.bet)
+      const json = await res.json() as { bet?: Bet; error?: string }
+      if (!res.ok || !json.bet) {
+        setPatchError(json.error ?? 'Błąd zapisu cash out')
+        return
+      }
+      onBetSaved(json.bet)
+    } catch {
+      setPatchError('Błąd połączenia')
     } finally {
       setPatchingId(null)
       setCashoutAmount('')
     }
   }
 
+  // ------------------------------------------------------------------ DELETE
   async function handleDelete(id: string) {
     setDeleting(true)
+    setDeleteError(null)
     try {
       const res = await fetch(`/api/finanse/bets?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        onBetDeleted(id)
-        setConfirmDeleteId(null)
+      const json = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) {
+        setDeleteError(json.error ?? 'Błąd usunięcia — spróbuj ponownie')
+        return
       }
+      onBetDeleted(id)
+      setConfirmDeleteId(null)
+    } catch {
+      setDeleteError('Błąd połączenia')
     } finally {
       setDeleting(false)
     }
   }
 
+  // ------------------------------------------------------------------ RENDER
+
+  const StatusSelect = ({ bet }: { bet: Bet }) => (
+    <select
+      className={`bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-40 cursor-pointer ${patchingId === bet.id ? 'opacity-40' : ''} ${STATUS_TEXT[bet.status]}`}
+      value={bet.status}
+      disabled={patchingId === bet.id}
+      onChange={e => void handleStatusChange(bet, e.target.value as BetStatus)}
+    >
+      {STATUSES.map(s => (
+        <option key={s.value} value={s.value}>{s.label}</option>
+      ))}
+    </select>
+  )
+
+  const DeleteBtn = ({ id }: { id: string }) => (
+    <button
+      type="button"
+      onClick={() => { setConfirmDeleteId(id); setDeleteError(null) }}
+      className="px-2.5 py-1 text-xs font-medium text-red-400 border border-red-800 rounded hover:bg-red-900/40 transition-colors whitespace-nowrap"
+    >
+      Usuń
+    </button>
+  )
+
   return (
     <div className="space-y-4">
+      {/* Błąd patcha (globalny, nad tabelą) */}
+      {patchError && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-2 flex items-center justify-between">
+          <span className="text-red-400 text-xs">{patchError}</span>
+          <button onClick={() => setPatchError(null)} className="text-red-600 hover:text-red-400 text-xs ml-4">✕</button>
+        </div>
+      )}
+
       {/* Sekcja 1: Podsumowanie */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
@@ -306,8 +405,8 @@ export function SimpleFinanceView({
               <label className="text-gray-500 text-xs block mb-1">Rezultat</label>
               <select
                 className={inputCls}
-                value={status}
-                onChange={e => setStatus(e.target.value as BetStatus)}
+                value={formStatus}
+                onChange={e => setFormStatus(e.target.value as BetStatus)}
               >
                 {STATUSES.map(s => (
                   <option key={s.value} value={s.value}>{s.label}</option>
@@ -324,7 +423,7 @@ export function SimpleFinanceView({
               />
             </div>
           </div>
-          {status === 'cashout' && (
+          {formStatus === 'cashout' && (
             <div className="max-w-xs">
               <label className="text-gray-500 text-xs block mb-1">Kwota cash out (zł) *</label>
               <input
@@ -379,7 +478,7 @@ export function SimpleFinanceView({
                     className="border-b border-gray-800/40 hover:bg-gray-800/30 transition-colors"
                   >
                     <td className="py-2.5 px-4 text-gray-400 whitespace-nowrap">{bet.date}</td>
-                    <td className="py-2.5 px-3 max-w-[220px]">
+                    <td className="py-2.5 px-3 max-w-[200px]">
                       <span className="text-gray-200 truncate block">
                         {bet.event_name || bet.note || '—'}
                       </span>
@@ -391,16 +490,7 @@ export function SimpleFinanceView({
                       {fmt(bet.odds)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
-                      <select
-                        className={`bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-50 cursor-pointer ${STATUS_TEXT[bet.status]}`}
-                        value={bet.status}
-                        disabled={patchingId === bet.id}
-                        onChange={e => void handleStatusChange(bet, e.target.value as BetStatus)}
-                      >
-                        {STATUSES.map(s => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
+                      <StatusSelect bet={bet} />
                     </td>
                     <td className="py-2.5 px-3 text-right text-gray-300 whitespace-nowrap">
                       {bet.payout > 0 ? `${fmt(bet.payout)} zł` : '—'}
@@ -417,12 +507,7 @@ export function SimpleFinanceView({
                       )}
                     </td>
                     <td className="py-2.5 px-4 text-right">
-                      <button
-                        onClick={() => setConfirmDeleteId(bet.id)}
-                        className="text-gray-600 hover:text-red-400 text-xs px-1 py-1 transition-colors"
-                      >
-                        Usuń
-                      </button>
+                      <DeleteBtn id={bet.id} />
                     </td>
                   </tr>
                 ))}
@@ -453,31 +538,15 @@ export function SimpleFinanceView({
                     )}
                   </div>
                 </div>
+                <div className="text-gray-400 text-xs mb-2">
+                  {fmt(bet.stake)} zł @ {fmt(bet.odds)}
+                  {bet.payout > 0 && (
+                    <span className="text-gray-600"> → {fmt(bet.payout)} zł</span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-400 text-xs">
-                    {fmt(bet.stake)} zł @ {fmt(bet.odds)}
-                    {bet.payout > 0 && (
-                      <span className="text-gray-600"> → {fmt(bet.payout)} zł</span>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <select
-                      className={`bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-50 cursor-pointer ${STATUS_TEXT[bet.status]}`}
-                      value={bet.status}
-                      disabled={patchingId === bet.id}
-                      onChange={e => void handleStatusChange(bet, e.target.value as BetStatus)}
-                    >
-                      {STATUSES.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => setConfirmDeleteId(bet.id)}
-                      className="text-gray-600 hover:text-red-400 text-xs transition-colors"
-                    >
-                      Usuń
-                    </button>
-                  </div>
+                  <StatusSelect bet={bet} />
+                  <DeleteBtn id={bet.id} />
                 </div>
               </div>
             ))}
@@ -554,7 +623,12 @@ export function SimpleFinanceView({
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 max-w-sm w-full">
             <p className="text-white font-medium mb-1">Kwota cash out</p>
-            <p className="text-gray-400 text-sm mb-3">Stawka: {fmt(cashoutModal.stake)} zł</p>
+            <p className="text-gray-400 text-sm mb-3">
+              Stawka: {fmt(cashoutModal.bet.stake)} zł &nbsp;·&nbsp; kurs: {fmt(cashoutModal.bet.odds)}
+            </p>
+            {cashoutError && (
+              <p className="text-red-400 text-xs mb-2">{cashoutError}</p>
+            )}
             <input
               type="text"
               inputMode="decimal"
@@ -566,7 +640,7 @@ export function SimpleFinanceView({
             />
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setCashoutModal(null); setCashoutAmount('') }}
+                onClick={() => { setCashoutModal(null); setCashoutAmount(''); setCashoutError(null) }}
                 className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Anuluj
@@ -586,13 +660,18 @@ export function SimpleFinanceView({
       {confirmDeleteId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 max-w-sm w-full">
-            <p className="text-white font-medium mb-1">Usuń kupon?</p>
+            <p className="text-white font-medium mb-1">Na pewno usunąć ten kupon?</p>
             <p className="text-gray-400 text-sm mb-4">Tej operacji nie można cofnąć.</p>
+            {deleteError && (
+              <p className="text-red-400 text-xs mb-3 bg-red-900/20 border border-red-800 rounded px-3 py-2">
+                {deleteError}
+              </p>
+            )}
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setConfirmDeleteId(null)}
+                onClick={() => { setConfirmDeleteId(null); setDeleteError(null) }}
                 disabled={deleting}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 Anuluj
               </button>
@@ -601,7 +680,7 @@ export function SimpleFinanceView({
                 disabled={deleting}
                 className="px-4 py-2 text-sm bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors"
               >
-                {deleting ? 'Usuwam...' : 'Usuń'}
+                {deleting ? 'Usuwam...' : 'Usuń kupon'}
               </button>
             </div>
           </div>
