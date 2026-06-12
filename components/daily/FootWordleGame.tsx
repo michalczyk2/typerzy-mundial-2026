@@ -447,9 +447,12 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
   )
   const game = storedGame ?? createEmptyGame(puzzle.dayKey)
   const { guesses, status } = game
+  const hintUsed = game.hintUsed ?? false
+  const effectiveMaxPoints = hintUsed ? 50 : puzzle.maxPoints
   const [currentGuess, setCurrentGuess] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+  const [showHintModal, setShowHintModal] = useState(false)
   const [isPending, startTransition] = useTransition()
   const isLocked = isPending || isChecking
   const keyboardStatuses = buildKeyboardStatuses(guesses)
@@ -458,7 +461,7 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
     game.revealedAnswer ??
     guesses.find(guess => guess.isCorrect)?.guess ??
     guesses.find(guess => guess.revealedAnswer)?.revealedAnswer
-  const earnedPoints = game.earnedPoints ?? (status === 'won' ? puzzle.maxPoints : 0)
+  const earnedPoints = game.earnedPoints ?? (status === 'won' ? effectiveMaxPoints : 0)
 
   function addLetter(value: string) {
     if (status !== 'playing' || isLocked) {
@@ -524,7 +527,7 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
           nextStatus === 'playing'
             ? undefined
             : response.result.revealedAnswer ?? response.result.guess
-        const points = nextStatus === 'won' ? puzzle.maxPoints : 0
+        const points = nextStatus === 'won' ? effectiveMaxPoints : 0
 
         writeStoredGame({
           dayKey: puzzle.dayKey,
@@ -533,6 +536,7 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
           status: nextStatus,
           revealedAnswer,
           earnedPoints: nextStatus === 'playing' ? undefined : points,
+          hintUsed: hintUsed || undefined,
         })
         setCurrentGuess('')
 
@@ -547,6 +551,11 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
         setIsChecking(false)
       }
     })
+  }
+
+  function confirmHint() {
+    writeStoredGame({ ...game, hintUsed: true })
+    setShowHintModal(false)
   }
 
   function handleKey(value: string) {
@@ -722,13 +731,24 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
             Podpowiedz
           </p>
           <h2 className="mt-2 text-2xl font-black text-white">{puzzle.type}</h2>
-          <p className="mt-2 text-sm leading-6 text-gray-400">{puzzle.hint}</p>
+          {hintUsed ? (
+            <p className="mt-2 text-sm leading-6 text-gray-400">{puzzle.hint}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowHintModal(true)}
+              disabled={status !== 'playing'}
+              className="mt-3 flex items-center gap-2 rounded-full border border-amber-700/60 bg-amber-950/40 px-4 py-2 text-sm font-bold text-amber-300 transition hover:bg-amber-950/70 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              👁️ Pokaż podpowiedź
+            </button>
+          )}
           <div className="mt-4 rounded-2xl border border-white/5 bg-gray-900 p-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-600">
               Do zdobycia
             </p>
-            <p className="mt-1 text-2xl font-black text-emerald-300">
-              {puzzle.maxPoints} pkt
+            <p className={cn('mt-1 text-2xl font-black', hintUsed ? 'text-amber-300' : 'text-emerald-300')}>
+              {effectiveMaxPoints} pkt
             </p>
           </div>
         </div>
@@ -742,6 +762,34 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
           Wróć do Daily Challenge
         </Link>
       </aside>
+
+      {showHintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-amber-800/60 bg-gray-900 p-6 shadow-2xl">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-400">Uwaga</p>
+            <h2 className="mt-2 text-xl font-black text-white">Użyć podpowiedzi?</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-300">
+              Użycie podpowiedzi zmniejszy nagrodę z 100 pkt do 50 pkt. Kontynuować?
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowHintModal(false)}
+                className="flex-1 rounded-full border border-gray-700 bg-gray-800 py-2.5 text-sm font-black text-gray-300 transition hover:bg-gray-700"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={confirmHint}
+                className="flex-1 rounded-full bg-amber-500 py-2.5 text-sm font-black text-gray-950 transition hover:bg-amber-400"
+              >
+                Pokaż
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

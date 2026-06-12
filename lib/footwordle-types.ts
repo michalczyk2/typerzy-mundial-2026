@@ -30,6 +30,7 @@ export type FootWordleStoredGame = {
   status: FootWordleGameStatus
   revealedAnswer?: string
   earnedPoints?: number
+  hintUsed?: boolean
 }
 
 export type FootWordleStats = {
