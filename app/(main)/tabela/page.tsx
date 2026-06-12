@@ -5,18 +5,17 @@ import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
 import type { LeaderboardEntry } from '@/types'
 
 const LEGEND = [
-  { dot: 'bg-emerald-500', label: 'dokładny wynik' },
-  { dot: 'bg-amber-400',   label: 'trafiona końcówka' },
-  { dot: 'bg-blue-400',    label: 'szansa podwójna (1 pkt)' },
-  { dot: 'bg-red-500',     label: 'pudło' },
+  { dot: 'bg-emerald-500', label: 'zdobył punkty w tym meczu' },
+  { dot: 'bg-red-500',     label: 'typował, 0 pkt' },
+  { dot: 'bg-gray-700',    label: 'brak typu / nie rozliczono' },
 ]
 
 const BONUS_META: Record<string, { label: string; desc: string; settingKey: string }> = {
-  perfect_round:     { label: '⭐ Perfekcyjna kolejka', desc: 'Trafiony wynik każdego meczu w kolejce grupowej.',           settingKey: 'perfect_round_bonus' },
-  streak_3:          { label: '🔥 Passa x3',            desc: '3 trafne typy z rzędu w dowolnym momencie turnieju.',        settingKey: 'streak_3_bonus' },
-  streak_5:          { label: '🔥🔥 Passa x5',           desc: '5 trafnych typów z rzędu. Kumuluje się z x3.',              settingKey: 'streak_5_bonus' },
-  risky_pick:        { label: '🎯 Idealny typ',          desc: 'Jedyny gracz z idealnym klasycznym typem (8 pkt) w meczu.', settingKey: 'risky_pick_bonus' },
-  tournament_winner: { label: '🏆 Zwycięzca turnieju',  desc: 'Trafiony mistrz turnieju wytypowany przed startem.',        settingKey: 'tournament_winner_bonus' },
+  perfect_round:     { label: '⭐ Perfekcyjna kolejka', desc: 'Trafisz wszystkie mecze w jednej kolejce grupowej.',  settingKey: 'perfect_round_bonus' },
+  streak_3:          { label: '🔥 Passa x3',            desc: '3 trafione typy z rzędu.',                             settingKey: 'streak_3_bonus' },
+  streak_5:          { label: '🔥🔥 Passa x5',           desc: '5 trafionych typów z rzędu.',                         settingKey: 'streak_5_bonus' },
+  risky_pick:        { label: '🎯 Idealny typ',          desc: 'Jedyny gracz, który trafia klasyczny typ + dokładny wynik (8 pkt) w danym meczu. Typ "drużyna lub remis" się nie liczy.', settingKey: 'risky_pick_bonus' },
+  tournament_winner: { label: '🏆 Zwycięzca turnieju',  desc: 'Trafiony mistrz turnieju wytypowany przed startem.',  settingKey: 'tournament_winner_bonus' },
 }
 
 const FALLBACK_POINTS: Record<string, number> = {
@@ -24,8 +23,10 @@ const FALLBACK_POINTS: Record<string, number> = {
   risky_pick_bonus: 2, tournament_winner_bonus: 20,
 }
 
+type FormSlot = { points: number | null; tooltip: string }
+
 export default function TabelaPage() {
-  const { currentUser, users, lastPredictions, bonusPoints } = useAppStore()
+  const { currentUser, users, matches, predictions, bonusPoints } = useAppStore()
   const [pointsMap, setPointsMap] = useState<Record<string, number>>(FALLBACK_POINTS)
 
   useEffect(() => {
@@ -51,6 +52,27 @@ export default function TabelaPage() {
     }))
   }, [users])
 
+  const lastFiveMatches = useMemo(() => [...matches]
+    .filter(m => m.status === 'finished' && m.score_a !== null && m.score_b !== null)
+    .sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+    .slice(0, 5)
+    .reverse(), [matches])
+
+  const formData = useMemo((): Record<string, FormSlot[]> => {
+    const result: Record<string, FormSlot[]> = {}
+    for (const entry of leaderboard) {
+      result[entry.id] = lastFiveMatches.map(match => {
+        const pred = predictions.find(p => p.user_id === entry.id && p.match_id === match.id)
+        const label = `${match.team_a} vs ${match.team_b} (${match.score_a ?? '?'}:${match.score_b ?? '?'})`
+        const tooltip = pred
+          ? `${label} | Typ: ${pred.predicted_a}:${pred.predicted_b} | ${(pred.points_earned ?? 0) > 0 ? '+' + pred.points_earned + ' pkt' : '0 pkt'}`
+          : `${label} | Brak typu`
+        return { points: pred ? (pred.points_earned ?? 0) : null, tooltip }
+      })
+    }
+    return result
+  }, [leaderboard, lastFiveMatches, predictions])
+
   const myBonuses = useMemo(() => bonusPoints.filter(b => b.user_id === currentUser?.id), [bonusPoints, currentUser])
   const totalBonus = myBonuses.reduce((s, b) => s + b.points, 0)
 
@@ -61,7 +83,7 @@ export default function TabelaPage() {
       <LeaderboardTable
         entries={leaderboard}
         currentUserId={currentUser?.id}
-        lastPredictions={lastPredictions}
+        formData={formData}
       />
 
       {/* Legend */}

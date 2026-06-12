@@ -1,12 +1,13 @@
 'use client'
 import type { CSSProperties } from 'react'
-import type { LeaderboardEntry, LastPrediction } from '@/types'
-import { cn } from '@/lib/utils'
+import type { LeaderboardEntry } from '@/types'
+
+type FormSlot = { points: number | null; tooltip: string }
 
 interface Props {
   entries: LeaderboardEntry[]
   currentUserId?: string
-  lastPredictions?: Record<string, LastPrediction[]>
+  formData?: Record<string, FormSlot[]>
 }
 
 const medals = ['🥇', '🥈', '🥉']
@@ -34,23 +35,15 @@ function streakStyle(streak: number): CSSProperties | null {
   }
 }
 
-function PredDot({ pred }: { pred: LastPrediction | null }) {
-  if (!pred) {
-    return <div className="w-2 h-2 rounded-full bg-gray-700 shrink-0" title="Brak danych" />
-  }
-  if (pred.is_correct_score) {
-    return <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={`Dokładny wynik (+${pred.points_earned} pkt)`} />
-  }
-  if (pred.is_correct_outcome && pred.points_earned === 1) {
-    return <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" title={`Szansa podwójna (+${pred.points_earned} pkt)`} />
-  }
-  if (pred.is_correct_outcome) {
-    return <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title={`Trafna końcówka (+${pred.points_earned} pkt)`} />
-  }
-  return <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Pudło (0 pkt)" />
+function FormDot({ slot }: { slot: FormSlot | undefined }) {
+  if (!slot || slot.points === null)
+    return <div className="w-2 h-2 rounded-full bg-gray-700 shrink-0" title={slot?.tooltip ?? 'Brak danych'} />
+  if (slot.points > 0)
+    return <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={slot.tooltip} />
+  return <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title={slot.tooltip} />
 }
 
-export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} }: Props) {
+export function LeaderboardTable({ entries, currentUserId, formData = {} }: Props) {
   if (entries.length === 0) {
     return <div className="text-center py-12 text-gray-500">Brak danych — zostań pierwszym typerym!</div>
   }
@@ -72,7 +65,6 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
           {entries.map((entry, i) => {
             const isMe = entry.id === currentUserId
             const fire = streakStyle(entry.current_streak)
-            const preds = lastPredictions[entry.id] ?? []
             return (
               <tr key={entry.id} className="border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50">
                 <td className="py-3 px-4 text-center">
@@ -111,11 +103,11 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
                   <span className="text-purple-400 text-sm tabular-nums">{entry.bonus_points}</span>
                 </td>
 
-                {/* Last 5 predictions dots */}
+                {/* Ostatnie 5 rozliczonych meczów — te same dla każdego gracza */}
                 <td className="py-3 px-3">
                   <div className="flex items-center gap-1 justify-center">
                     {Array.from({ length: 5 }).map((_, idx) => (
-                      <PredDot key={idx} pred={preds[idx] ?? null} />
+                      <FormDot key={idx} slot={formData[entry.id]?.[idx]} />
                     ))}
                   </div>
                 </td>
