@@ -8,10 +8,10 @@ export function getFlagUrl(code: string): string {
   return `https://flagcdn.com/w40/${code.toLowerCase()}.png`
 }
 export function formatMatchDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })
+  return new Date(dateStr).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Warsaw' })
 }
 export function formatMatchTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
 }
 export function isMatchLocked(matchDate: string): boolean {
   return new Date(matchDate) <= new Date()

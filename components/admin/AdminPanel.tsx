@@ -289,7 +289,7 @@ export function AdminPanel() {
             <div className="text-right shrink-0 ml-4">
               <p className="text-gray-600 text-xs">Ostatnia sync</p>
               <p className={`text-xs font-medium ${wc26LastSync.status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
               </p>
               <p className="text-gray-600 text-xs">{wc26LastSync.records_updated} meczów</p>
             </div>

@@ -190,6 +190,7 @@ interface WC26Game {
   type: string | null
   home_team_code?: string
   away_team_code?: string
+  stadium_id?: string | null
   stadium?: string | null
   city?: string | null
 }
@@ -224,13 +225,40 @@ function wc26ParseScore(val: number | string | null | undefined): number | null 
   return isNaN(n) ? null : n
 }
 
-// API returns "MM/DD/YYYY HH:MM" local time — stored as-is in UTC column
-function wc26ParseDate(raw: string | null): string {
+// UTC offset (hours) for each WC2026 stadium during summer (June–July 2026)
+// Mexico City abolished DST in 2022 → permanently CST (UTC-6)
+// All other North American venues observe DST in summer
+const WC26_STADIUM_UTC_OFFSET: Record<string, number> = {
+  '1': -6,  // Estadio Azteca, Mexico City (CST, no DST)
+  '2': -5,  // Estadio Akron, Guadalajara (CDT)
+  '3': -5,  // Estadio BBVA, Monterrey (CDT)
+  '4': -5,  // AT&T Stadium, Dallas (CDT)
+  '5': -5,  // NRG Stadium, Houston (CDT)
+  '6': -5,  // Arrowhead Stadium, Kansas City (CDT)
+  '7': -4,  // Mercedes-Benz Stadium, Atlanta (EDT)
+  '8': -4,  // Hard Rock Stadium, Miami (EDT)
+  '9': -4,  // Gillette Stadium, Boston (EDT)
+  '10': -4, // Lincoln Financial Field, Philadelphia (EDT)
+  '11': -4, // MetLife Stadium, New York (EDT)
+  '12': -4, // BMO Field, Toronto (EDT)
+  '13': -7, // BC Place, Vancouver (PDT)
+  '14': -7, // Lumen Field, Seattle (PDT)
+  '15': -7, // Levi's Stadium, San Francisco (PDT)
+  '16': -7, // SoFi Stadium, Los Angeles (PDT)
+}
+
+// "MM/DD/YYYY HH:MM" is venue-local time; convert to UTC using the stadium's offset
+function wc26ParseDate(raw: string | null, stadiumId?: string | number | null): string {
   if (!raw) return new Date().toISOString()
   const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
-  if (m) return `${m[3]}-${m[1]}-${m[2]}T${m[4]}:${m[5]}:00Z`
-  const d = new Date(raw)
-  return isNaN(d.getTime()) ? raw : d.toISOString()
+  if (!m) {
+    const d = new Date(raw)
+    return isNaN(d.getTime()) ? raw : d.toISOString()
+  }
+  const utcOffset = stadiumId != null ? (WC26_STADIUM_UTC_OFFSET[String(stadiumId)] ?? -5) : -5
+  // Date.UTC treats inputs as UTC; subtract the venue offset to get true UTC
+  const localMs = Date.UTC(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]), parseInt(m[4]), parseInt(m[5]), 0)
+  return new Date(localMs - utcOffset * 3_600_000).toISOString()
 }
 
 export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
@@ -259,7 +287,7 @@ export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
         team_b: g.away_team_name_en,
         team_a_code: wc26TeamCode(g.home_team_name_en, g.home_team_code),
         team_b_code: wc26TeamCode(g.away_team_name_en, g.away_team_code),
-        match_date: wc26ParseDate(g.local_date),
+        match_date: wc26ParseDate(g.local_date, g.stadium_id),
         status: wc26Status(g),
         score_a: wc26ParseScore(g.home_score),
         score_b: wc26ParseScore(g.away_score),
