@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     // 2. Get all finished matches with scores
     const { data: matches, error: matchErr } = await db
       .from('matches')
-      .select('id, score_a, score_b')
+      .select('id, score_a, score_b, phase, round')
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
@@ -51,6 +51,27 @@ export async function POST(req: NextRequest) {
 
     const matchIds = matches.map(m => m.id)
     const matchMap = new Map(matches.map(m => [m.id, m]))
+
+    // Build round completeness maps for group-phase perfect_round bonus
+    const { data: allGroupMatches } = await db
+      .from('matches')
+      .select('round, status')
+      .eq('phase', 'group')
+
+    const roundMatchCounts = new Map<number, number>()
+    const roundFinishedCounts = new Map<number, number>()
+    for (const m of allGroupMatches ?? []) {
+      if (m.round == null) continue
+      roundMatchCounts.set(m.round, (roundMatchCounts.get(m.round) ?? 0) + 1)
+      if (m.status === 'finished') {
+        roundFinishedCounts.set(m.round, (roundFinishedCounts.get(m.round) ?? 0) + 1)
+      }
+    }
+    const completeRounds = new Set<number>(
+      [...roundMatchCounts.entries()]
+        .filter(([r, total]) => (roundFinishedCounts.get(r) ?? 0) >= total)
+        .map(([r]) => r)
+    )
 
     // 3. Get all predictions for finished matches
     const { data: predictions, error: predErr } = await db
@@ -71,6 +92,7 @@ export async function POST(req: NextRequest) {
       correct_scores: number
     }> = {}
 
+    const roundUserStats = new Map<number, Map<string, { correct: number; total: number }>>()
     let updatedCount = 0
 
     for (const pred of predictions) {
@@ -105,6 +127,59 @@ export async function POST(req: NextRequest) {
       profileStats[pred.user_id].predictions_count += 1
       if (is_correct_outcome) profileStats[pred.user_id].correct_outcomes += 1
       if (is_correct_score) profileStats[pred.user_id].correct_scores += 1
+
+      // Track perfect_round eligibility for group-phase matches
+      const matchRecord = matchMap.get(pred.match_id)
+      if (matchRecord?.phase === 'group' && matchRecord.round != null) {
+        const r = matchRecord.round as number
+        if (!roundUserStats.has(r)) roundUserStats.set(r, new Map())
+        const userMap = roundUserStats.get(r)!
+        const cur = userMap.get(pred.user_id) ?? { correct: 0, total: 0 }
+        userMap.set(pred.user_id, {
+          correct: cur.correct + (is_correct_outcome ? 1 : 0),
+          total: cur.total + 1,
+        })
+      }
+    }
+
+    // 4.5 Award perfect_round bonuses for complete group rounds
+    const perfectRoundBonus = settingsMap['perfect_round_bonus'] ?? SCORING_DEFAULTS.perfect_round_bonus.value
+
+    for (const [round, userMap] of roundUserStats.entries()) {
+      if (!completeRounds.has(round)) continue
+      const totalInRound = roundMatchCounts.get(round) ?? 0
+
+      for (const [userId, stats] of userMap.entries()) {
+        if (stats.total < totalInRound || stats.correct < stats.total) continue
+
+        const { data: existing } = await db
+          .from('bonus_points')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('bonus_type', 'perfect_round')
+          .eq('round', round)
+          .maybeSingle()
+        if (existing) continue
+
+        await db.from('bonus_points').insert({
+          user_id: userId,
+          match_id: null,
+          round,
+          bonus_type: 'perfect_round',
+          points: perfectRoundBonus,
+          description: `Perfekcyjna kolejka ${round} — wszystkie wyniki trafione`,
+        })
+
+        const { data: profile } = await db
+          .from('profiles')
+          .select('bonus_points_total')
+          .eq('id', userId)
+          .single()
+
+        await db.from('profiles').update({
+          bonus_points_total: ((profile?.bonus_points_total as number) ?? 0) + perfectRoundBonus,
+        }).eq('id', userId)
+      }
     }
 
     // 5. Update profile aggregates

@@ -2,16 +2,41 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 
-const BONUS_META: Record<string, { label: string; desc: string; settingKey: string }> = {
-  round_king:         { label: '👑 Król kolejki',        desc: 'Najwięcej punktów w danej kolejce grupowej', settingKey: 'round_winner_bonus' },
-  streak_3:           { label: '🔥 Passa x3',            desc: '3 trafne typy z rzędu (wynik lub dokładny)', settingKey: 'streak_3_bonus' },
-  streak_5:           { label: '🔥🔥 Passa x5',          desc: '5 trafnych typów z rzędu',                  settingKey: 'streak_5_bonus' },
-  risky_pick:         { label: '🎲 Ryzykowny typ',        desc: 'Jedynym graczem, który trafił wynik meczu', settingKey: 'risky_pick_bonus' },
-  tournament_winner:  { label: '🏆 Zwycięzca turnieju',  desc: 'Typowanie mistrza przed turniejem',          settingKey: 'tournament_winner_bonus' },
+const BONUS_META: Record<string, { label: string; desc: string; example: string; settingKey: string }> = {
+  perfect_round:      {
+    label: '⭐ Perfekcyjna kolejka',
+    desc: 'Trafisz wynik (W/R/P) każdego meczu w danej kolejce fazy grupowej — min. 3 pkt za każdy mecz.',
+    example: 'Kolejka 1 ma 16 meczów. Trafiasz wszystkie — bonus przyznany.',
+    settingKey: 'perfect_round_bonus',
+  },
+  streak_3:           {
+    label: '🔥 Passa x3',
+    desc: '3 trafne typy z rzędu (wynik lub dokładny wynik) w dowolnym momencie turnieju.',
+    example: 'Mecz A trafiony, B trafiony, C trafiony — bonus po meczu C.',
+    settingKey: 'streak_3_bonus',
+  },
+  streak_5:           {
+    label: '🔥🔥 Passa x5',
+    desc: '5 trafnych typów z rzędu. Kumuluje się z bonusem za passę x3.',
+    example: 'Seria 5 trafionych meczów pod rząd — dostajesz oba bonusy.',
+    settingKey: 'streak_5_bonus',
+  },
+  risky_pick:         {
+    label: '🎲 Ryzykowny typ',
+    desc: 'Byłeś jedynym graczem w grupie, który trafił wynik danego meczu (W/R/P).',
+    example: 'Wszyscy typują remis, Ty typujesz wygraną — i masz rację. Bonus tylko dla Ciebie.',
+    settingKey: 'risky_pick_bonus',
+  },
+  tournament_winner:  {
+    label: '🏆 Zwycięzca turnieju',
+    desc: 'Wytypowałeś mistrza turnieju przed startem rozgrywek. Typ blokuje się po otwarciu turnieju.',
+    example: 'Wpisujesz Brazylię przed 1. gwizdkiem — Brazylia wygrywa — dostajesz bonus.',
+    settingKey: 'tournament_winner_bonus',
+  },
 }
 
 const FALLBACK_POINTS: Record<string, number> = {
-  round_winner_bonus: 3, streak_3_bonus: 2, streak_5_bonus: 5,
+  perfect_round_bonus: 5, streak_3_bonus: 2, streak_5_bonus: 5,
   risky_pick_bonus: 2, tournament_winner_bonus: 20,
 }
 
@@ -39,14 +64,13 @@ export default function BonusyPage() {
 
       <div className="grid gap-3 mb-8">
         {Object.entries(BONUS_META).map(([key, meta]) => (
-          <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-white font-semibold">{meta.label}</span>
-                <span className="text-emerald-400 font-black text-sm">+{pointsMap[meta.settingKey] ?? FALLBACK_POINTS[meta.settingKey]} pkt</span>
-              </div>
-              <p className="text-gray-500 text-xs mt-1">{meta.desc}</p>
+          <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-white font-semibold">{meta.label}</span>
+              <span className="text-emerald-400 font-black text-sm shrink-0">+{pointsMap[meta.settingKey] ?? FALLBACK_POINTS[meta.settingKey]} pkt</span>
             </div>
+            <p className="text-gray-400 text-xs">{meta.desc}</p>
+            <p className="text-gray-600 text-xs mt-1 italic">{meta.example}</p>
           </div>
         ))}
       </div>

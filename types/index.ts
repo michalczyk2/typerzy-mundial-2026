@@ -95,11 +95,13 @@ export interface Prediction {
 export interface TournamentWinnerPrediction {
   id: string
   user_id: string
-  country_code: string
-  country_name: string
+  team_code: string
+  team_name: string
+  points: number | null
   locked_at: string | null
   is_correct: boolean | null
   created_at: string
+  updated_at: string
 }
 
 export interface BonusPoint {
@@ -107,7 +109,7 @@ export interface BonusPoint {
   user_id: string
   match_id: string | null
   round: number | null
-  bonus_type: 'round_king' | 'streak_3' | 'streak_5' | 'risky_pick' | 'tournament_winner'
+  bonus_type: 'round_king' | 'streak_3' | 'streak_5' | 'risky_pick' | 'tournament_winner' | 'perfect_round'
   points: number
   description: string
   created_at: string

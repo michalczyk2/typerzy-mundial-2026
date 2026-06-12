@@ -1,7 +1,7 @@
 export const SCORING_DEFAULTS = {
   outcome_points:          { label: 'Trafiona końcówka',    value: 3,  description: 'Punkty za trafiony wynik meczu (W/R/P)' },
   exact_score_points:      { label: 'Dokładny wynik',        value: 5,  description: 'Punkty za dokładny wynik meczu (łącznie max 8 pkt)' },
-  round_winner_bonus:      { label: 'Król kolejki',          value: 3,  description: 'Bonus dla gracza z największą liczbą punktów w kolejce' },
+  perfect_round_bonus:     { label: 'Perfekcyjna kolejka',   value: 5,  description: 'Bonus za trafienie wszystkich meczów w kolejce grupowej' },
   streak_3_bonus:          { label: 'Passa x3',              value: 2,  description: 'Bonus za 3 trafne typy z rzędu' },
   streak_5_bonus:          { label: 'Passa x5',              value: 5,  description: 'Bonus za 5 trafnych typów z rzędu' },
   risky_pick_bonus:        { label: 'Ryzykowny typ',         value: 2,  description: 'Bonus dla jedynego gracza, który trafił wynik meczu' },

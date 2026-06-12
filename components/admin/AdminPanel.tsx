@@ -14,6 +14,8 @@ type EditMode = 'score' | 'meta' | null
 
 type WC26SyncLog = { created_at: string; status: string; message: string; records_updated: number }
 
+type ChampionPick = { id: string; user_id: string; nick: string; team_code: string; team_name: string; is_correct: boolean | null }
+
 async function callSyncEndpoint(endpoint: string): Promise<string> {
   if (!IS_PRODUCTION_MODE) return `[MOCK] ${endpoint} — brak efektu w trybie lokalnym`
   try {
@@ -46,6 +48,10 @@ export function AdminPanel() {
   const [wc26LastSync, setWc26LastSync] = useState<WC26SyncLog | null>(null)
   const [wc26Loading, setWc26Loading] = useState(false)
   const [wc26Msg, setWc26Msg] = useState('')
+  const [championPicks, setChampionPicks] = useState<ChampionPick[]>([])
+  const [championEnabled, setChampionEnabled] = useState(false)
+  const [setWinnerCode, setSetWinnerCode] = useState('')
+  const [championMsg, setChampionMsg] = useState('')
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -56,6 +62,52 @@ export function AdminPanel() {
         setPendingUsers(pending)
       })
       .catch(err => console.error('[AdminPanel] loadPendingUsers:', err))
+  }
+
+  const loadChampion = () => {
+    if (!IS_PRODUCTION_MODE) return
+    fetch('/api/admin/champion')
+      .then(r => r.json())
+      .then(({ picks, enabled }: { picks: ChampionPick[]; enabled: boolean }) => {
+        setChampionPicks(picks ?? [])
+        setChampionEnabled(enabled)
+      })
+      .catch(() => {})
+  }
+
+  const handleToggleChampion = async () => {
+    if (!IS_PRODUCTION_MODE) return
+    try {
+      const res = await fetch('/api/admin/champion', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) setChampionEnabled(json.enabled)
+    } catch { /* ignore */ }
+  }
+
+  const handleSetWinner = async () => {
+    const code = setWinnerCode.trim().toUpperCase()
+    if (!code) return
+    setChampionMsg('Zapisywanie...')
+    try {
+      const res = await fetch('/api/admin/champion', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_winner', team_code: code }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setChampionMsg(`Zapisano. Nagrodzono ${json.winners} graczy.`)
+        loadChampion()
+      } else {
+        setChampionMsg(json.error ?? 'Błąd zapisu')
+      }
+    } catch {
+      setChampionMsg('Błąd sieci')
+    }
   }
 
   const loadWC26Sync = () => {
@@ -69,6 +121,7 @@ export function AdminPanel() {
   useEffect(() => {
     loadPendingUsers()
     loadWC26Sync()
+    loadChampion()
     fetch('/api/admin/scoring-settings')
       .then(r => r.json())
       .then(({ settings: rows }: { settings: ScoringSetting[] }) => {
@@ -397,6 +450,65 @@ export function AdminPanel() {
               </div>
             </div>
           ))}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-white font-bold text-lg">Typowanie zwycięzcy turnieju</h2>
+            <p className="text-gray-600 text-xs mt-0.5">Zarządzanie typowaniem mistrza</p>
+          </div>
+          <Button
+            size="sm"
+            variant={championEnabled ? 'danger' : 'secondary'}
+            onClick={handleToggleChampion}
+          >
+            {championEnabled ? 'Zablokuj' : 'Odblokuj'}
+          </Button>
+        </div>
+
+        {championPicks.length > 0 && (
+          <div className="mb-4">
+            <p className="text-gray-500 text-xs mb-2">Typy graczy ({championPicks.length})</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {championPicks.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-gray-800/50">
+                  <span className="text-white text-sm">{p.nick}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-xs font-mono">{p.team_code}</span>
+                    <span className="text-gray-500 text-xs truncate max-w-24">{p.team_name}</span>
+                    {p.is_correct === true && <span className="text-emerald-400 text-xs">✓</span>}
+                    {p.is_correct === false && <span className="text-red-500 text-xs">✗</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-3 border-t border-gray-800">
+          <p className="text-gray-500 text-xs mb-2">Ustaw rzeczywistego mistrza (kod FIFA, np. BRA)</p>
+          <div className="flex items-center gap-2">
+            <input
+              value={setWinnerCode}
+              onChange={e => setSetWinnerCode(e.target.value.toUpperCase())}
+              placeholder="BRA"
+              maxLength={3}
+              className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500 font-mono uppercase"
+            />
+            <Button size="sm" onClick={handleSetWinner} disabled={!setWinnerCode.trim()}>
+              Zatwierdź i przyznaj punkty
+            </Button>
+          </div>
+          {championMsg && (
+            <p className={`text-xs mt-2 ${championMsg.startsWith('Zapisano') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {championMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs mt-2">Tryb lokalny — brak efektu.</p>
+          )}
         </div>
       </Card>
 
