@@ -1,12 +1,28 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { calculatePoints, formatMatchDate, formatMatchTime } from '@/lib/utils'
 import { FlagImg } from '@/components/ui/FlagImg'
 import { Badge } from '@/components/ui/Badge'
+import { ChampionPicker } from '@/components/matches/ChampionPicker'
+
+interface ChampionState {
+  pick: { team_code: string; team_name: string } | null
+  enabled: boolean
+}
 
 export default function MojeTyPage() {
   const { currentUser, predictions, matches } = useAppStore()
+  const [champion, setChampion] = useState<ChampionState | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => {
+    if (!currentUser) return
+    fetch('/api/champion-prediction')
+      .then(r => r.json())
+      .then((data: ChampionState) => setChampion(data))
+      .catch(() => {})
+  }, [currentUser])
 
   const myPredictions = useMemo(() => {
     if (!currentUser) return []
@@ -41,6 +57,37 @@ export default function MojeTyPage() {
           <p className="text-gray-500 text-xs mt-1">Dokładne</p>
         </div>
       </div>
+
+      {champion !== null && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">🏆</span>
+              <div>
+                <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Mój typ na mistrza turnieju</p>
+                {champion.pick ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <FlagImg code={champion.pick.team_code} name={champion.pick.team_name} size="sm" />
+                    <span className="text-white font-semibold text-sm">{champion.pick.team_name}</span>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-sm mt-1">Brak typu</p>
+                )}
+              </div>
+            </div>
+            {champion.enabled ? (
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="text-emerald-400 text-xs font-medium hover:text-emerald-300 transition-colors shrink-0"
+              >
+                {champion.pick ? 'Zmień typ' : 'Wybierz'}
+              </button>
+            ) : (
+              <span className="text-gray-600 text-xs shrink-0">Typowanie zablokowane</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {myPredictions.length === 0 ? (
         <div className="text-center py-12 text-gray-500">Nie masz jeszcze żadnych typów. Idź do meczów i zacznij typować!</div>
@@ -89,6 +136,16 @@ export default function MojeTyPage() {
             )
           })}
         </div>
+      )}
+      {pickerOpen && (
+        <ChampionPicker
+          currentPick={champion?.pick ?? null}
+          onClose={() => setPickerOpen(false)}
+          onSaved={(code, name) => {
+            setChampion(s => s ? { ...s, pick: { team_code: code, team_name: name } } : s)
+            setPickerOpen(false)
+          }}
+        />
       )}
     </div>
   )
