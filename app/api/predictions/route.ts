@@ -8,10 +8,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { match_id, predicted_a, predicted_b } = await req.json()
+    const { match_id, predicted_a, predicted_b, predicted_result: rawResult } = await req.json()
     if (!match_id || predicted_a == null || predicted_b == null) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
+
+    const VALID_RESULTS = ['home', 'draw', 'away', 'home_or_draw', 'away_or_draw'] as const
+    type ValidResult = (typeof VALID_RESULTS)[number]
+    const predicted_result: ValidResult = VALID_RESULTS.includes(rawResult as ValidResult)
+      ? (rawResult as ValidResult)
+      : predicted_a > predicted_b ? 'home' : predicted_a < predicted_b ? 'away' : 'draw'
 
     const db = createAdminClient()
 
@@ -27,8 +33,6 @@ export async function POST(req: NextRequest) {
     if (match.status !== 'scheduled' || new Date(match.match_date) <= new Date()) {
       return NextResponse.json({ error: 'Prediction locked' }, { status: 409 })
     }
-
-    const predicted_result = predicted_a > predicted_b ? 'home' : predicted_a < predicted_b ? 'away' : 'draw'
 
     const { data, error } = await db
       .from('predictions')

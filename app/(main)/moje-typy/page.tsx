@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
-import { calculatePoints, formatMatchDate, formatMatchTime } from '@/lib/utils'
+import { formatMatchDate, formatMatchTime } from '@/lib/utils'
 import { FlagImg } from '@/components/ui/FlagImg'
 import { Badge } from '@/components/ui/Badge'
 import { ChampionPicker } from '@/components/matches/ChampionPicker'
@@ -42,50 +42,44 @@ export default function MojeTyPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-6">Moje typy</h1>
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-          <p className="text-3xl font-black text-emerald-400">{totalPoints}</p>
-          <p className="text-gray-500 text-xs mt-1">Punkty</p>
+      <h1 className="text-2xl font-black text-white mb-4">Moje typy</h1>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+          <p className="text-xl font-black text-emerald-400">{totalPoints}</p>
+          <p className="text-gray-500 text-xs mt-0.5">Punkty</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-          <p className="text-3xl font-black text-white">{correct}</p>
-          <p className="text-gray-500 text-xs mt-1">Trafne</p>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+          <p className="text-xl font-black text-white">{correct}</p>
+          <p className="text-gray-500 text-xs mt-0.5">Trafne</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-          <p className="text-3xl font-black text-amber-400">{exact}</p>
-          <p className="text-gray-500 text-xs mt-1">Dokładne</p>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+          <p className="text-xl font-black text-amber-400">{exact}</p>
+          <p className="text-gray-500 text-xs mt-0.5">Dokładne</p>
         </div>
       </div>
 
       {champion !== null && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-lg">🏆</span>
-              <div>
-                <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Mój typ na mistrza turnieju</p>
-                {champion.pick ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <FlagImg code={champion.pick.team_code} name={champion.pick.team_name} size="sm" />
-                    <span className="text-white font-semibold text-sm">{champion.pick.team_name}</span>
-                  </div>
-                ) : (
-                  <p className="text-gray-600 text-sm mt-1">Brak typu</p>
-                )}
-              </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+          <span className="text-base">🏆</span>
+          <p className="text-gray-500 text-xs font-medium uppercase tracking-wide shrink-0">Mistrz:</p>
+          {champion.pick ? (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <FlagImg code={champion.pick.team_code} name={champion.pick.team_name} size="sm" />
+              <span className="text-white font-semibold text-sm truncate">{champion.pick.team_name}</span>
             </div>
-            {champion.enabled ? (
-              <button
-                onClick={() => setPickerOpen(true)}
-                className="text-emerald-400 text-xs font-medium hover:text-emerald-300 transition-colors shrink-0"
-              >
-                {champion.pick ? 'Zmień typ' : 'Wybierz'}
-              </button>
-            ) : (
-              <span className="text-gray-600 text-xs shrink-0">Typowanie zablokowane</span>
-            )}
-          </div>
+          ) : (
+            <span className="text-gray-600 text-sm flex-1">Brak typu</span>
+          )}
+          {champion.enabled ? (
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="text-emerald-400 text-xs font-medium hover:text-emerald-300 transition-colors shrink-0"
+            >
+              {champion.pick ? 'Zmień' : 'Wybierz'}
+            </button>
+          ) : (
+            <span className="text-gray-600 text-xs shrink-0">Zablokowane</span>
+          )}
         </div>
       )}
 
@@ -96,11 +90,12 @@ export default function MojeTyPage() {
           {myPredictions.map(({ pred, match }) => {
             if (!match) return null
             const isFinished = match.status === 'finished'
-            const pts = isFinished && match.score_a !== null && match.score_b !== null
-              ? calculatePoints(pred.predicted_a, pred.predicted_b, match.score_a, match.score_b).points
-              : null
+            const pts = isFinished ? pred.points_earned : null
+            const borderColor = isFinished
+              ? (pts !== null && pts > 0 ? 'border-emerald-700' : 'border-red-900')
+              : 'border-gray-800'
             return (
-              <div key={pred.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <div key={pred.id} className={`bg-gray-900 border rounded-xl p-4 ${borderColor}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-gray-500 text-xs">{formatMatchDate(match.match_date)} {formatMatchTime(match.match_date)}</div>
                   {isFinished ? <Badge variant="finished">Zakończony</Badge> : <Badge variant="scheduled">Nadchodzący</Badge>}

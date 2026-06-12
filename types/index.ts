@@ -3,7 +3,7 @@ export type UserStatus = 'pending' | 'active' | 'blocked'
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
 export type MatchPhase = 'group' | 'round_of_32' | 'round_of_16' | 'quarterfinal' | 'semifinal' | 'third_place' | 'final'
 export type DataSource = 'api' | 'manual' | 'mock'
-export type PredictionResult = 'home' | 'draw' | 'away'
+export type PredictionResult = 'home' | 'draw' | 'away' | 'home_or_draw' | 'away_or_draw'
 
 export interface MatchEvent {
   minute: number

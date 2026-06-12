@@ -43,11 +43,21 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     return a > b ? 'home' : a < b ? 'away' : 'draw'
   }
 
-  const scoreMismatch = selectedResult !== null && derivedResult() !== null && derivedResult() !== selectedResult
+  const isDoubleChance = selectedResult === 'home_or_draw' || selectedResult === 'away_or_draw'
+
+  const scoreMismatch = (() => {
+    if (selectedResult === null) return false
+    const d = derivedResult()
+    if (d === null) return false
+    if (selectedResult === 'home_or_draw') return d === 'away'
+    if (selectedResult === 'away_or_draw') return d === 'home'
+    return d !== selectedResult
+  })()
 
   const handleResultClick = (r: PredictionResult) => {
     setSelectedResult(r)
     setSaved(false)
+    if (r === 'home_or_draw' || r === 'away_or_draw') return
     if (r === 'home' && Number(scoreA) <= Number(scoreB) && scoreA !== '') {
       setScoreA('1'); setScoreB('0')
     }
@@ -64,7 +74,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     const newA = side === 'a' ? clean : scoreA
     const newB = side === 'b' ? clean : scoreB
     if (side === 'a') setScoreA(clean); else setScoreB(clean)
-    if (newA !== '' && newB !== '') {
+    if (!isDoubleChance && newA !== '' && newB !== '') {
       setSelectedResult(Number(newA) > Number(newB) ? 'home' : Number(newA) < Number(newB) ? 'away' : 'draw')
     }
     setSaved(false)
@@ -74,9 +84,9 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     if (!currentUser || locked || scoreA === '' || scoreB === '' || selectedResult === null) return
     const a = Number(scoreA), b = Number(scoreB)
     if (myPrediction) {
-      updatePrediction(myPrediction.id, a, b)
+      updatePrediction(myPrediction.id, a, b, selectedResult)
     } else {
-      addPrediction(match.id, a, b)
+      addPrediction(match.id, a, b, selectedResult)
     }
     setSaved(true)
   }
@@ -84,6 +94,8 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
   const outcomeLabel = (r: PredictionResult) => {
     if (r === 'home') return teamA
     if (r === 'draw') return 'Remis'
+    if (r === 'home_or_draw') return `${teamA} lub Remis`
+    if (r === 'away_or_draw') return `${teamB} lub Remis`
     return teamB
   }
 
@@ -178,7 +190,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
             {/* Outcome buttons */}
             <div>
               <p className="text-gray-500 text-xs mb-3 uppercase tracking-wide font-medium">Wynik meczu</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 mb-2">
                 {(['home', 'draw', 'away'] as PredictionResult[]).map(r => (
                   <button
                     key={r}
@@ -190,6 +202,22 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     }`}
                   >
                     {outcomeLabel(r)}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {(['home_or_draw', 'away_or_draw'] as PredictionResult[]).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => handleResultClick(r)}
+                    className={`py-2.5 px-2 rounded-lg text-xs font-semibold border transition-all text-center leading-tight ${
+                      selectedResult === r
+                        ? 'bg-blue-700 border-blue-500 text-white shadow-md'
+                        : 'bg-gray-800/70 border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                    }`}
+                  >
+                    {outcomeLabel(r)}
+                    <span className="block text-[10px] opacity-60 mt-0.5">szansa podwójna</span>
                   </button>
                 ))}
               </div>
@@ -229,22 +257,45 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
 
             {/* Scoring info */}
             <div className="bg-gray-950 rounded-xl px-4 py-3 text-xs space-y-2.5">
-              <div className="flex justify-between items-center text-gray-400">
-                <span>Trafiony wynik meczu</span>
-                <span className="text-gray-200 font-bold">+3 pkt</span>
-              </div>
-              <div className="flex justify-between items-center text-gray-400">
-                <span>Trafiony dokładny wynik</span>
-                <span className="text-gray-200 font-bold">+5 pkt</span>
-              </div>
-              <div className="flex justify-between items-center text-gray-400">
-                <span>Bonus ryzykowny typ</span>
-                <span className="text-gray-200 font-bold">+2 pkt</span>
-              </div>
-              <div className="flex justify-between items-center text-gray-300 font-bold border-t border-gray-800 pt-2.5">
-                <span>Maksymalnie za mecz</span>
-                <span className="text-emerald-400 text-sm">8 pkt</span>
-              </div>
+              {isDoubleChance ? (
+                <>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Szansa podwójna (trafna końcówka)</span>
+                    <span className="text-blue-300 font-bold">+1 pkt</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Dokładny wynik</span>
+                    <span className="text-gray-200 font-bold">+5 pkt</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-500 text-[10px]">
+                    <span>Nie kwalifikuje do bonusu Idealny typ</span>
+                    <span>—</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-300 font-bold border-t border-gray-800 pt-2.5">
+                    <span>Maksymalnie za mecz</span>
+                    <span className="text-blue-400 text-sm">6 pkt</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Trafiony wynik meczu</span>
+                    <span className="text-gray-200 font-bold">+3 pkt</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Trafiony dokładny wynik</span>
+                    <span className="text-gray-200 font-bold">+5 pkt</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>Bonus Idealny typ (jedyny z 8 pkt)</span>
+                    <span className="text-gray-200 font-bold">+2 pkt</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-300 font-bold border-t border-gray-800 pt-2.5">
+                    <span>Maksymalnie za mecz</span>
+                    <span className="text-emerald-400 text-sm">8 pkt</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <button

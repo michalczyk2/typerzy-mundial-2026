@@ -41,6 +41,9 @@ function PredDot({ pred }: { pred: LastPrediction | null }) {
   if (pred.is_correct_score) {
     return <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={`Dokładny wynik (+${pred.points_earned} pkt)`} />
   }
+  if (pred.is_correct_outcome && pred.points_earned === 1) {
+    return <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" title={`Szansa podwójna (+${pred.points_earned} pkt)`} />
+  }
   if (pred.is_correct_outcome) {
     return <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title={`Trafna końcówka (+${pred.points_earned} pkt)`} />
   }
@@ -62,7 +65,7 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
             <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Trafne</th>
             <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Dokładne</th>
             <th className="text-right py-3 px-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Bonusy</th>
-            <th className="text-center py-3 px-3 text-xs text-gray-500 font-medium hidden sm:table-cell whitespace-nowrap">Ostatnie 5</th>
+            <th className="text-center py-3 px-3 text-xs text-gray-500 font-medium whitespace-nowrap">Ostatnie 5</th>
           </tr>
         </thead>
         <tbody>
@@ -109,7 +112,7 @@ export function LeaderboardTable({ entries, currentUserId, lastPredictions = {} 
                 </td>
 
                 {/* Last 5 predictions dots */}
-                <td className="py-3 px-3 hidden sm:table-cell">
+                <td className="py-3 px-3">
                   <div className="flex items-center gap-1 justify-center">
                     {Array.from({ length: 5 }).map((_, idx) => (
                       <PredDot key={idx} pred={preds[idx] ?? null} />

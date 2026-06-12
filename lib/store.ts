@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import type { User, Match, Prediction, Standing, BonusPoint, LastPrediction } from '@/types'
+import type { User, Match, Prediction, Standing, BonusPoint, LastPrediction, PredictionResult } from '@/types'
 import { MOCK_USERS, MOCK_MATCHES, MOCK_PREDICTIONS, MOCK_STANDINGS, MOCK_BONUS_POINTS } from '@/lib/mock-data'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 
@@ -36,8 +36,8 @@ interface AppState {
   // Async login for production mode (calls /api/auth/login)
   loginAsync: (nick: string, code: string) => Promise<LoginResult>
   logout: () => void
-  addPrediction: (matchId: string, predictedA: number, predictedB: number) => void
-  updatePrediction: (id: string, a: number, b: number) => void
+  addPrediction: (matchId: string, predictedA: number, predictedB: number, predictedResult?: PredictionResult) => void
+  updatePrediction: (id: string, a: number, b: number, predictedResult?: PredictionResult) => void
   updateUserStatus: (id: string, status: User['status']) => void
   updateMatchScore: (id: string, scoreA: number, scoreB: number) => void
   updateMatchFull: (id: string, data: Partial<Match>) => void
@@ -97,10 +97,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPrediction: (matchId, predictedA, predictedB) => {
+  addPrediction: (matchId, predictedA, predictedB, predictedResult) => {
     const user = get().currentUser
     if (!user) return
-    const predicted_result = predictedA > predictedB ? 'home' : predictedA < predictedB ? 'away' : 'draw'
+    const predicted_result: PredictionResult = predictedResult ?? (predictedA > predictedB ? 'home' : predictedA < predictedB ? 'away' : 'draw')
     const pred: Prediction = {
       id: `p_${Date.now()}`,
       user_id: user.id,
@@ -120,19 +120,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       fetch('/api/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ match_id: matchId, predicted_a: predictedA, predicted_b: predictedB }),
+        body: JSON.stringify({ match_id: matchId, predicted_a: predictedA, predicted_b: predictedB, predicted_result }),
       }).then(res => {
         if (!res.ok) toast.error('Nie udało się zapisać typu. Spróbuj ponownie.')
       }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))
     }
   },
 
-  updatePrediction: (id, a, b) => {
+  updatePrediction: (id, a, b, predictedResult) => {
     const pred = get().predictions.find(p => p.id === id)
+    const predicted_result: PredictionResult = predictedResult ?? (a > b ? 'home' : a < b ? 'away' : 'draw')
     set(s => ({
       predictions: s.predictions.map(p => p.id === id ? {
-        ...p, predicted_a: a, predicted_b: b,
-        predicted_result: a > b ? 'home' : a < b ? 'away' : 'draw',
+        ...p, predicted_a: a, predicted_b: b, predicted_result,
         updated_at: new Date().toISOString()
       } : p)
     }))
@@ -140,7 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       fetch('/api/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b }),
+        body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b, predicted_result }),
       }).then(res => {
         if (!res.ok) toast.error('Nie udało się zaktualizować typu. Spróbuj ponownie.')
       }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))

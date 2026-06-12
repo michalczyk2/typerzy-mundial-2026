@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateMatchPoints, SCORING_DEFAULTS } from '@/lib/scoring'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
+import type { PredictionResult } from '@/types'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     // 3. Get all predictions for finished matches
     const { data: predictions, error: predErr } = await db
       .from('predictions')
-      .select('id, user_id, match_id, predicted_a, predicted_b')
+      .select('id, user_id, match_id, predicted_a, predicted_b, predicted_result')
       .in('match_id', matchIds)
 
     if (predErr) throw predErr
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
         match.score_b,
         outcomePoints,
         exactScorePoints,
+        pred.predicted_result as PredictionResult | undefined,
       )
 
       const { error: upErr } = await db
@@ -180,6 +182,66 @@ export async function POST(req: NextRequest) {
           bonus_points_total: ((profile?.bonus_points_total as number) ?? 0) + perfectRoundBonus,
         }).eq('id', userId)
       }
+    }
+
+    // 4.6 Award risky_pick (Idealny typ) bonus per match
+    // Exactly 1 player with classic predicted_result (not double-chance) AND points == maxClassicPoints
+    const riskyPickBonus = settingsMap['risky_pick_bonus'] ?? SCORING_DEFAULTS.risky_pick_bonus.value
+    const maxClassicPoints = outcomePoints + exactScorePoints
+
+    // Group predictions by match to find per-match winners
+    const byMatch = new Map<string, Array<{ user_id: string; points: number; predicted_result: string | null }>>()
+    for (const pred of predictions) {
+      if (!byMatch.has(pred.match_id)) byMatch.set(pred.match_id, [])
+      const match = matchMap.get(pred.match_id)
+      if (!match) continue
+      const { points } = calculateMatchPoints(
+        pred.predicted_a, pred.predicted_b, match.score_a, match.score_b,
+        outcomePoints, exactScorePoints, pred.predicted_result as PredictionResult | undefined,
+      )
+      byMatch.get(pred.match_id)!.push({ user_id: pred.user_id, points, predicted_result: pred.predicted_result })
+    }
+
+    for (const [matchId, preds] of byMatch.entries()) {
+      const idealCandidates = preds.filter(p => {
+        const isClassic = !p.predicted_result || (p.predicted_result !== 'home_or_draw' && p.predicted_result !== 'away_or_draw')
+        return isClassic && p.points === maxClassicPoints
+      })
+      if (idealCandidates.length !== 1) continue
+
+      const winnerId = idealCandidates[0].user_id
+
+      const { data: existing } = await db
+        .from('bonus_points')
+        .select('id')
+        .eq('user_id', winnerId)
+        .eq('bonus_type', 'risky_pick')
+        .eq('match_id', matchId)
+        .maybeSingle()
+      if (existing) continue
+
+      await db.from('bonus_points').insert({
+        user_id: winnerId,
+        match_id: matchId,
+        round: null,
+        bonus_type: 'risky_pick',
+        points: riskyPickBonus,
+        description: `Idealny typ — jedyny z maksymalną liczbą punktów klasycznych (${maxClassicPoints} pkt)`,
+      })
+
+      if (!profileStats[winnerId]) {
+        profileStats[winnerId] = { match_points: 0, predictions_count: 0, correct_outcomes: 0, correct_scores: 0 }
+      }
+
+      const { data: profile } = await db
+        .from('profiles')
+        .select('bonus_points_total')
+        .eq('id', winnerId)
+        .single()
+
+      await db.from('profiles').update({
+        bonus_points_total: ((profile?.bonus_points_total as number) ?? 0) + riskyPickBonus,
+      }).eq('id', winnerId)
     }
 
     // 5. Update profile aggregates

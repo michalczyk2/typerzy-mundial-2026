@@ -11,7 +11,6 @@ const navItems = [
   { href: '/moje-typy', label: 'Moje typy' },
   { href: '/grupy', label: 'Grupy' },
   { href: '/turniej', label: 'Drabinka' },
-  { href: '/bonusy', label: 'Bonusy' },
   { href: '/finanse', label: 'Finanse' },
 ]
 

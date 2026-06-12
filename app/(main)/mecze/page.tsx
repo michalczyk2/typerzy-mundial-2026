@@ -15,7 +15,7 @@ interface ChampionState {
 
 export default function MeczePage() {
   const { currentUser, matches, predictions } = useAppStore()
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<Filter>('upcoming')
   const [champion, setChampion] = useState<ChampionState>({ pick: null, enabled: false })
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -31,7 +31,7 @@ export default function MeczePage() {
 
   const filtered = useMemo(() => {
     if (filter === 'all') return matches
-    if (filter === 'upcoming') return matches.filter(m => m.status === 'scheduled')
+    if (filter === 'upcoming') return [...matches.filter(m => m.status === 'scheduled')].sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
     if (filter === 'live') return matches.filter(m => m.status === 'live')
     return matches.filter(m => m.status === 'finished')
   }, [matches, filter])
