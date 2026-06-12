@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
 import type { LeaderboardEntry } from '@/types'
+import type { LeaderboardFormPred, LeaderboardFormMatch } from '@/app/api/data/leaderboard-form/route'
 
 const LEGEND = [
   { dot: 'bg-emerald-500', label: 'zdobył punkty w tym meczu' },
@@ -26,8 +27,10 @@ const FALLBACK_POINTS: Record<string, number> = {
 type FormSlot = { points: number | null; tooltip: string }
 
 export default function TabelaPage() {
-  const { currentUser, users, matches, predictions, bonusPoints } = useAppStore()
+  const { currentUser, users, bonusPoints } = useAppStore()
   const [pointsMap, setPointsMap] = useState<Record<string, number>>(FALLBACK_POINTS)
+  const [formMatches, setFormMatches] = useState<LeaderboardFormMatch[]>([])
+  const [formPreds, setFormPreds] = useState<LeaderboardFormPred[]>([])
 
   useEffect(() => {
     fetch('/api/admin/scoring-settings')
@@ -35,6 +38,16 @@ export default function TabelaPage() {
       .then(({ settings }: { settings: { key: string; value: number }[] }) => {
         if (!settings?.length) return
         setPointsMap(Object.fromEntries(settings.map(s => [s.key, s.value])))
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/data/leaderboard-form')
+      .then(r => r.json())
+      .then(({ matches, predictions }: { matches: LeaderboardFormMatch[]; predictions: LeaderboardFormPred[] }) => {
+        if (matches) setFormMatches(matches)
+        if (predictions) setFormPreds(predictions)
       })
       .catch(() => {})
   }, [])
@@ -52,26 +65,20 @@ export default function TabelaPage() {
     }))
   }, [users])
 
-  const lastFiveMatches = useMemo(() => [...matches]
-    .filter(m => m.status === 'finished' && m.score_a !== null && m.score_b !== null)
-    .sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
-    .slice(0, 5)
-    .reverse(), [matches])
-
   const formData = useMemo((): Record<string, FormSlot[]> => {
     const result: Record<string, FormSlot[]> = {}
     for (const entry of leaderboard) {
-      result[entry.id] = lastFiveMatches.map(match => {
-        const pred = predictions.find(p => p.user_id === entry.id && p.match_id === match.id)
-        const label = `${match.team_a} vs ${match.team_b} (${match.score_a ?? '?'}:${match.score_b ?? '?'})`
+      result[entry.id] = formMatches.map(match => {
+        const pred = formPreds.find(p => p.user_id === entry.id && p.match_id === match.id)
+        const label = `${match.team_a} vs ${match.team_b} (${match.score_a}:${match.score_b})`
         const tooltip = pred
-          ? `${label} | Typ: ${pred.predicted_a}:${pred.predicted_b} | ${(pred.points_earned ?? 0) > 0 ? '+' + pred.points_earned + ' pkt' : '0 pkt'}`
+          ? `${label} | Typ: ${pred.predicted_a}:${pred.predicted_b} | ${pred.points_earned > 0 ? '+' + pred.points_earned + ' pkt' : '0 pkt'}`
           : `${label} | Brak typu`
-        return { points: pred ? (pred.points_earned ?? 0) : null, tooltip }
+        return { points: pred ? pred.points_earned : null, tooltip }
       })
     }
     return result
-  }, [leaderboard, lastFiveMatches, predictions])
+  }, [leaderboard, formMatches, formPreds])
 
   const myBonuses = useMemo(() => bonusPoints.filter(b => b.user_id === currentUser?.id), [bonusPoints, currentUser])
   const totalBonus = myBonuses.reduce((s, b) => s + b.points, 0)
