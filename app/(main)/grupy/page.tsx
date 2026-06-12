@@ -121,7 +121,7 @@ export default function GrupyPage() {
       {groups.length === 0 ? (
         <div className="text-center py-12 text-gray-500">Brak danych grupowych — zostaną załadowane po starcie turnieju.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {groups.map(group => (
             <GroupCard key={group.name} group={group} />
           ))}
