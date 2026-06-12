@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { href:'/mecze', label:'Mecze', icon:'⚽' },
+  { href:'/daily-challenge', label:'Daily', icon:'DC' },
   { href:'/tabela', label:'Tabela', icon:'🏆' },
   { href:'/moje-typy', label:'Moje typy', icon:'📋' },
   { href:'/grupy', label:'Grupy', icon:'📊' },

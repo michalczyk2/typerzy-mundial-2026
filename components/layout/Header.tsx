@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/mecze', label: 'Mecze' },
+  { href: '/daily-challenge', label: 'Daily Challenge' },
   { href: '/tabela', label: 'Tabela' },
   { href: '/moje-typy', label: 'Moje typy' },
   { href: '/grupy', label: 'Grupy' },
