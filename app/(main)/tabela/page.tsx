@@ -6,9 +6,10 @@ import type { LeaderboardEntry } from '@/types'
 import type { LeaderboardFormPred, LeaderboardFormMatch } from '@/app/api/data/leaderboard-form/route'
 
 const LEGEND = [
-  { dot: 'bg-emerald-500', label: 'zdobył punkty w tym meczu' },
+  { dot: 'bg-emerald-500', label: 'pełne trafienie' },
+  { dot: 'bg-orange-400',  label: 'częściowe trafienie' },
   { dot: 'bg-red-500',     label: 'typował, 0 pkt' },
-  { dot: 'bg-gray-700',    label: 'brak typu / nie rozliczono' },
+  { dot: 'bg-gray-700',    label: 'brak typu / nierozliczono' },
 ]
 
 const BONUS_META: Record<string, { label: string; desc: string; settingKey: string }> = {
@@ -20,11 +21,32 @@ const BONUS_META: Record<string, { label: string; desc: string; settingKey: stri
 }
 
 const FALLBACK_POINTS: Record<string, number> = {
+  outcome_points: 3, exact_score_points: 5,
   perfect_round_bonus: 5, streak_3_bonus: 2, streak_5_bonus: 5,
   risky_pick_bonus: 2, tournament_winner_bonus: 20,
 }
 
-type FormSlot = { points: number | null; tooltip: string }
+type DotColor = 'green' | 'orange' | 'red' | 'gray'
+type FormSlot = { color: DotColor; tooltip: string }
+
+function dotColor(
+  pred: { points_earned: number; predicted_result: string | null } | undefined,
+  outcomePoints: number,
+  exactScorePoints: number,
+): DotColor {
+  if (!pred) return 'gray'
+  if (pred.points_earned === 0) return 'red'
+  const isDouble = pred.predicted_result === 'home_or_draw' || pred.predicted_result === 'away_or_draw'
+  const max = isDouble ? 1 + exactScorePoints : outcomePoints + exactScorePoints
+  return pred.points_earned >= max ? 'green' : 'orange'
+}
+
+function dotStatus(color: DotColor): string {
+  if (color === 'green')  return 'Pełne trafienie'
+  if (color === 'orange') return 'Częściowe trafienie'
+  if (color === 'red')    return '0 pkt'
+  return 'Brak typu'
+}
 
 export default function TabelaPage() {
   const { currentUser, users, bonusPoints } = useAppStore()
@@ -66,19 +88,22 @@ export default function TabelaPage() {
   }, [users])
 
   const formData = useMemo((): Record<string, FormSlot[]> => {
+    const outcomePoints = pointsMap['outcome_points'] ?? FALLBACK_POINTS['outcome_points']
+    const exactScorePoints = pointsMap['exact_score_points'] ?? FALLBACK_POINTS['exact_score_points']
     const result: Record<string, FormSlot[]> = {}
     for (const entry of leaderboard) {
       result[entry.id] = formMatches.map(match => {
         const pred = formPreds.find(p => p.user_id === entry.id && p.match_id === match.id)
+        const color = dotColor(pred, outcomePoints, exactScorePoints)
         const label = `${match.team_a} vs ${match.team_b} (${match.score_a}:${match.score_b})`
         const tooltip = pred
-          ? `${label} | Typ: ${pred.predicted_a}:${pred.predicted_b} | ${pred.points_earned > 0 ? '+' + pred.points_earned + ' pkt' : '0 pkt'}`
+          ? `${label} | Typ: ${pred.predicted_a}:${pred.predicted_b} | ${pred.points_earned > 0 ? '+' + pred.points_earned + ' pkt' : '0 pkt'} | ${dotStatus(color)}`
           : `${label} | Brak typu`
-        return { points: pred ? pred.points_earned : null, tooltip }
+        return { color, tooltip }
       })
     }
     return result
-  }, [leaderboard, formMatches, formPreds])
+  }, [leaderboard, formMatches, formPreds, pointsMap])
 
   const myBonuses = useMemo(() => bonusPoints.filter(b => b.user_id === currentUser?.id), [bonusPoints, currentUser])
   const totalBonus = myBonuses.reduce((s, b) => s + b.points, 0)

@@ -14,6 +14,7 @@ export type LeaderboardFormPred = {
   points_earned: number
   predicted_a: number
   predicted_b: number
+  predicted_result: string | null
 }
 
 export type LeaderboardFormMatch = {
@@ -42,6 +43,7 @@ export async function GET() {
         points_earned: p.points_earned ?? 0,
         predicted_a: p.predicted_a,
         predicted_b: p.predicted_b,
+        predicted_result: p.predicted_result ?? null,
       }))
 
     const matches: LeaderboardFormMatch[] = finishedMatches.map(m => ({
@@ -86,7 +88,7 @@ export async function GET() {
 
     const { data: predRows, error: predErr } = await db
       .from('predictions')
-      .select('user_id, match_id, points_earned, predicted_a, predicted_b')
+      .select('user_id, match_id, points_earned, predicted_a, predicted_b, predicted_result')
       .in('match_id', matchIds)
       .eq('is_locked', true)
 
@@ -98,6 +100,7 @@ export async function GET() {
       points_earned: p.points_earned ?? 0,
       predicted_a: p.predicted_a,
       predicted_b: p.predicted_b,
+      predicted_result: p.predicted_result ?? null,
     }))
 
     return NextResponse.json({ matches, predictions })

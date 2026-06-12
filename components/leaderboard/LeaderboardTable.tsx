@@ -2,7 +2,8 @@
 import type { CSSProperties } from 'react'
 import type { LeaderboardEntry } from '@/types'
 
-type FormSlot = { points: number | null; tooltip: string }
+type DotColor = 'green' | 'orange' | 'red' | 'gray'
+type FormSlot = { color: DotColor; tooltip: string }
 
 interface Props {
   entries: LeaderboardEntry[]
@@ -35,12 +36,17 @@ function streakStyle(streak: number): CSSProperties | null {
   }
 }
 
+const DOT_CLASS: Record<DotColor, string> = {
+  green:  'bg-emerald-500',
+  orange: 'bg-orange-400',
+  red:    'bg-red-500',
+  gray:   'bg-gray-700',
+}
+
 function FormDot({ slot }: { slot: FormSlot | undefined }) {
-  if (!slot || slot.points === null)
-    return <div className="w-2 h-2 rounded-full bg-gray-700 shrink-0" title={slot?.tooltip ?? 'Brak danych'} />
-  if (slot.points > 0)
-    return <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={slot.tooltip} />
-  return <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title={slot.tooltip} />
+  const color: DotColor = slot?.color ?? 'gray'
+  const title = slot?.tooltip ?? 'Brak danych'
+  return <div className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLASS[color]}`} title={title} />
 }
 
 export function LeaderboardTable({ entries, currentUserId, formData = {} }: Props) {
