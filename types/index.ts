@@ -164,3 +164,47 @@ export interface MatchWithPrediction extends Match {
   my_prediction?: Prediction
   predictions?: Prediction[]
 }
+
+// --- Finance module (private betting tracker) ---
+export type BetStatus = 'pending' | 'won' | 'lost' | 'cashout' | 'void'
+export type TransactionType = 'deposit' | 'withdrawal'
+
+export interface Bet {
+  id: string
+  user_id: string
+  date: string
+  sport: string
+  league: string
+  event_name: string
+  bet_type: string
+  bookmaker: string
+  stake: number
+  odds: number
+  status: BetStatus
+  cash_out_amount?: number | null
+  payout: number
+  profit: number
+  note?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BettingTransaction {
+  id: string
+  user_id: string
+  type: TransactionType
+  amount: number
+  date: string
+  note?: string | null
+  created_at: string
+}
+
+export interface BettingSettings {
+  id?: string
+  user_id?: string
+  starting_balance: number
+  manual_current_balance?: number | null
+  monthly_loss_limit?: number | null
+  created_at?: string
+  updated_at?: string
+}

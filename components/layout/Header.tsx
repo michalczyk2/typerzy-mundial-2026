@@ -12,6 +12,7 @@ const navItems = [
   { href: '/grupy', label: 'Grupy' },
   { href: '/turniej', label: 'Drabinka' },
   { href: '/bonusy', label: 'Bonusy' },
+  { href: '/finanse', label: 'Finanse' },
 ]
 
 export function Header() {
