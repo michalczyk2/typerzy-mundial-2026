@@ -14,29 +14,62 @@ interface Props {
 
 const medals = ['🥇', '🥈', '🥉']
 
-// Fire background based on fireScore (scoring streak from most recent settled match).
-// green=+1.0, orange=+0.5 per consecutive hit; red/gray breaks the streak.
-// Visible from 1.0 (≥2 partial hits). Max from 5 matches = 5.0.
-function streakStyle(fireScore: number): CSSProperties | null {
+// Layered radial-gradient fire effect anchored to the left edge of the row.
+// Div is placed inside the first (position) td with position:absolute, extending
+// rightward 480px; outer overflow-hidden clips it at the table boundary.
+// Five tiers: 1.0–1.49 amber warmup → 4.0+ blazing red/orange/yellow.
+function fireStyle(fireScore: number): CSSProperties | null {
   if (fireScore < 1.0) return null
-  let width: string
-  let rgb: string
-  let opacity: string
+
+  let bg: string
+  let speed: string
+
   if (fireScore < 1.5) {
-    width = '22%'; rgb = '251,191,36'; opacity = '0.22' // amber-300 subtle
+    bg = [
+      'radial-gradient(ellipse 38% 140% at 0% 55%, rgba(251,191,36,0.20) 0%, transparent 100%)',
+      'radial-gradient(ellipse 26% 100% at 0% 32%, rgba(251,191,36,0.14) 0%, transparent 85%)',
+    ].join(',')
+    speed = '3.4s'
   } else if (fireScore < 2.0) {
-    width = '30%'; rgb = '251,146,60'; opacity = '0.26' // orange-400 light
+    bg = [
+      'radial-gradient(ellipse 52% 155% at 0% 58%, rgba(251,146,60,0.28) 0%, transparent 100%)',
+      'radial-gradient(ellipse 36% 120% at 0% 36%, rgba(251,146,60,0.22) 0%, transparent 90%)',
+      'radial-gradient(ellipse 24% 88% at 1% 20%, rgba(251,191,36,0.18) 0%, transparent 80%)',
+    ].join(',')
+    speed = '2.8s'
   } else if (fireScore < 3.0) {
-    width = '38%'; rgb = '251,146,60'; opacity = '0.30' // orange-400 medium
+    bg = [
+      'radial-gradient(ellipse 62% 165% at 0% 60%, rgba(249,115,22,0.32) 0%, transparent 100%)',
+      'radial-gradient(ellipse 46% 142% at 0% 40%, rgba(251,146,60,0.28) 0%, transparent 92%)',
+      'radial-gradient(ellipse 32% 112% at 1% 24%, rgba(251,146,60,0.22) 0%, transparent 82%)',
+      'radial-gradient(ellipse 22% 80% at 0% 14%, rgba(251,191,36,0.18) 0%, transparent 72%)',
+    ].join(',')
+    speed = '2.2s'
   } else if (fireScore < 4.0) {
-    width = '55%'; rgb = '249,115,22'; opacity = '0.38' // orange-500 hot
+    bg = [
+      'radial-gradient(ellipse 76% 172% at -2% 62%, rgba(239,68,68,0.35) 0%, transparent 100%)',
+      'radial-gradient(ellipse 58% 158% at 0% 44%, rgba(249,115,22,0.38) 0%, transparent 95%)',
+      'radial-gradient(ellipse 42% 132% at 1% 28%, rgba(251,146,60,0.30) 0%, transparent 88%)',
+      'radial-gradient(ellipse 28% 102% at 0% 15%, rgba(251,146,60,0.24) 0%, transparent 78%)',
+      'radial-gradient(ellipse 20% 72% at 2% 72%, rgba(251,191,36,0.20) 0%, transparent 65%)',
+    ].join(',')
+    speed = '1.8s'
   } else {
-    width = '80%'; rgb = '239,68,68';  opacity = '0.42' // red-500 blazing
+    bg = [
+      'radial-gradient(ellipse 88% 180% at -3% 65%, rgba(220,38,38,0.40) 0%, transparent 100%)',
+      'radial-gradient(ellipse 68% 165% at -1% 47%, rgba(239,68,68,0.42) 0%, transparent 98%)',
+      'radial-gradient(ellipse 52% 148% at 1% 32%, rgba(249,115,22,0.38) 0%, transparent 92%)',
+      'radial-gradient(ellipse 38% 120% at 0% 18%, rgba(251,146,60,0.30) 0%, transparent 82%)',
+      'radial-gradient(ellipse 28% 92% at 2% 78%, rgba(251,146,60,0.26) 0%, transparent 75%)',
+      'radial-gradient(ellipse 18% 65% at 1% 8%, rgba(251,191,36,0.22) 0%, transparent 65%)',
+    ].join(',')
+    speed = '1.4s'
   }
+
   return {
-    width,
-    background: `linear-gradient(90deg, rgba(${rgb},${opacity}) 0%, rgba(${rgb},${parseFloat(opacity) * 0.4}) 65%, transparent 100%)`,
-    animation: 'streak-flicker 2.2s ease-in-out infinite',
+    width: '480px',
+    background: bg,
+    animation: `fire-dance ${speed} ease-in-out infinite`,
   }
 }
 
@@ -74,27 +107,29 @@ export function LeaderboardTable({ entries, currentUserId, formData = {}, fireSc
         <tbody>
           {entries.map((entry, i) => {
             const isMe = entry.id === currentUserId
-            const fire = streakStyle(fireScores[entry.id] ?? 0)
+            const score = fireScores[entry.id] ?? 0
+            const fire = fireStyle(score)
             return (
               <tr key={entry.id} className="border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50">
-                <td className="py-3 px-4 text-center">
+                {/* Position column — fire overlay anchored here so it starts at the true left edge */}
+                <td className="py-3 px-4 text-center relative">
+                  {fire && (
+                    <div
+                      className="absolute inset-y-0 left-0 pointer-events-none fire-layer"
+                      style={fire}
+                    />
+                  )}
                   {i < 3
                     ? <span className="text-lg">{medals[i]}</span>
                     : <span className="text-gray-500 text-sm">{entry.position}</span>
                   }
                 </td>
 
-                {/* Player name cell — fire streak background effect */}
-                <td className="py-3 px-4 relative overflow-hidden">
-                  {fire && (
-                    <div
-                      className="absolute inset-y-0 left-0 pointer-events-none"
-                      style={fire}
-                    />
-                  )}
-                  <div className="relative flex items-center gap-1.5">
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-1.5">
                     <span className="font-semibold text-sm text-white">{entry.nick}</span>
                     {isMe && <span className="text-sm leading-none">👤</span>}
+                    {score >= 2.0 && <span className="text-xs leading-none">🔥</span>}
                   </div>
                 </td>
 

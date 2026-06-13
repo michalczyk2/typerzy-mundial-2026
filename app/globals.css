@@ -31,10 +31,26 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-@keyframes streak-flicker {
-  0%, 100% { opacity: 0.55; }
-  40%       { opacity: 1.00; }
-  70%       { opacity: 0.70; }
+/* Fire overlay for leaderboard streak — layered radial gradients, organic flame shape */
+.fire-layer {
+  transform-origin: 0% 50%;
+  will-change: transform, opacity;
+}
+
+@keyframes fire-dance {
+  0%   { opacity: 0.70; transform: scaleY(1.000) translateX(0px); }
+  18%  { opacity: 0.90; transform: scaleY(0.975) translateX(0.5px); }
+  42%  { opacity: 1.00; transform: scaleY(1.020) translateX(-0.5px); }
+  68%  { opacity: 0.78; transform: scaleY(0.990) translateX(0.5px); }
+  85%  { opacity: 0.94; transform: scaleY(1.010) translateX(0px); }
+  100% { opacity: 0.70; transform: scaleY(1.000) translateX(0px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire-layer {
+    animation: none !important;
+    opacity: 0.72 !important;
+  }
 }
 
 @keyframes footwordle-reveal {
