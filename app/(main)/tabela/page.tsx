@@ -29,6 +29,21 @@ const FALLBACK_POINTS: Record<string, number> = {
 type DotColor = 'green' | 'orange' | 'red' | 'gray'
 type FormSlot = { color: DotColor; tooltip: string }
 
+// Counts scoring streak from most recent match backwards.
+// green=+1.0, orange=+0.5; red/gray breaks the streak.
+// Returns 0 if fewer than 2 consecutive scoring hits (no fire for a single hit).
+function calcFireScore(slots: FormSlot[]): number {
+  let score = 0
+  let count = 0
+  for (let i = slots.length - 1; i >= 0; i--) {
+    const c = slots[i].color
+    if (c === 'green') { score += 1.0; count++ }
+    else if (c === 'orange') { score += 0.5; count++ }
+    else break
+  }
+  return count >= 2 ? score : 0
+}
+
 function dotColor(
   pred: { points_earned: number; predicted_result: string | null } | undefined,
   outcomePoints: number,
@@ -105,6 +120,15 @@ export default function TabelaPage() {
     return result
   }, [leaderboard, formMatches, formPreds, pointsMap])
 
+  const fireScores = useMemo((): Record<string, number> => {
+    const result: Record<string, number> = {}
+    for (const entry of leaderboard) {
+      const slots = formData[entry.id]
+      result[entry.id] = slots?.length ? calcFireScore(slots) : 0
+    }
+    return result
+  }, [leaderboard, formData])
+
   const myBonuses = useMemo(() => bonusPoints.filter(b => b.user_id === currentUser?.id), [bonusPoints, currentUser])
   const totalBonus = myBonuses.reduce((s, b) => s + b.points, 0)
 
@@ -116,6 +140,7 @@ export default function TabelaPage() {
         entries={leaderboard}
         currentUserId={currentUser?.id}
         formData={formData}
+        fireScores={fireScores}
       />
 
       {/* Legend */}

@@ -9,25 +9,29 @@ interface Props {
   entries: LeaderboardEntry[]
   currentUserId?: string
   formData?: Record<string, FormSlot[]>
+  fireScores?: Record<string, number>
 }
 
 const medals = ['🥇', '🥈', '🥉']
 
-// Returns inline style for the fire gradient background based on current_streak.
-// 0-1: no effect. 2: subtle. 3-4: medium. 5-7: hot. 8+: blazing.
-function streakStyle(streak: number): CSSProperties | null {
-  if (streak < 2) return null
+// Fire background based on fireScore (scoring streak from most recent settled match).
+// green=+1.0, orange=+0.5 per consecutive hit; red/gray breaks the streak.
+// Visible from 1.0 (≥2 partial hits). Max from 5 matches = 5.0.
+function streakStyle(fireScore: number): CSSProperties | null {
+  if (fireScore < 1.0) return null
   let width: string
   let rgb: string
   let opacity: string
-  if (streak === 2) {
-    width = '22%'; rgb = '251,191,36'; opacity = '0.22' // amber-300
-  } else if (streak <= 4) {
-    width = '38%'; rgb = '251,146,60'; opacity = '0.30' // orange-400
-  } else if (streak <= 7) {
-    width = '55%'; rgb = '249,115,22'; opacity = '0.38' // orange-500
+  if (fireScore < 1.5) {
+    width = '22%'; rgb = '251,191,36'; opacity = '0.22' // amber-300 subtle
+  } else if (fireScore < 2.0) {
+    width = '30%'; rgb = '251,146,60'; opacity = '0.26' // orange-400 light
+  } else if (fireScore < 3.0) {
+    width = '38%'; rgb = '251,146,60'; opacity = '0.30' // orange-400 medium
+  } else if (fireScore < 4.0) {
+    width = '55%'; rgb = '249,115,22'; opacity = '0.38' // orange-500 hot
   } else {
-    width = '80%'; rgb = '239,68,68';  opacity = '0.42' // red-500
+    width = '80%'; rgb = '239,68,68';  opacity = '0.42' // red-500 blazing
   }
   return {
     width,
@@ -49,7 +53,7 @@ function FormDot({ slot }: { slot: FormSlot | undefined }) {
   return <div className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLASS[color]}`} title={title} />
 }
 
-export function LeaderboardTable({ entries, currentUserId, formData = {} }: Props) {
+export function LeaderboardTable({ entries, currentUserId, formData = {}, fireScores = {} }: Props) {
   if (entries.length === 0) {
     return <div className="text-center py-12 text-gray-500">Brak danych — zostań pierwszym typerym!</div>
   }
@@ -70,7 +74,7 @@ export function LeaderboardTable({ entries, currentUserId, formData = {} }: Prop
         <tbody>
           {entries.map((entry, i) => {
             const isMe = entry.id === currentUserId
-            const fire = streakStyle(entry.current_streak)
+            const fire = streakStyle(fireScores[entry.id] ?? 0)
             return (
               <tr key={entry.id} className="border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50">
                 <td className="py-3 px-4 text-center">
