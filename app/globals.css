@@ -46,6 +46,14 @@ input[type="number"] { -moz-appearance: textfield; }
   100% { opacity: 0.72; transform: scaleY(1.000) translateX(0px)    translateY(0px); }
 }
 
+@keyframes fire-shape {
+  0%   { opacity: 0.85; transform: scaleY(1.000) translateY(0px); }
+  28%  { opacity: 0.95; transform: scaleY(0.968) translateY(-1.8px); }
+  55%  { opacity: 1.00; transform: scaleY(1.028) translateY(1.2px); }
+  76%  { opacity: 0.88; transform: scaleY(0.982) translateY(-0.7px); }
+  100% { opacity: 0.85; transform: scaleY(1.000) translateY(0px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fire-layer {
     animation: none !important;
