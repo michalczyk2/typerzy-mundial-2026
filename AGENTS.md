@@ -3,3 +3,41 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+<!-- BEGIN:obsidian-vault-agent-rules -->
+# Obsidian Vault Documentation
+
+This repository is for the Typerzy Mundial 2026 project.
+
+The main project documentation is located at:
+C:\Users\micha\Vault\02 Projekty\Typerzy Mundial 2026
+
+Global agent rules are located at:
+C:\Users\micha\Vault\AGENTS.md
+
+Reusable prompts are located at:
+C:\Users\micha\Vault\99 System\Prompts
+
+Before larger changes, Codex must read:
+- C:\Users\micha\Vault\AGENTS.md
+- C:\Users\micha\Vault\99 System\VAULT_STATUS.md
+- C:\Users\micha\Vault\99 System\ACTIVE_TASK.md
+- the Typerzy Mundial 2026 project documentation in the Vault
+- PROJECT_MEMORY.md for this project, if it exists
+- PROJECT_STATUS.md, if it exists
+- NEXT_ACTIONS.md, if it exists
+
+Codex must not reorganize the Vault.
+
+Codex must not edit global Vault files when the task only concerns website code.
+
+After work, Codex must prepare a change report with:
+- what changed
+- which files changed
+- whether tests/build passed
+- what should be added to the Vault journal
+
+If the task concerns documentation, Codex may propose a Vault entry, but must not mix the 00-99 structure.
+
+If a file is blocked in ACTIVE_TASK.md, Codex must not edit it.
+<!-- END:obsidian-vault-agent-rules -->
