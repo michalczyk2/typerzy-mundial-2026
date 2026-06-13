@@ -31,25 +31,25 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* Fire overlay for leaderboard streak — layered radial gradients, organic flame shape */
+/* Fire overlay for leaderboard streak — layered radial gradients, flame tongues from lower-left */
 .fire-layer {
-  transform-origin: 0% 50%;
+  transform-origin: 0% 100%;
   will-change: transform, opacity;
 }
 
 @keyframes fire-dance {
-  0%   { opacity: 0.70; transform: scaleY(1.000) translateX(0px); }
-  18%  { opacity: 0.90; transform: scaleY(0.975) translateX(0.5px); }
-  42%  { opacity: 1.00; transform: scaleY(1.020) translateX(-0.5px); }
-  68%  { opacity: 0.78; transform: scaleY(0.990) translateX(0.5px); }
-  85%  { opacity: 0.94; transform: scaleY(1.010) translateX(0px); }
-  100% { opacity: 0.70; transform: scaleY(1.000) translateX(0px); }
+  0%   { opacity: 0.72; transform: scaleY(1.000) translateX(0px)    translateY(0px); }
+  22%  { opacity: 0.86; transform: scaleY(0.976) translateX(0.8px)  translateY(-1.2px); }
+  48%  { opacity: 0.98; transform: scaleY(1.022) translateX(-0.7px) translateY(1.0px); }
+  72%  { opacity: 0.78; transform: scaleY(0.988) translateX(0.6px)  translateY(-0.6px); }
+  88%  { opacity: 0.92; transform: scaleY(1.010) translateX(0px)    translateY(0.8px); }
+  100% { opacity: 0.72; transform: scaleY(1.000) translateX(0px)    translateY(0px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fire-layer {
     animation: none !important;
-    opacity: 0.72 !important;
+    opacity: 0.65 !important;
   }
 }
 

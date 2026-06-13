@@ -14,62 +14,59 @@ interface Props {
 
 const medals = ['🥇', '🥈', '🥉']
 
-// Layered radial-gradient fire effect anchored to the left edge of the row.
-// Div is placed inside the first (position) td with position:absolute, extending
-// rightward 480px; outer overflow-hidden clips it at the table boundary.
-// Five tiers: 1.0–1.49 amber warmup → 4.0+ blazing red/orange/yellow.
+// Flame tongues rising from the lower-left edge of the row.
+// Three color layers: dark red base → orange middle → amber/yellow tips.
+// Width uses CSS min() for responsive sizing (desktop vs mobile).
+// Four tiers scaled by fireScore.
 function fireStyle(fireScore: number): CSSProperties | null {
   if (fireScore < 1.0) return null
 
   let bg: string
   let speed: string
+  let width: string
 
   if (fireScore < 1.5) {
     bg = [
-      'radial-gradient(ellipse 38% 140% at 0% 55%, rgba(251,191,36,0.20) 0%, transparent 100%)',
-      'radial-gradient(ellipse 26% 100% at 0% 32%, rgba(251,191,36,0.14) 0%, transparent 85%)',
+      'radial-gradient(ellipse 78% 185% at 0% 88%, rgba(153,27,27,0.16) 0%, transparent 100%)',
+      'radial-gradient(ellipse 56% 155% at 1% 65%, rgba(234,88,12,0.12) 0%, transparent 100%)',
+      'radial-gradient(ellipse 36% 120% at 2% 42%, rgba(251,191,36,0.08) 0%, transparent 100%)',
     ].join(',')
-    speed = '3.4s'
+    speed = '4.5s'
+    width = 'min(160px, 42vw)'
   } else if (fireScore < 2.0) {
     bg = [
-      'radial-gradient(ellipse 52% 155% at 0% 58%, rgba(251,146,60,0.28) 0%, transparent 100%)',
-      'radial-gradient(ellipse 36% 120% at 0% 36%, rgba(251,146,60,0.22) 0%, transparent 90%)',
-      'radial-gradient(ellipse 24% 88% at 1% 20%, rgba(251,191,36,0.18) 0%, transparent 80%)',
+      'radial-gradient(ellipse 82% 190% at 0% 86%, rgba(153,27,27,0.20) 0%, transparent 100%)',
+      'radial-gradient(ellipse 62% 165% at 1% 63%, rgba(234,88,12,0.17) 0%, transparent 100%)',
+      'radial-gradient(ellipse 42% 132% at 2% 40%, rgba(251,191,36,0.12) 0%, transparent 100%)',
     ].join(',')
-    speed = '2.8s'
-  } else if (fireScore < 3.0) {
+    speed = '3.8s'
+    width = 'min(230px, 46vw)'
+  } else if (fireScore < 2.5) {
     bg = [
-      'radial-gradient(ellipse 62% 165% at 0% 60%, rgba(249,115,22,0.32) 0%, transparent 100%)',
-      'radial-gradient(ellipse 46% 142% at 0% 40%, rgba(251,146,60,0.28) 0%, transparent 92%)',
-      'radial-gradient(ellipse 32% 112% at 1% 24%, rgba(251,146,60,0.22) 0%, transparent 82%)',
-      'radial-gradient(ellipse 22% 80% at 0% 14%, rgba(251,191,36,0.18) 0%, transparent 72%)',
+      'radial-gradient(ellipse 86% 195% at -1% 84%, rgba(127,29,29,0.22) 0%, transparent 100%)',
+      'radial-gradient(ellipse 68% 172% at 1% 62%, rgba(185,28,28,0.18) 0%, transparent 100%)',
+      'radial-gradient(ellipse 50% 148% at 2% 42%, rgba(234,88,12,0.16) 0%, transparent 100%)',
+      'radial-gradient(ellipse 32% 112% at 2% 22%, rgba(251,191,36,0.11) 0%, transparent 100%)',
     ].join(',')
-    speed = '2.2s'
-  } else if (fireScore < 4.0) {
-    bg = [
-      'radial-gradient(ellipse 76% 172% at -2% 62%, rgba(239,68,68,0.35) 0%, transparent 100%)',
-      'radial-gradient(ellipse 58% 158% at 0% 44%, rgba(249,115,22,0.38) 0%, transparent 95%)',
-      'radial-gradient(ellipse 42% 132% at 1% 28%, rgba(251,146,60,0.30) 0%, transparent 88%)',
-      'radial-gradient(ellipse 28% 102% at 0% 15%, rgba(251,146,60,0.24) 0%, transparent 78%)',
-      'radial-gradient(ellipse 20% 72% at 2% 72%, rgba(251,191,36,0.20) 0%, transparent 65%)',
-    ].join(',')
-    speed = '1.8s'
+    speed = '3.0s'
+    width = 'min(310px, 50vw)'
   } else {
     bg = [
-      'radial-gradient(ellipse 88% 180% at -3% 65%, rgba(220,38,38,0.40) 0%, transparent 100%)',
-      'radial-gradient(ellipse 68% 165% at -1% 47%, rgba(239,68,68,0.42) 0%, transparent 98%)',
-      'radial-gradient(ellipse 52% 148% at 1% 32%, rgba(249,115,22,0.38) 0%, transparent 92%)',
-      'radial-gradient(ellipse 38% 120% at 0% 18%, rgba(251,146,60,0.30) 0%, transparent 82%)',
-      'radial-gradient(ellipse 28% 92% at 2% 78%, rgba(251,146,60,0.26) 0%, transparent 75%)',
-      'radial-gradient(ellipse 18% 65% at 1% 8%, rgba(251,191,36,0.22) 0%, transparent 65%)',
+      'radial-gradient(ellipse 90% 200% at -1% 82%, rgba(127,29,29,0.26) 0%, transparent 100%)',
+      'radial-gradient(ellipse 74% 180% at 0% 62%, rgba(185,28,28,0.23) 0%, transparent 100%)',
+      'radial-gradient(ellipse 56% 158% at 1% 44%, rgba(234,88,12,0.20) 0%, transparent 100%)',
+      'radial-gradient(ellipse 38% 128% at 2% 26%, rgba(251,146,60,0.16) 0%, transparent 100%)',
+      'radial-gradient(ellipse 24% 95% at 1% 10%, rgba(251,191,36,0.12) 0%, transparent 100%)',
     ].join(',')
-    speed = '1.4s'
+    speed = '2.5s'
+    width = 'min(400px, 55vw)'
   }
 
   return {
-    width: '480px',
+    width,
     background: bg,
     animation: `fire-dance ${speed} ease-in-out infinite`,
+    zIndex: 0,
   }
 }
 
@@ -119,10 +116,12 @@ export function LeaderboardTable({ entries, currentUserId, formData = {}, fireSc
                       style={fire}
                     />
                   )}
-                  {i < 3
-                    ? <span className="text-lg">{medals[i]}</span>
-                    : <span className="text-gray-500 text-sm">{entry.position}</span>
-                  }
+                  <span className="relative z-[1]">
+                    {i < 3
+                      ? <span className="text-lg">{medals[i]}</span>
+                      : <span className="text-gray-500 text-sm">{entry.position}</span>
+                    }
+                  </span>
                 </td>
 
                 <td className="py-3 px-4">
