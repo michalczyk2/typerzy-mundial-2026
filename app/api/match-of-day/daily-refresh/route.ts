@@ -77,6 +77,8 @@ export async function POST(req: NextRequest) {
     .from('matches')
     .select('id, official_match_day, match_date')
     .in('status', ['scheduled', 'live'])
+    .neq('is_archived', true)
+    .like('external_id', 'wc26_%')
     .order('match_date', { ascending: true })
 
   // Group by effective match day

@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
+      .neq('is_archived', true)
 
     if (matchErr) throw matchErr
     if (!matches || matches.length === 0) {
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
       .from('matches')
       .select('round, status')
       .eq('phase', 'group')
+      .neq('is_archived', true)
 
     const roundMatchCounts = new Map<number, number>()
     const roundFinishedCounts = new Map<number, number>()

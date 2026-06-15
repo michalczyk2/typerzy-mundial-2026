@@ -183,15 +183,23 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createAdminClient()
-  const { data } = await db
-    .from('sync_logs')
-    .select('created_at, status, message, records_updated')
-    .eq('sync_type', 'wc26')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const [syncLogRes, countRes] = await Promise.all([
+    db.from('sync_logs')
+      .select('created_at, status, message, records_updated')
+      .eq('sync_type', 'wc26')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db.from('matches')
+      .select('*', { count: 'exact', head: true })
+      .like('external_id', 'wc26_%')
+      .neq('is_archived', true),
+  ])
 
-  return NextResponse.json({ last_sync: data ?? null })
+  return NextResponse.json({
+    last_sync: syncLogRes.data ?? null,
+    active_wc26_count: countRes.count ?? 0,
+  })
 }
 
 export async function POST(req: NextRequest) {

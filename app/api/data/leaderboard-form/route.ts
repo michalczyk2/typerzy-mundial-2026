@@ -67,6 +67,8 @@ export async function GET() {
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
+      .neq('is_archived', true)
+      .like('external_id', 'wc26_%')
       .order('match_date', { ascending: false })
       .limit(5)
 

@@ -11,10 +11,12 @@ async function isAdmin(req: NextRequest): Promise<boolean> {
 }
 
 // GET /api/admin/matches/audit-duplicates
-// Returns duplicate match pairs: legacy (NULL or ofb_*) vs canonical (wc26_*).
+// Returns:
+//  - duplicates: legacy (NULL or ofb_*) + canonical (wc26_*) pairs
+//  - orphanedLegacy: active ofb_* with no wc26_* counterpart
 export async function GET(req: NextRequest) {
   if (!IS_PRODUCTION_MODE) {
-    return NextResponse.json({ duplicates: [], message: 'Tryb lokalny' })
+    return NextResponse.json({ duplicates: [], orphanedLegacy: [], message: 'Tryb lokalny' })
   }
 
   if (!await isAdmin(req)) {
@@ -51,7 +53,20 @@ export async function GET(req: NextRequest) {
     canonicalDay: string
   }
 
+  type OrphanedMatch = {
+    id: string
+    externalId: string | null
+    teamA: string
+    teamB: string
+    matchDate: string
+    dataSource: string
+    predictionsCount: number
+    bonusPointsCount: number
+    modEventsCount: number
+  }
+
   const duplicates: DuplicatePair[] = []
+  const pairedLegacyIds = new Set<string>()
 
   for (const leg of legacy) {
     const legDay = (leg.official_match_day as string | null)
@@ -83,16 +98,69 @@ export async function GET(req: NextRequest) {
           canonicalExt: can.external_id as string,
           canonicalDay: canDay,
         })
+        pairedLegacyIds.add(leg.id as string)
       }
     }
   }
 
+  // Orphaned: active legacy matches with no wc26_* counterpart
+  const orphanedRaw = legacy.filter(leg => !pairedLegacyIds.has(leg.id as string))
+  const orphanedIds = orphanedRaw.map(m => m.id as string)
+
+  let orphanedLegacy: OrphanedMatch[] = []
+  if (orphanedIds.length > 0) {
+    const [predsRes, bonusRes, modRes] = await Promise.all([
+      db.from('predictions').select('match_id').in('match_id', orphanedIds),
+      db.from('bonus_points').select('match_id').in('match_id', orphanedIds),
+      db.from('match_of_day_events').select('match_id').in('match_id', orphanedIds),
+    ])
+
+    const predCounts = new Map<string, number>()
+    const bonusCounts = new Map<string, number>()
+    const modCounts = new Map<string, number>()
+
+    for (const p of predsRes.data ?? []) {
+      const id = p.match_id as string
+      predCounts.set(id, (predCounts.get(id) ?? 0) + 1)
+    }
+    for (const b of bonusRes.data ?? []) {
+      const id = b.match_id as string
+      bonusCounts.set(id, (bonusCounts.get(id) ?? 0) + 1)
+    }
+    for (const m of modRes.data ?? []) {
+      const id = m.match_id as string
+      modCounts.set(id, (modCounts.get(id) ?? 0) + 1)
+    }
+
+    orphanedLegacy = orphanedRaw.map(leg => ({
+      id: leg.id as string,
+      externalId: leg.external_id as string | null,
+      teamA: leg.team_a as string,
+      teamB: leg.team_b as string,
+      matchDate: leg.match_date as string,
+      dataSource: leg.data_source as string,
+      predictionsCount: predCounts.get(leg.id as string) ?? 0,
+      bonusPointsCount: bonusCounts.get(leg.id as string) ?? 0,
+      modEventsCount: modCounts.get(leg.id as string) ?? 0,
+    }))
+  }
+
+  const allOrphanedSafe = orphanedLegacy.every(
+    m => m.predictionsCount === 0 && m.bonusPointsCount === 0 && m.modEventsCount === 0
+  )
+
+  const msgs = []
+  if (duplicates.length > 0) msgs.push(`${duplicates.length} par duplikatów`)
+  if (orphanedLegacy.length > 0) msgs.push(`${orphanedLegacy.length} aktywnych ofb_* bez pary`)
+  if (msgs.length === 0) msgs.push('Brak problemów')
+
   return NextResponse.json({
     duplicates,
+    orphanedLegacy,
+    allOrphanedSafe,
     count: duplicates.length,
+    orphanedCount: orphanedLegacy.length,
     legacyTotal: legacy.length,
-    message: duplicates.length === 0
-      ? 'Brak duplikatów — dane są czyste.'
-      : `Znaleziono ${duplicates.length} par duplikatów.`,
+    message: msgs.join(' · '),
   })
 }

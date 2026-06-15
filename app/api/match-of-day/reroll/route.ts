@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       .select('id, team_a, team_b')
       .or(`official_match_day.eq.${event.official_match_day},and(official_match_day.is.null,match_date.gte.${event.official_match_day}T00:00:00Z,match_date.lt.${event.official_match_day}T23:59:59Z)`)
       .in('status', matchStatuses)
+      .neq('is_archived', true)
 
     if (!dayMatches || dayMatches.length === 0) {
       return NextResponse.json({

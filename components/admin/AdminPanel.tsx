@@ -17,6 +17,18 @@ type WC26SyncLog = { created_at: string; status: string; message: string; record
 
 type ChampionPick = { id: string; user_id: string; nick: string; team_code: string; team_name: string; is_correct: boolean | null }
 
+type OrphanedMatch = {
+  id: string
+  externalId: string | null
+  teamA: string
+  teamB: string
+  matchDate: string
+  dataSource: string
+  predictionsCount: number
+  bonusPointsCount: number
+  modEventsCount: number
+}
+
 type DuplicatePair = {
   legacyId: string
   legacyExt: string | null
@@ -77,6 +89,7 @@ export function AdminPanel() {
   const [settingValues, setSettingValues] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<Record<string, string>>({})
   const [wc26LastSync, setWc26LastSync] = useState<WC26SyncLog | null>(null)
+  const [wc26ActiveCount, setWc26ActiveCount] = useState(0)
   const [wc26Loading, setWc26Loading] = useState(false)
   const [wc26Msg, setWc26Msg] = useState('')
   const [championPicks, setChampionPicks] = useState<ChampionPick[]>([])
@@ -86,9 +99,13 @@ export function AdminPanel() {
   const [modStatus, setModStatus] = useState<ModStatusData>(null)
   const [modActionStatus, setModActionStatus] = useState<Record<string, string>>({})
   const [duplicates, setDuplicates] = useState<DuplicatePair[] | null>(null)
+  const [orphanedLegacy, setOrphanedLegacy] = useState<OrphanedMatch[]>([])
+  const [allOrphanedSafe, setAllOrphanedSafe] = useState(false)
   const [dupAuditMsg, setDupAuditMsg] = useState('')
   const [dupAuditLoading, setDupAuditLoading] = useState(false)
   const [archiveMsg, setArchiveMsg] = useState<Record<string, string>>({})
+  const [archiveOrphanedLoading, setArchiveOrphanedLoading] = useState(false)
+  const [archiveOrphanedMsg, setArchiveOrphanedMsg] = useState('')
   const [showAllMatches, setShowAllMatches] = useState(false)
 
   const loadPendingUsers = () => {
@@ -152,7 +169,10 @@ export function AdminPanel() {
     if (!IS_PRODUCTION_MODE) return
     fetch('/api/sync-wc26')
       .then(r => r.json())
-      .then(({ last_sync }: { last_sync: WC26SyncLog | null }) => setWc26LastSync(last_sync ?? null))
+      .then(({ last_sync, active_wc26_count }: { last_sync: WC26SyncLog | null; active_wc26_count?: number }) => {
+        setWc26LastSync(last_sync ?? null)
+        if (typeof active_wc26_count === 'number') setWc26ActiveCount(active_wc26_count)
+      })
       .catch(() => {})
   }
 
@@ -170,12 +190,14 @@ export function AdminPanel() {
       return
     }
     setDupAuditLoading(true)
-    setDupAuditMsg('Szukam duplikatów...')
+    setDupAuditMsg('Szukam...')
     try {
       const res = await fetch('/api/admin/matches/audit-duplicates')
       const json = await res.json().catch(() => ({}))
       if (res.ok) {
         setDuplicates(json.duplicates ?? [])
+        setOrphanedLegacy(json.orphanedLegacy ?? [])
+        setAllOrphanedSafe(json.allOrphanedSafe ?? false)
         setDupAuditMsg(json.message ?? '')
       } else {
         setDupAuditMsg(`Błąd: ${json.error ?? 'Nieznany'}`)
@@ -185,6 +207,29 @@ export function AdminPanel() {
     } finally {
       setDupAuditLoading(false)
     }
+  }
+
+  const handleArchiveAllOrphaned = async () => {
+    const safeOnes = orphanedLegacy.filter(
+      m => m.predictionsCount === 0 && m.bonusPointsCount === 0 && m.modEventsCount === 0
+    )
+    if (!window.confirm(`Archiwizować ${safeOnes.length} ofb_* rekordów bez danych? Rekordy NIE zostaną usunięte.`)) return
+    setArchiveOrphanedLoading(true)
+    setArchiveOrphanedMsg('Archiwizuję...')
+    let ok = 0
+    for (const m of safeOnes) {
+      try {
+        const res = await fetch('/api/admin/matches/archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ match_id: m.id, archived: true }),
+        })
+        if (res.ok) ok++
+      } catch { /* continue */ }
+    }
+    setArchiveOrphanedMsg(`Zarchiwizowano ${ok}/${safeOnes.length}.`)
+    setArchiveOrphanedLoading(false)
+    await handleAuditDuplicates()
   }
 
   const handleArchiveMatch = async (matchId: string, archived: boolean) => {
@@ -488,13 +533,16 @@ export function AdminPanel() {
             <h2 className="text-white font-bold text-lg">Synchronizacja worldcup26.ir</h2>
             <p className="text-gray-600 text-xs mt-0.5">Mecze, wyniki, tabele grupowe (primary source)</p>
           </div>
-          {IS_PRODUCTION_MODE && wc26LastSync && (
+          {IS_PRODUCTION_MODE && (
             <div className="text-right shrink-0 ml-4">
-              <p className="text-gray-600 text-xs">Ostatnia sync</p>
-              <p className={`text-xs font-medium ${wc26LastSync.status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
-              </p>
-              <p className="text-gray-600 text-xs">{wc26LastSync.records_updated} meczów</p>
+              <p className="text-emerald-400 font-bold text-sm">{wc26ActiveCount} meczów</p>
+              <p className="text-gray-600 text-xs">aktywnych w bazie</p>
+              {wc26LastSync && (
+                <p className={`text-xs mt-0.5 ${wc26LastSync.status === 'success' ? 'text-gray-600' : 'text-red-400'}`}>
+                  sync {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
+                  {wc26LastSync.status !== 'success' && ' ⚠️'}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -553,8 +601,45 @@ export function AdminPanel() {
             ))}
           </div>
         )}
-        {duplicates !== null && duplicates.length === 0 && (
+        {duplicates !== null && duplicates.length === 0 && orphanedLegacy.length === 0 && (
           <p className="text-emerald-400 text-xs">Brak duplikatów — dane są czyste.</p>
+        )}
+
+        {orphanedLegacy.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-gray-700">
+            <p className="text-amber-400 text-xs font-medium uppercase tracking-wide mb-2">
+              Aktywne ofb_* bez pary canonical ({orphanedLegacy.length})
+            </p>
+            <div className="space-y-2 mb-3">
+              {orphanedLegacy.map(m => (
+                <div key={m.id} className="bg-gray-800/50 rounded-lg p-2.5 text-xs space-y-0.5">
+                  <p className="text-white font-medium">{m.teamA} vs {m.teamB}</p>
+                  <p className="text-gray-400">{m.externalId ?? 'brak external_id'} · {new Date(m.matchDate).toLocaleDateString('pl-PL')}</p>
+                  <div className="flex gap-3 mt-1">
+                    <span className={m.predictionsCount > 0 ? 'text-red-400' : 'text-gray-500'}>typy: {m.predictionsCount}</span>
+                    <span className={m.bonusPointsCount > 0 ? 'text-red-400' : 'text-gray-500'}>bonusy: {m.bonusPointsCount}</span>
+                    <span className={m.modEventsCount > 0 ? 'text-red-400' : 'text-gray-500'}>MOD: {m.modEventsCount}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {allOrphanedSafe ? (
+              <div>
+                <Button variant="danger" className="w-full"
+                  onClick={handleArchiveAllOrphaned}
+                  disabled={archiveOrphanedLoading}>
+                  🗑️ Archiwizuj wszystkie ofb_* bez danych ({orphanedLegacy.length})
+                </Button>
+                {archiveOrphanedMsg && (
+                  <p className="text-xs text-gray-400 mt-1">{archiveOrphanedMsg}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-red-400 text-xs">
+                ⚠️ Część rekordów ma powiązane dane (typy/bonusy/MOD) — nie można automatycznie archiwizować. Sprawdź ręcznie.
+              </p>
+            )}
+          </div>
         )}
       </Card>
 
