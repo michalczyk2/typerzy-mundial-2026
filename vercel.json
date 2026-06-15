@@ -17,8 +17,8 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/match-of-day/ensure",
-      "schedule": "0 5 * * *"
+      "path": "/api/match-of-day/daily-refresh",
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/match-of-day/finalize",

@@ -36,7 +36,37 @@ export async function POST(req: NextRequest) {
     const outcomePoints = settingsMap['outcome_points'] ?? SCORING_DEFAULTS.outcome_points.value
     const exactScorePoints = settingsMap['exact_score_points'] ?? SCORING_DEFAULTS.exact_score_points.value
 
-    // 2a. Load settled match-of-day bonus map (idempotent: included in points_earned)
+    // 2a. Auto-finalize overdue match-of-day events before calculating bonuses.
+    // This ensures bonuses are available even if the finalize cron hasn't run yet.
+    const nowIso = new Date().toISOString()
+    const { data: dueEvents } = await db
+      .from('match_of_day_events')
+      .select('id')
+      .in('status', ['voting', 'locked'])
+      .lt('vote_deadline', nowIso)
+
+    for (const ev of dueEvents ?? []) {
+      const { data: votes } = await db
+        .from('match_of_day_votes')
+        .select('bonus_points')
+        .eq('event_id', ev.id)
+      const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
+      for (const v of votes ?? []) counts[v.bonus_points as number] = (counts[v.bonus_points as number] ?? 0) + 1
+      const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0)
+      let selectedBonus = 2
+      if (totalVotes > 0) {
+        const maxVotes = Math.max(...Object.values(counts))
+        const tied = ([4, 3, 2, 1] as const).filter(b => counts[b] === maxVotes)
+        selectedBonus = tied[tied.length - 1]
+      }
+      await db.from('match_of_day_events').update({
+        selected_bonus_points: selectedBonus,
+        status: 'settled',
+        updated_at: nowIso,
+      }).eq('id', ev.id)
+    }
+
+    // 2b. Load settled match-of-day bonus map (idempotent: included in points_earned)
     const { data: modEvents } = await db
       .from('match_of_day_events')
       .select('match_id, selected_bonus_points')

@@ -49,10 +49,32 @@ export async function GET(req: NextRequest) {
     const isVotingOpen =
       event.status !== 'settled' && new Date(event.vote_deadline) > new Date()
 
-    // Vote counts are only revealed after deadline (or when settled)
+    // Detect admin session (admins see full vote distribution even during voting)
+    const sessionId = req.cookies.get('typerzy_session')?.value
+    let isAdmin = false
+    let myVote: number | null = null
+    if (sessionId) {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('role, status')
+        .eq('id', sessionId)
+        .single()
+      isAdmin = profile?.role === 'admin'
+
+      // User's own vote
+      const { data: myVoteRow } = await db
+        .from('match_of_day_votes')
+        .select('bonus_points')
+        .eq('event_id', event.id)
+        .eq('user_id', sessionId)
+        .maybeSingle()
+      myVote = (myVoteRow?.bonus_points as number | null) ?? null
+    }
+
+    // Vote counts: always visible to admin, only after deadline to regular users
     let voteCounts: Record<number, number> | null = null
     let totalVotes = 0
-    if (!isVotingOpen) {
+    if (!isVotingOpen || isAdmin) {
       const { data: votes } = await db
         .from('match_of_day_votes')
         .select('bonus_points')
@@ -65,25 +87,12 @@ export async function GET(req: NextRequest) {
       voteCounts = counts
       totalVotes = votes?.length ?? 0
     } else {
-      // During voting: only reveal total count, not distribution
+      // During voting for regular users: only total count, not distribution
       const { count } = await db
         .from('match_of_day_votes')
         .select('*', { count: 'exact', head: true })
         .eq('event_id', event.id)
       totalVotes = count ?? 0
-    }
-
-    // User's own vote (if logged in)
-    let myVote: number | null = null
-    const sessionId = req.cookies.get('typerzy_session')?.value
-    if (sessionId) {
-      const { data: myVoteRow } = await db
-        .from('match_of_day_votes')
-        .select('bonus_points')
-        .eq('event_id', event.id)
-        .eq('user_id', sessionId)
-        .maybeSingle()
-      myVote = (myVoteRow?.bonus_points as number | null) ?? null
     }
 
     return NextResponse.json({

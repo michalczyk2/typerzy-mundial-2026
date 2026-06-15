@@ -7,10 +7,27 @@ import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/lib/store'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
+import { formatMatchDate, formatMatchTime } from '@/lib/utils'
 
 type ScoringSetting = { key: string; label: string; value: number; description: string | null; updated_at: string | null }
 
 type EditMode = 'score' | 'meta' | null
+
+type ModEvent = {
+  id: string
+  official_match_day: string
+  vote_deadline: string
+  selected_bonus_points: number | null
+  status: 'voting' | 'locked' | 'settled'
+  match: { id: string; team_a: string; team_b: string; match_date: string; status: string } | null
+}
+type ModStatusData = {
+  event: ModEvent | null
+  isVotingOpen: boolean
+  myVote: number | null
+  voteCounts: Record<number, number> | null
+  totalVotes: number
+} | null
 
 async function callSyncEndpoint(endpoint: string): Promise<string> {
   if (!IS_PRODUCTION_MODE) return `[MOCK] ${endpoint} — brak efektu w trybie lokalnym`
@@ -41,6 +58,8 @@ export function AdminPanel() {
   const [settings, setSettings] = useState<ScoringSetting[]>([])
   const [settingValues, setSettingValues] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<Record<string, string>>({})
+  const [modStatus, setModStatus] = useState<ModStatusData>(null)
+  const [modActionStatus, setModActionStatus] = useState<Record<string, string>>({})
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -53,8 +72,17 @@ export function AdminPanel() {
       .catch(err => console.error('[AdminPanel] loadPendingUsers:', err))
   }
 
+  const loadModStatus = () => {
+    if (!IS_PRODUCTION_MODE) return
+    fetch('/api/match-of-day/current')
+      .then(r => r.json())
+      .then(data => setModStatus(data))
+      .catch(() => {})
+  }
+
   useEffect(() => {
     loadPendingUsers()
+    loadModStatus()
     fetch('/api/admin/scoring-settings')
       .then(r => r.json())
       .then(({ settings: rows }: { settings: ScoringSetting[] }) => {
@@ -112,6 +140,30 @@ export function AdminPanel() {
     setSyncStatus(s => ({ ...s, [endpoint]: 'Ładowanie...' }))
     const msg = await callSyncEndpoint(endpoint)
     setSyncStatus(s => ({ ...s, [endpoint]: msg }))
+  }
+
+  const handleModAction = async (endpoint: string) => {
+    if (!IS_PRODUCTION_MODE) {
+      setModActionStatus(s => ({ ...s, [endpoint]: '[MOCK] Brak efektu w trybie lokalnym' }))
+      return
+    }
+    setModActionStatus(s => ({ ...s, [endpoint]: 'Ładowanie...' }))
+    try {
+      const res = await fetch(endpoint, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      const msg = res.ok ? `OK: ${json.message ?? 'Sukces'}` : `Błąd: ${json.error ?? 'Nieznany'}`
+      setModActionStatus(s => ({ ...s, [endpoint]: msg }))
+      loadModStatus()
+    } catch {
+      setModActionStatus(s => ({ ...s, [endpoint]: 'Błąd sieci' }))
+    }
+  }
+
+  const handleModReroll = async () => {
+    if (!window.confirm(
+      'UWAGA: Wylosujesz nowy mecz dnia.\nDotychczasowe głosy zostaną usunięte.\nKontynuować?'
+    )) return
+    await handleModAction('/api/match-of-day/reroll')
   }
 
   const handleDeleteUser = async (userId: string, nick: string) => {
@@ -247,6 +299,98 @@ export function AdminPanel() {
           {!IS_PRODUCTION_MODE && (
             <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
           )}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-3">🔥 Mecz dnia</h2>
+
+        {/* Current event status */}
+        {!IS_PRODUCTION_MODE ? (
+          <p className="text-gray-600 text-xs mb-3">Tryb lokalny — mecz dnia dostępny tylko w produkcji.</p>
+        ) : modStatus?.event ? (
+          <div className="bg-gray-800/50 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Dzień:</span>
+              <span className="text-white font-medium">{modStatus.event.official_match_day}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-400 shrink-0">Mecz:</span>
+              <span className="text-white font-medium text-right">
+                {modStatus.event.match ? `${modStatus.event.match.team_a} vs ${modStatus.event.match.team_b}` : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Deadline:</span>
+              <span className="text-white font-medium">
+                {formatMatchDate(modStatus.event.vote_deadline)} {formatMatchTime(modStatus.event.vote_deadline)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Status:</span>
+              <span className={
+                modStatus.event.status === 'settled' ? 'text-emerald-400 font-bold' :
+                modStatus.event.status === 'voting' ? 'text-amber-400 font-bold' : 'text-gray-400'
+              }>{modStatus.event.status}</span>
+            </div>
+            {modStatus.event.selected_bonus_points !== null && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Wybrany bonus:</span>
+                <span className="text-amber-400 font-bold">+{modStatus.event.selected_bonus_points} pkt</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-400">Głosów:</span>
+              <span className="text-white">{modStatus.totalVotes}</span>
+            </div>
+            {modStatus.voteCounts && modStatus.totalVotes > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Rozkład:</span>
+                <span className="text-gray-400">
+                  +4: {modStatus.voteCounts[4]}  +3: {modStatus.voteCounts[3]}  +2: {modStatus.voteCounts[2]}  +1: {modStatus.voteCounts[1]}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm mb-3">Brak aktywnego meczu dnia.</p>
+        )}
+
+        {/* Action buttons */}
+        <div className="space-y-2">
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={() => handleModAction('/api/match-of-day/daily-refresh')}
+              disabled={modActionStatus['/api/match-of-day/daily-refresh'] === 'Ładowanie...'}>
+              ⚽ Odśwież mecze i wybierz mecz dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/daily-refresh'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/daily-refresh']}</p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={() => handleModAction('/api/match-of-day/finalize')}
+              disabled={modActionStatus['/api/match-of-day/finalize'] === 'Ładowanie...'}>
+              🔒 Finalizuj głosowanie meczu dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/finalize'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/finalize']}</p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="danger" className="w-full"
+              onClick={handleModReroll}
+              disabled={modActionStatus['/api/match-of-day/reroll'] === 'Ładowanie...'}>
+              ⚠️ Wylosuj ponownie (usuwa głosy)
+            </Button>
+            <p className="text-xs text-gray-600 mt-1">Tylko przed startem pierwszego meczu dnia. Czyści głosy!</p>
+            {modActionStatus['/api/match-of-day/reroll'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/reroll']}</p>
+            )}
+          </div>
         </div>
       </Card>
 
