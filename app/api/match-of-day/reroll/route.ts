@@ -42,56 +42,65 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Brak aktywnego meczu dnia do ponownego losowania' }, { status: 404 })
     }
 
-    // Block reroll after vote_deadline (first match already started)
-    if (new Date(event.vote_deadline) <= now) {
-      return NextResponse.json({
-        error: 'Nie można losować ponownie — głosowanie już się zakończyło (mecze danego dnia się rozpoczęły)',
-        canReroll: false,
-      }, { status: 400 })
-    }
+    const deadlinePassed = new Date(event.vote_deadline) <= now
 
-    // Find all scheduled/live matches for the same official_match_day
+    // Find all matches for the same day (include finished when after deadline)
+    const matchStatuses = deadlinePassed
+      ? ['scheduled', 'live', 'finished']
+      : ['scheduled', 'live']
+
     const { data: dayMatches } = await db
       .from('matches')
       .select('id, team_a, team_b')
       .or(`official_match_day.eq.${event.official_match_day},and(official_match_day.is.null,match_date.gte.${event.official_match_day}T00:00:00Z,match_date.lt.${event.official_match_day}T23:59:59Z)`)
-      .in('status', ['scheduled', 'live'])
+      .in('status', matchStatuses)
 
-    const otherMatches = (dayMatches ?? []).filter(m => m.id !== event.match_id)
-
-    if (otherMatches.length === 0) {
+    if (!dayMatches || dayMatches.length === 0) {
       return NextResponse.json({
-        error: 'Danego dnia jest tylko jeden mecz — nie można wylosować innego',
+        error: 'Brak meczów na ten dzień — nie można losować',
         canReroll: false,
       }, { status: 400 })
     }
 
-    // Pick a random different match
-    const newMatch = otherMatches[Math.floor(Math.random() * otherMatches.length)]
+    // Pick a random different match; if only one exists, keep the same (just reset votes)
+    const otherMatches = dayMatches.filter(m => m.id !== event.match_id)
+    const newMatch = otherMatches.length > 0
+      ? otherMatches[Math.floor(Math.random() * otherMatches.length)]
+      : dayMatches[0]
+
+    const sameMatch = newMatch.id === event.match_id
+
+    // Status: voting if deadline in future, locked if past (will be settled on next recalculate)
+    const newStatus = deadlinePassed ? 'locked' : 'voting'
 
     // Clear all votes for this event
     await db.from('match_of_day_votes').delete().eq('event_id', event.id)
 
-    // Update event with new match, reset bonus and status
+    // Update event with (possibly new) match, reset bonus and status
     const { error: upErr } = await db
       .from('match_of_day_events')
       .update({
         match_id: newMatch.id,
         selected_bonus_points: null,
-        status: 'voting',
+        status: newStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('id', event.id)
 
     if (upErr) throw upErr
 
+    const matchLabel = `${newMatch.team_a} vs ${newMatch.team_b}`
+    const deadlineNote = deadlinePassed ? ' Deadline minął — brak głosowania, bonus = domyślny +2.' : ''
+
     return NextResponse.json({
       success: true,
       newMatchId: newMatch.id,
-      matchLabel: `${newMatch.team_a} vs ${newMatch.team_b}`,
+      matchLabel,
       previousMatchId: event.match_id,
+      sameMatch,
       votesCleared: true,
-      message: `Wylosowano nowy mecz: ${newMatch.team_a} vs ${newMatch.team_b}. Głosy wyczyszczone.`,
+      deadlinePassed,
+      message: `${sameMatch ? 'Mecz bez zmian' : `Wylosowano nowy mecz: ${matchLabel}`}. Głosy wyczyszczone.${deadlineNote}`,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

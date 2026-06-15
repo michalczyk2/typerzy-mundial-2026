@@ -242,10 +242,44 @@ export function AdminPanel() {
   }
 
   const handleModReroll = async () => {
-    if (!window.confirm(
-      'UWAGA: Wylosujesz nowy mecz dnia.\nDotychczasowe głosy zostaną usunięte.\nKontynuować?'
-    )) return
+    const deadlinePassed = modStatus?.event ? new Date(modStatus.event.vote_deadline) <= new Date() : false
+    const confirmMsg = deadlinePassed
+      ? 'UWAGA: Deadline już minął — głosowanie zamknięte.\nWymusić ponowne losowanie? Głosy zostaną usunięte.'
+      : 'Na pewno wymusić ponowne losowanie? Głosy zostaną usunięte.'
+    if (!window.confirm(confirmMsg)) return
     await handleModAction('/api/match-of-day/reroll')
+  }
+
+  const handleModDelete = async () => {
+    if (!window.confirm('Na pewno usunąć aktualny mecz dnia i jego głosy?')) return
+    await handleModAction('/api/match-of-day/delete-current')
+  }
+
+  const handleModDeleteAndReroll = async () => {
+    if (!window.confirm('Na pewno usunąć aktualny mecz dnia, wyczyścić głosy i wylosować nowy?')) return
+    if (!IS_PRODUCTION_MODE) {
+      setModActionStatus(s => ({ ...s, 'delete-and-reroll': '[MOCK] Brak efektu w trybie lokalnym' }))
+      return
+    }
+    setModActionStatus(s => ({ ...s, 'delete-and-reroll': 'Ładowanie...' }))
+    try {
+      const delRes = await fetch('/api/match-of-day/delete-current', { method: 'POST' })
+      const delJson = await delRes.json().catch(() => ({}))
+      if (!delRes.ok && delRes.status !== 404) {
+        setModActionStatus(s => ({ ...s, 'delete-and-reroll': `Błąd usuwania: ${delJson.error ?? 'Nieznany'}` }))
+        return
+      }
+      const wasSettled = delJson.wasSettled ?? false
+      const refreshRes = await fetch('/api/match-of-day/daily-refresh', { method: 'POST' })
+      const refreshJson = await refreshRes.json().catch(() => ({}))
+      const msg = refreshRes.ok
+        ? `OK: ${refreshJson.message ?? 'Sukces'}${wasSettled ? ' ⚠️ Poprzedni był rozliczony — Przelicz punkty!' : ''}`
+        : `Usunięto, błąd tworzenia nowego: ${refreshJson.error ?? 'Nieznany'}`
+      setModActionStatus(s => ({ ...s, 'delete-and-reroll': msg }))
+      loadModStatus()
+    } catch {
+      setModActionStatus(s => ({ ...s, 'delete-and-reroll': 'Błąd sieci' }))
+    }
   }
 
   const handleDeleteUser = async (userId: string, nick: string) => {
@@ -455,17 +489,17 @@ export function AdminPanel() {
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-400">Głosów:</span>
+              <span className="text-gray-400">Głosów łącznie:</span>
               <span className="text-white">{modStatus.totalVotes}</span>
             </div>
-            {modStatus.voteCounts && modStatus.totalVotes > 0 && (
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Rozkład:</span>
-                <span className="text-gray-400">
-                  +4: {modStatus.voteCounts[4]}  +3: {modStatus.voteCounts[3]}  +2: {modStatus.voteCounts[2]}  +1: {modStatus.voteCounts[1]}
-                </span>
-              </div>
-            )}
+            <div className="mt-1 space-y-0.5 pl-1">
+              {([4, 3, 2, 1] as const).map(pts => (
+                <div key={pts} className="flex justify-between text-xs">
+                  <span className="text-amber-400">+{pts} pkt</span>
+                  <span className="text-gray-300">{modStatus.voteCounts?.[pts] ?? 0} głosów</span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <p className="text-gray-500 text-sm mb-3">Brak aktywnego meczu dnia.</p>
@@ -498,11 +532,41 @@ export function AdminPanel() {
             <Button variant="danger" className="w-full"
               onClick={handleModReroll}
               disabled={modActionStatus['/api/match-of-day/reroll'] === 'Ładowanie...'}>
-              ⚠️ Wylosuj ponownie (usuwa głosy)
+              ⚠️ Wymuś ponowne losowanie (usuwa głosy)
             </Button>
-            <p className="text-xs text-gray-600 mt-1">Tylko przed startem pierwszego meczu dnia. Czyści głosy!</p>
+            <p className="text-xs text-gray-600 mt-1">Działa też po deadline. Czyści głosy i resetuje bonus.</p>
             {modActionStatus['/api/match-of-day/reroll'] && (
               <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/reroll']}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-gray-700 space-y-2">
+          <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Awaryjne usuwanie</p>
+
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={handleModDeleteAndReroll}
+              disabled={modActionStatus['delete-and-reroll'] === 'Ładowanie...'}>
+              🔄 Usuń i wylosuj nowy mecz dnia
+            </Button>
+            {modActionStatus['delete-and-reroll'] && (
+              <p className={`text-xs mt-1 break-words ${modActionStatus['delete-and-reroll'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
+                {modActionStatus['delete-and-reroll']}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="danger" className="w-full"
+              onClick={handleModDelete}
+              disabled={modActionStatus['/api/match-of-day/delete-current'] === 'Ładowanie...'}>
+              🗑️ Usuń aktualny mecz dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/delete-current'] && (
+              <p className={`text-xs mt-1 break-words ${modActionStatus['/api/match-of-day/delete-current'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
+                {modActionStatus['/api/match-of-day/delete-current']}
+              </p>
             )}
           </div>
         </div>
