@@ -41,7 +41,6 @@ export function MatchOfDayBanner({ data, onVote, voting = false }: Props) {
   const { event, isVotingOpen, myVote, voteCounts, totalVotes } = data
   const { match } = event
 
-  const deadline = new Date(event.vote_deadline)
   const deadlineStr = `${formatMatchDate(event.vote_deadline)}, ${formatMatchTime(event.vote_deadline)}`
 
   return (

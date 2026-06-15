@@ -99,10 +99,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Check if today already has a covered event (already existed)
-  const todayAlreadyCovered = coveredDays.has(todayUtc) ||
-    sortedDays.some(d => d >= todayUtc && coveredDays.has(d) && !targetDay)
-
   if (!targetDay) {
     const coveredUpcoming = sortedDays.filter(d => d >= todayUtc && coveredDays.has(d))
     return NextResponse.json({
