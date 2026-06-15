@@ -19,10 +19,6 @@
     {
       "path": "/api/match-of-day/daily-refresh",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/match-of-day/finalize",
-      "schedule": "0 * * * *"
     }
   ]
 }
