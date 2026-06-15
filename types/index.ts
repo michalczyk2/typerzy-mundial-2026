@@ -53,6 +53,7 @@ export interface Match {
   group_name: string | null
   round: number
   match_date: string
+  official_match_day?: string | null
   stadium: string | null
   city: string | null
   team_a: string
@@ -207,4 +208,25 @@ export interface BettingSettings {
   monthly_loss_limit?: number | null
   created_at?: string
   updated_at?: string
+}
+
+// --- Match of Day ---
+export interface MatchOfDayEvent {
+  id: string
+  official_match_day: string  // YYYY-MM-DD
+  match_id: string
+  vote_deadline: string       // ISO 8601
+  selected_bonus_points: number | null
+  status: 'voting' | 'locked' | 'settled'
+  created_at: string
+  updated_at: string
+}
+
+export interface MatchOfDayVote {
+  id: string
+  event_id: string
+  user_id: string
+  bonus_points: 1 | 2 | 3 | 4
+  created_at: string
+  updated_at: string
 }

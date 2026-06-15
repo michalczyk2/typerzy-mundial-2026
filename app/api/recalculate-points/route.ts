@@ -37,6 +37,46 @@ export async function POST(req: NextRequest) {
     const outcomePoints = settingsMap['outcome_points'] ?? SCORING_DEFAULTS.outcome_points.value
     const exactScorePoints = settingsMap['exact_score_points'] ?? SCORING_DEFAULTS.exact_score_points.value
 
+    // 2a. Auto-finalize overdue match-of-day events before calculating bonuses.
+    // This ensures bonuses are available even if the finalize cron hasn't run yet.
+    const nowIso = new Date().toISOString()
+    const { data: dueEvents } = await db
+      .from('match_of_day_events')
+      .select('id')
+      .in('status', ['voting', 'locked'])
+      .lt('vote_deadline', nowIso)
+
+    for (const ev of dueEvents ?? []) {
+      const { data: votes } = await db
+        .from('match_of_day_votes')
+        .select('bonus_points')
+        .eq('event_id', ev.id)
+      const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }
+      for (const v of votes ?? []) counts[v.bonus_points as number] = (counts[v.bonus_points as number] ?? 0) + 1
+      const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0)
+      let selectedBonus = 2
+      if (totalVotes > 0) {
+        const maxVotes = Math.max(...Object.values(counts))
+        const tied = ([4, 3, 2, 1] as const).filter(b => counts[b] === maxVotes)
+        selectedBonus = tied[tied.length - 1]
+      }
+      await db.from('match_of_day_events').update({
+        selected_bonus_points: selectedBonus,
+        status: 'settled',
+        updated_at: nowIso,
+      }).eq('id', ev.id)
+    }
+
+    // 2b. Load settled match-of-day bonus map (idempotent: included in points_earned)
+    const { data: modEvents } = await db
+      .from('match_of_day_events')
+      .select('match_id, selected_bonus_points')
+      .eq('status', 'settled')
+      .not('selected_bonus_points', 'is', null)
+    const modBonusMap = new Map<string, number>(
+      (modEvents ?? []).map(e => [e.match_id as string, e.selected_bonus_points as number])
+    )
+
     // 2. Get all finished matches with scores
     const { data: matches, error: matchErr } = await db
       .from('matches')
@@ -110,9 +150,13 @@ export async function POST(req: NextRequest) {
         pred.predicted_result as PredictionResult | undefined,
       )
 
+      // Add match-of-day bonus when player had any correct prediction for that match
+      const modBonus = modBonusMap.get(pred.match_id)
+      const totalPoints = (modBonus && points > 0) ? points + modBonus : points
+
       const { error: upErr } = await db
         .from('predictions')
-        .update({ points_earned: points, is_correct_outcome, is_correct_score, is_locked: true })
+        .update({ points_earned: totalPoints, is_correct_outcome, is_correct_score, is_locked: true })
         .eq('id', pred.id)
 
       if (upErr) {
@@ -125,7 +169,7 @@ export async function POST(req: NextRequest) {
       if (!profileStats[pred.user_id]) {
         profileStats[pred.user_id] = { match_points: 0, predictions_count: 0, correct_outcomes: 0, correct_scores: 0 }
       }
-      profileStats[pred.user_id].match_points += points
+      profileStats[pred.user_id].match_points += totalPoints
       profileStats[pred.user_id].predictions_count += 1
       if (is_correct_outcome) profileStats[pred.user_id].correct_outcomes += 1
       if (is_correct_score) profileStats[pred.user_id].correct_scores += 1

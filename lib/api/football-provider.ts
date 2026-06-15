@@ -120,6 +120,7 @@ export interface FootballFixture {
   team_a_code: string
   team_b_code: string
   match_date: string
+  official_match_day: string  // raw FIFA schedule date YYYY-MM-DD (not UTC-converted)
   status: MatchStatus
   score_a: number | null
   score_b: number | null
@@ -247,6 +248,14 @@ const WC26_STADIUM_UTC_OFFSET: Record<string, number> = {
   '16': -7, // SoFi Stadium, Los Angeles (PDT)
 }
 
+// Extract the local calendar date YYYY-MM-DD from "MM/DD/YYYY HH:MM" without UTC conversion
+function wc26LocalDay(raw: string | null): string {
+  if (!raw) return new Date().toISOString().slice(0, 10)
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (!m) return raw.slice(0, 10)
+  return `${m[3]}-${m[1]}-${m[2]}`
+}
+
 // "MM/DD/YYYY HH:MM" is venue-local time; convert to UTC using the stadium's offset
 function wc26ParseDate(raw: string | null, stadiumId?: string | number | null): string {
   if (!raw) return new Date().toISOString()
@@ -288,6 +297,7 @@ export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
         team_a_code: wc26TeamCode(g.home_team_name_en, g.home_team_code),
         team_b_code: wc26TeamCode(g.away_team_name_en, g.away_team_code),
         match_date: wc26ParseDate(g.local_date, g.stadium_id),
+        official_match_day: wc26LocalDay(g.local_date),
         status: wc26Status(g),
         score_a: wc26ParseScore(g.home_score),
         score_b: wc26ParseScore(g.away_score),
@@ -335,6 +345,7 @@ export async function fetchFixtures(): Promise<FootballFixture[]> {
         team_a_code: getCode(m.team1, codeMap),
         team_b_code: getCode(m.team2, codeMap),
         match_date: toISODate(m.date, m.time),
+        official_match_day: m.date, // raw FIFA schedule date, avoids UTC-offset issues
         status: (hasScore ? 'finished' : 'scheduled') as MatchStatus,
         score_a: m.score?.ft?.[0] ?? null,
         score_b: m.score?.ft?.[1] ?? null,
