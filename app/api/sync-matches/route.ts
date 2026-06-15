@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       team_a_code: f.team_a_code,
       team_b_code: f.team_b_code,
       match_date: f.match_date,
+      official_match_day: f.official_match_day,
       status: f.status,
       score_a: f.score_a,
       score_b: f.score_b,

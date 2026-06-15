@@ -15,6 +15,14 @@
     {
       "path": "/api/sync-standings",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/match-of-day/ensure",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/match-of-day/finalize",
+      "schedule": "0 * * * *"
     }
   ]
 }

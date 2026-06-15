@@ -3,11 +3,11 @@ import Link from 'next/link'
 import type { Match, Prediction, User } from '@/types'
 import { Badge } from '@/components/ui/Badge'
 import { TeamBadge } from '@/components/ui/TeamBadge'
-import { formatMatchDate, formatMatchTime, isMatchLocked, getCountdown, getPhaseLabel } from '@/lib/utils'
+import { cn, formatMatchDate, formatMatchTime, isMatchLocked, getCountdown, getPhaseLabel } from '@/lib/utils'
 
-interface Props { match: Match; prediction?: Prediction; currentUser?: User | null }
+interface Props { match: Match; prediction?: Prediction; currentUser?: User | null; isMatchOfDay?: boolean }
 
-export function MatchCard({ match, prediction, currentUser }: Props) {
+export function MatchCard({ match, prediction, currentUser, isMatchOfDay = false }: Props) {
   const locked = isMatchLocked(match.match_date)
   const isFinished = match.status === 'finished'
   const isLive = match.status === 'live'
@@ -28,9 +28,33 @@ export function MatchCard({ match, prediction, currentUser }: Props) {
 
   return (
     <Link href={`/mecze/${match.id}`} className="block">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors cursor-pointer">
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-950 border-b border-gray-800 text-xs text-gray-500">
-          <span>{match.group_name ? `Grupa ${match.group_name} · Kolejka ${match.round}` : getPhaseLabel(match.phase)}</span>
+      <div className={cn(
+        'relative bg-gray-900 rounded-xl overflow-hidden transition-colors cursor-pointer',
+        isMatchOfDay
+          ? 'border border-amber-500/50 hover:border-amber-400/70 shadow-[0_0_20px_-4px_rgba(251,191,36,0.25)]'
+          : 'border border-gray-800 hover:border-gray-700'
+      )}>
+        {/* Subtle fire gradients on left and right edges */}
+        {isMatchOfDay && (
+          <>
+            <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-amber-500/20 to-transparent pointer-events-none z-10"
+              style={{ animation: 'streak-flicker 2.2s ease-in-out infinite' }} />
+            <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-orange-500/15 to-transparent pointer-events-none z-10"
+              style={{ animation: 'streak-flicker 2.2s ease-in-out infinite 1.1s' }} />
+          </>
+        )}
+        <div className={cn(
+          'flex items-center justify-between px-4 py-2 border-b text-xs',
+          isMatchOfDay
+            ? 'bg-amber-950/40 border-amber-800/40 text-amber-300/70'
+            : 'bg-gray-950 border-gray-800 text-gray-500'
+        )}>
+          <span className="flex items-center gap-1.5">
+            {isMatchOfDay && <span>🔥</span>}
+            {isMatchOfDay && <span className="font-semibold text-amber-400">Mecz dnia</span>}
+            {isMatchOfDay && <span className="text-amber-600">·</span>}
+            <span>{match.group_name ? `Grupa ${match.group_name} · Kolejka ${match.round}` : getPhaseLabel(match.phase)}</span>
+          </span>
           <div className="flex items-center gap-2">
             {isLive && <Badge variant="live">NA ŻYWO</Badge>}
             {isFinished && <Badge variant="finished">Zakończony</Badge>}

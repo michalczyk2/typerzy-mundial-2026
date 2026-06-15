@@ -120,6 +120,7 @@ export interface FootballFixture {
   team_a_code: string
   team_b_code: string
   match_date: string
+  official_match_day: string  // raw FIFA schedule date YYYY-MM-DD (not UTC-converted)
   status: MatchStatus
   score_a: number | null
   score_b: number | null
@@ -156,6 +157,7 @@ export async function fetchFixtures(): Promise<FootballFixture[]> {
         team_a_code: getCode(m.team1, codeMap),
         team_b_code: getCode(m.team2, codeMap),
         match_date: toISODate(m.date, m.time),
+        official_match_day: m.date, // raw FIFA schedule date, avoids UTC-offset issues
         status: (hasScore ? 'finished' : 'scheduled') as MatchStatus,
         score_a: m.score?.ft?.[0] ?? null,
         score_b: m.score?.ft?.[1] ?? null,
