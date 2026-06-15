@@ -26,27 +26,44 @@ async function checkLegacyConflicts(db: DbClient): Promise<string | null> {
     db.from('matches').select('id, external_id, team_a, team_b').like('external_id', 'ofb_%'),
   ])
 
-  const legacy = [...(nullResult.data ?? []), ...(ofbResult.data ?? [])]
+  const legacy = [...(nullResult.data ?? []), ...(ofbResult.data ?? [])] as {
+    id: string
+    external_id: string | null
+    team_a: string
+    team_b: string
+  }[]
+
   if (legacy.length === 0) return null
 
-  const legacyIds = legacy.map((m: { id: string }) => m.id)
+  const legacyIds = legacy.map(m => m.id)
   const { data: preds } = await db
     .from('predictions')
     .select('match_id')
     .in('match_id', legacyIds)
     .limit(1)
 
-  if (!preds || preds.length === 0) return null
+  if (!preds || preds.length === 0) {
+    // Brak typów na starych meczach — bezpiecznie usuwamy przed sync WC26 żeby uniknąć duplikatów
+    const { error: delErr } = await db.from('matches').delete().in('id', legacyIds)
+    if (delErr) {
+      return (
+        `Nie udało się automatycznie usunąć ${legacy.length} starych meczów (ofb_*/null): ${delErr.message}. ` +
+        `Uruchom ręcznie w Supabase: DELETE FROM matches WHERE external_id LIKE 'ofb_%' OR external_id IS NULL;`
+      )
+    }
+    console.log(`[sync-wc26] Auto-usunięto ${legacyIds.length} starych meczów bez typów (ofb_*/null)`)
+    return null
+  }
 
-  const examples = (legacy as { id: string; external_id: string | null; team_a: string; team_b: string }[])
+  const examples = legacy
     .slice(0, 3)
-    .map(m => `${m.team_a} – ${m.team_b} (${m.external_id ?? 'brak external_id'})`)
+    .map(m => `${m.team_a} – ${m.team_b} (${m.external_id ?? 'null'})`)
     .join(', ')
 
   return (
-    `Synchronizacja zablokowana: znaleziono ${legacy.length} meczów ze starym ` +
-    `external_id (NULL lub ofb_*) z przypisanymi typami użytkowników — np. ${examples}. ` +
-    `Usuń lub zmigruj te mecze ręcznie w Supabase zanim uruchomisz synchronizację worldcup26.ir.`
+    `Synchronizacja zablokowana: ${legacy.length} meczów ze starym external_id (NULL lub ofb_*) ` +
+    `ma przypisane typy użytkowników — np. ${examples}. ` +
+    `Uruchom migrację 20260614_fix_duplicates.sql (Fazy 1–3) w Supabase, aby przepiąć typy na WC26-mecze i usunąć duplikaty.`
   )
 }
 

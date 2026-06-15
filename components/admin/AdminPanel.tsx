@@ -540,7 +540,7 @@ export function AdminPanel() {
               {wc26LastSync && (
                 <p className={`text-xs mt-0.5 ${wc26LastSync.status === 'success' ? 'text-gray-600' : 'text-red-400'}`}>
                   sync {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
-                  {wc26LastSync.status !== 'success' && ' ⚠️'}
+                  {wc26LastSync.status === 'success' ? ` · ${wc26LastSync.records_updated} zaktualizowanych` : ' ⚠️'}
                 </p>
               )}
             </div>

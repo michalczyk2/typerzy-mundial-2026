@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { checkFootballConfig, fetchFixtures } from '@/lib/api/football-provider'
+import { checkFootballConfig, fetchFixtures, fetchWC26Fixtures } from '@/lib/api/football-provider'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -40,7 +40,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const fixtures = await fetchFixtures()
+    // Jeśli WC26-mecze już są w bazie, nie rób fallbacku na OFB — to tworzy duplikaty
+    const { count: wc26Count } = await db
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .like('external_id', 'wc26_%')
+
+    let fixtures
+    if ((wc26Count ?? 0) > 0) {
+      // Baza ma już dane WC26 — używaj wyłącznie WC26, bez OFB fallbacku
+      fixtures = await fetchWC26Fixtures()
+      if (!fixtures || fixtures.length === 0) {
+        const msg = 'worldcup26.ir niedostępne — sync pominięty (baza ma już mecze wc26_*). Użyj sync-wc26.'
+        console.warn('[sync-matches]', msg)
+        await db.from('sync_logs').insert({ sync_type: 'matches', status: 'error', records_updated: 0, message: msg })
+        return NextResponse.json({ error: msg }, { status: 502 })
+      }
+    } else {
+      fixtures = await fetchFixtures()
+    }
 
     const rows = fixtures.map(f => ({
       external_id: f.external_id,
