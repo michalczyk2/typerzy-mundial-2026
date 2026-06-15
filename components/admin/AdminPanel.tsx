@@ -17,6 +17,20 @@ type WC26SyncLog = { created_at: string; status: string; message: string; record
 
 type ChampionPick = { id: string; user_id: string; nick: string; team_code: string; team_name: string; is_correct: boolean | null }
 
+type DuplicatePair = {
+  legacyId: string
+  legacyExt: string | null
+  legacyTeamA: string
+  legacyTeamB: string
+  legacyDay: string
+  legacyRound: number
+  legacyGroup: string | null
+  legacySource: string
+  canonicalId: string
+  canonicalExt: string
+  canonicalDay: string
+}
+
 type ModEvent = {
   id: string
   official_match_day: string
@@ -71,6 +85,11 @@ export function AdminPanel() {
   const [championMsg, setChampionMsg] = useState('')
   const [modStatus, setModStatus] = useState<ModStatusData>(null)
   const [modActionStatus, setModActionStatus] = useState<Record<string, string>>({})
+  const [duplicates, setDuplicates] = useState<DuplicatePair[] | null>(null)
+  const [dupAuditMsg, setDupAuditMsg] = useState('')
+  const [dupAuditLoading, setDupAuditLoading] = useState(false)
+  const [archiveMsg, setArchiveMsg] = useState<Record<string, string>>({})
+  const [showAllMatches, setShowAllMatches] = useState(false)
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -143,6 +162,51 @@ export function AdminPanel() {
       .then(r => r.json())
       .then(data => setModStatus(data))
       .catch(() => {})
+  }
+
+  const handleAuditDuplicates = async () => {
+    if (!IS_PRODUCTION_MODE) {
+      setDupAuditMsg('[MOCK] Tryb lokalny — brak audytu')
+      return
+    }
+    setDupAuditLoading(true)
+    setDupAuditMsg('Szukam duplikatów...')
+    try {
+      const res = await fetch('/api/admin/matches/audit-duplicates')
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setDuplicates(json.duplicates ?? [])
+        setDupAuditMsg(json.message ?? '')
+      } else {
+        setDupAuditMsg(`Błąd: ${json.error ?? 'Nieznany'}`)
+      }
+    } catch {
+      setDupAuditMsg('Błąd sieci')
+    } finally {
+      setDupAuditLoading(false)
+    }
+  }
+
+  const handleArchiveMatch = async (matchId: string, archived: boolean) => {
+    if (!IS_PRODUCTION_MODE) return
+    setArchiveMsg(s => ({ ...s, [matchId]: 'Zapisywanie...' }))
+    try {
+      const res = await fetch('/api/admin/matches/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_id: matchId, archived }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setArchiveMsg(s => ({ ...s, [matchId]: json.message ?? 'OK' }))
+        // Re-run audit to refresh the list
+        await handleAuditDuplicates()
+      } else {
+        setArchiveMsg(s => ({ ...s, [matchId]: `Błąd: ${json.error ?? 'Nieznany'}` }))
+      }
+    } catch {
+      setArchiveMsg(s => ({ ...s, [matchId]: 'Błąd sieci' }))
+    }
   }
 
   useEffect(() => {
@@ -453,6 +517,48 @@ export function AdminPanel() {
       </Card>
 
       <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🔍 Naprawa danych — duplikaty meczów</h2>
+        <p className="text-gray-600 text-xs mb-3">
+          Wykrywa mecze z dwoma rekordami: stary (ręczny/ofb_*) + nowy z API worldcup26.ir.
+          Przed archiwizacją uruchom migrację SQL 004 w Supabase — przeniesie typowania i usunie stare.
+        </p>
+        <div className="flex items-center gap-3 flex-wrap mb-3">
+          <Button variant="secondary" onClick={handleAuditDuplicates} disabled={dupAuditLoading}>
+            {dupAuditLoading ? 'Szukam...' : '🔍 Audyt duplikatów'}
+          </Button>
+          {dupAuditMsg && (
+            <p className={`text-xs ${dupAuditMsg.startsWith('Brak') ? 'text-emerald-400' : dupAuditMsg.startsWith('Znaleziono') ? 'text-amber-400' : 'text-gray-400'}`}>
+              {dupAuditMsg}
+            </p>
+          )}
+        </div>
+        {duplicates !== null && duplicates.length > 0 && (
+          <div className="space-y-3">
+            {duplicates.map(dup => (
+              <div key={dup.legacyId} className="bg-gray-800/50 rounded-lg p-3 text-xs space-y-1">
+                <p className="text-white font-medium">{dup.legacyTeamA} vs {dup.legacyTeamB}</p>
+                <p className="text-red-400">Stary: {dup.legacyExt ?? 'brak external_id'} · {dup.legacyDay} · gr.{dup.legacyGroup} kol.{dup.legacyRound}</p>
+                <p className="text-emerald-400">Nowy: {dup.canonicalExt} · {dup.canonicalDay}</p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Button size="sm" variant="danger"
+                    onClick={() => handleArchiveMatch(dup.legacyId, true)}
+                    disabled={archiveMsg[dup.legacyId] === 'Zapisywanie...'}>
+                    🗑️ Archiwizuj stary
+                  </Button>
+                  {archiveMsg[dup.legacyId] && (
+                    <span className="text-gray-400 text-xs">{archiveMsg[dup.legacyId]}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {duplicates !== null && duplicates.length === 0 && (
+          <p className="text-emerald-400 text-xs">Brak duplikatów — dane są czyste.</p>
+        )}
+      </Card>
+
+      <Card>
         <h2 className="text-white font-bold text-lg mb-3">🔥 Mecz dnia</h2>
 
         {!IS_PRODUCTION_MODE ? (
@@ -601,62 +707,72 @@ export function AdminPanel() {
       </Card>
 
       <Card>
-        <h2 className="text-white font-bold text-lg mb-1">Wszystkie mecze</h2>
-        <p className="text-gray-600 text-xs mb-4">{matches.length} meczów</p>
-        <div className="space-y-2">
-          {matches.map(match => (
-            <div key={match.id} className="border border-gray-800 rounded-lg py-3 px-3">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <Link href={`/mecze/${match.id}`} className="text-gray-200 text-sm font-medium hover:text-emerald-400 transition-colors">
-                    {match.team_a} vs {match.team_b} →
-                  </Link>
-                  <div className="text-gray-600 text-xs mt-0.5">
-                    {match.phase === 'group' ? `Gr. ${match.group_name} · R${match.round}` : match.phase}
-                    {' · '}{match.status}
-                  </div>
-                </div>
-
-                {editing === match.id && editMode === 'score' ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input type="number" min="0" max="20" value={scoreA} onChange={e => setScoreA(e.target.value)}
-                      className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
-                    <span className="text-gray-600">:</span>
-                    <input type="number" min="0" max="20" value={scoreB} onChange={e => setScoreB(e.target.value)}
-                      className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
-                    <Button size="sm" onClick={() => handleScoreSubmit(match.id)}>OK</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
-                  </div>
-                ) : editing === match.id && editMode === 'meta' ? (
-                  <div className="flex flex-col gap-2 w-full mt-2">
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <select value={editPhase} onChange={e => setEditPhase(e.target.value as MatchPhase)}
-                        className="bg-gray-800 border border-gray-700 rounded text-white text-xs px-2 h-8 focus:outline-none focus:border-emerald-500">
-                        {(['group','round_of_32','round_of_16','quarterfinal','semifinal','third_place','final'] as MatchPhase[]).map(p => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                      <input value={editGroup} onChange={e => setEditGroup(e.target.value)} placeholder="Grupa (A-L)"
-                        className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500 px-2" />
-                      <input type="number" value={editRound} onChange={e => setEditRound(e.target.value)} placeholder="Kolejka"
-                        className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500" />
-                      <Button size="sm" onClick={() => handleMetaSubmit(match.id)}>Zapisz</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-white font-bold text-lg">Wszystkie mecze</h2>
+          <button
+            onClick={() => setShowAllMatches(v => !v)}
+            className="text-xs text-gray-500 hover:text-gray-300 underline"
+          >
+            {showAllMatches ? 'Ukryj' : 'Pokaż'}
+          </button>
+        </div>
+        <p className="text-gray-600 text-xs mb-4">{matches.length} aktywnych meczów (zarchiwizowane ukryte — patrz Audyt duplikatów)</p>
+        {showAllMatches && (
+          <div className="space-y-2">
+            {matches.map(match => (
+              <div key={match.id} className="border border-gray-800 rounded-lg py-3 px-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/mecze/${match.id}`} className="text-gray-200 text-sm font-medium hover:text-emerald-400 transition-colors">
+                      {match.team_a} vs {match.team_b} →
+                    </Link>
+                    <div className="text-gray-600 text-xs mt-0.5">
+                      {match.phase === 'group' ? `Gr. ${match.group_name} · R${match.round}` : match.phase}
+                      {' · '}{match.status}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 shrink-0">
-                    {match.score_a !== null && match.score_b !== null
-                      ? <span className="text-white font-bold tabular-nums text-sm">{match.score_a}:{match.score_b}</span>
-                      : <span className="text-gray-700 text-xs">–:–</span>}
-                    <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'score')}>⚽</Button>
-                    <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'meta')}>✎</Button>
-                  </div>
-                )}
+
+                  {editing === match.id && editMode === 'score' ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="number" min="0" max="20" value={scoreA} onChange={e => setScoreA(e.target.value)}
+                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
+                      <span className="text-gray-600">:</span>
+                      <input type="number" min="0" max="20" value={scoreB} onChange={e => setScoreB(e.target.value)}
+                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
+                      <Button size="sm" onClick={() => handleScoreSubmit(match.id)}>OK</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
+                    </div>
+                  ) : editing === match.id && editMode === 'meta' ? (
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <select value={editPhase} onChange={e => setEditPhase(e.target.value as MatchPhase)}
+                          className="bg-gray-800 border border-gray-700 rounded text-white text-xs px-2 h-8 focus:outline-none focus:border-emerald-500">
+                          {(['group','round_of_32','round_of_16','quarterfinal','semifinal','third_place','final'] as MatchPhase[]).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        <input value={editGroup} onChange={e => setEditGroup(e.target.value)} placeholder="Grupa (A-L)"
+                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500 px-2" />
+                        <input type="number" value={editRound} onChange={e => setEditRound(e.target.value)} placeholder="Kolejka"
+                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500" />
+                        <Button size="sm" onClick={() => handleMetaSubmit(match.id)}>Zapisz</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {match.score_a !== null && match.score_b !== null
+                        ? <span className="text-white font-bold tabular-nums text-sm">{match.score_a}:{match.score_b}</span>
+                        : <span className="text-gray-700 text-xs">–:–</span>}
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'score')}>⚽</Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'meta')}>✎</Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card>

@@ -68,6 +68,7 @@ export interface Match {
   data_source: DataSource
   last_synced_at: string | null
   created_at: string
+  is_archived?: boolean | null
   bracket_position?: string | null
   home_placeholder?: string | null
   away_placeholder?: string | null

@@ -63,7 +63,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         fetch('/api/data/last-predictions'),
       ])
 
-      if (matchesRes.data) setMatches(matchesRes.data)
+      // Filter archived matches for regular users — is_archived may be undefined before migration 004 runs
+      if (matchesRes.data) setMatches(matchesRes.data.filter(m => m.is_archived !== true))
       // DB column is team_name, TypeScript Standing type uses team — map here
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (standingsRes.data) setStandings(standingsRes.data.map((row: any) => ({ ...row, team: row.team_name ?? '' })))
