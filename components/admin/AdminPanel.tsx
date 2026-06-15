@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import type { Match, MatchPhase } from '@/types'
+import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
+import type { FormDisplayMode, FormEffectOverride, FormStyleVariant, FormVisualSettings, Match, MatchPhase, User } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -71,12 +72,53 @@ async function callSyncEndpoint(endpoint: string): Promise<string> {
 }
 
 type PendingUser = { id: string; nick: string; status: string; role: string; total_points: number }
+type UserEditForm = {
+  nick: string
+  formEffectOverride: FormEffectOverride
+  customFormTitle: string
+  adminNote: string
+}
+
+const FORM_EFFECT_OPTIONS: { value: FormEffectOverride; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'none', label: 'Brak efektu' },
+  { value: 'hot', label: '🔥 Gorąca seria' },
+  { value: 'sniper', label: '🎯 Snajper' },
+  { value: 'cold', label: '❄️ Zimna seria' },
+  { value: 'storm', label: '⛈️ Czarne chmury' },
+  { value: 'curse', label: '🔮 Klątwa typera' },
+  { value: 'wooden', label: '🪵 Drewniana forma' },
+  { value: 'var', label: '👁️ VAR sprawdza typy' },
+]
+
+const FORM_DISPLAY_OPTIONS: { value: FormDisplayMode; label: string; desc: string }[] = [
+  { value: 'off', label: 'OFF', desc: 'same dane i kropki' },
+  { value: 'badge_only', label: 'BADGE_ONLY', desc: 'tylko główny status' },
+  { value: 'badge_and_title', label: 'BADGE_AND_TITLE', desc: 'status i ręczny tytuł' },
+  { value: 'full_effects', label: 'FULL_EFFECTS', desc: 'status, tytuł i efekty tła' },
+]
+
+const FORM_STYLE_OPTIONS: { value: FormStyleVariant; label: string; desc: string }[] = [
+  { value: 'light', label: 'LIGHT', desc: 'czysto, lekko, elegancko' },
+  { value: 'sport', label: 'SPORT', desc: 'turniejowo i dynamicznie' },
+  { value: 'premium', label: 'PREMIUM', desc: 'ciemniej, głębiej, bardziej luksusowo' },
+  { value: 'game', label: 'GAME', desc: 'rangi i osiągnięcia' },
+  { value: 'strong', label: 'STRONG', desc: 'najmocniejsze motywy i tekstury' },
+]
 
 export function AdminPanel() {
   const { users, matches, currentUser, setUsers, updateUserStatus, updateMatchScore, updateMatchFull } = useAppStore()
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [editingNickId, setEditingNickId] = useState<string|null>(null)
   const [editNickValue, setEditNickValue] = useState('')
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [userEditForm, setUserEditForm] = useState<UserEditForm>({
+    nick: '',
+    formEffectOverride: 'auto',
+    customFormTitle: '',
+    adminNote: '',
+  })
+  const [userEditStatus, setUserEditStatus] = useState('')
   const [editing, setEditing] = useState<string|null>(null)
   const [editMode, setEditMode] = useState<EditMode>(null)
   const [scoreA, setScoreA] = useState('')
@@ -88,6 +130,8 @@ export function AdminPanel() {
   const [settings, setSettings] = useState<ScoringSetting[]>([])
   const [settingValues, setSettingValues] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<Record<string, string>>({})
+  const [formVisualSettings, setFormVisualSettings] = useState<FormVisualSettings>(DEFAULT_FORM_VISUAL_SETTINGS)
+  const [formVisualStatus, setFormVisualStatus] = useState('')
   const [wc26LastSync, setWc26LastSync] = useState<WC26SyncLog | null>(null)
   const [wc26ActiveCount, setWc26ActiveCount] = useState(0)
   const [wc26Loading, setWc26Loading] = useState(false)
@@ -117,6 +161,15 @@ export function AdminPanel() {
         setPendingUsers(pending)
       })
       .catch(err => console.error('[AdminPanel] loadPendingUsers:', err))
+  }
+
+  const loadFormVisualSettings = () => {
+    fetch('/api/admin/form-visual-settings')
+      .then(r => r.json())
+      .then(({ settings }: { settings?: FormVisualSettings }) => {
+        if (settings) setFormVisualSettings(settings)
+      })
+      .catch(() => {})
   }
 
   const loadChampion = () => {
@@ -256,6 +309,7 @@ export function AdminPanel() {
 
   useEffect(() => {
     loadPendingUsers()
+    loadFormVisualSettings()
     loadWC26Sync()
     loadChampion()
     loadModStatus()
@@ -431,6 +485,83 @@ export function AdminPanel() {
     }
   }
 
+  const handleSaveFormVisualSettings = async () => {
+    setFormVisualStatus('Zapisywanie...')
+    try {
+      const res = await fetch('/api/admin/form-visual-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formVisualSettings),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setFormVisualSettings(json.settings ?? formVisualSettings)
+        setFormVisualStatus('Zapisano ✓')
+      } else {
+        setFormVisualStatus(json.error ?? 'Błąd zapisu')
+      }
+    } catch {
+      setFormVisualStatus('Błąd sieci')
+    }
+  }
+
+  const openUserEditor = (user: User) => {
+    setEditingUser(user)
+    setUserEditForm({
+      nick: user.nick,
+      formEffectOverride: user.form_effect_override ?? 'auto',
+      customFormTitle: user.custom_form_title ?? '',
+      adminNote: user.admin_note ?? '',
+    })
+    setUserEditStatus('')
+    setEditingNickId(null)
+  }
+
+  const closeUserEditor = () => {
+    setEditingUser(null)
+    setUserEditForm({ nick: '', formEffectOverride: 'auto', customFormTitle: '', adminNote: '' })
+    setUserEditStatus('')
+  }
+
+  const handleSaveUserProfile = async () => {
+    if (!editingUser) return
+    const nick = userEditForm.nick.trim()
+    if (!nick) {
+      setUserEditStatus('Nick nie może być pusty.')
+      return
+    }
+
+    setUserEditStatus('Zapisywanie...')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingUser.id,
+          nick,
+          form_effect_override: userEditForm.formEffectOverride,
+          custom_form_title: userEditForm.customFormTitle,
+          admin_note: userEditForm.adminNote,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setUserEditStatus(json.error ?? 'Błąd zapisu')
+        return
+      }
+      setUsers(users.map(u => u.id === editingUser.id ? {
+        ...u,
+        nick,
+        form_effect_override: userEditForm.formEffectOverride,
+        custom_form_title: userEditForm.customFormTitle.trim() || null,
+        admin_note: userEditForm.adminNote.trim() || null,
+      } : u))
+      closeUserEditor()
+    } catch {
+      setUserEditStatus('Błąd sieci')
+    }
+  }
+
   const handleUserAction = async (userId: string, status: 'active' | 'blocked') => {
     try {
       const res = await fetch('/api/admin/users', {
@@ -525,6 +656,63 @@ export function AdminPanel() {
             <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
           )}
         </div>
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-white font-bold text-lg">Wygląd formy graczy</h2>
+            <p className="text-gray-600 text-xs mt-0.5">Globalne ustawienia badge, tytułów i efektów w tabeli typerów.</p>
+          </div>
+          <Button size="sm" onClick={handleSaveFormVisualSettings} disabled={formVisualStatus === 'Zapisywanie...'}>
+            Zapisz
+          </Button>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Tryb wyświetlania</span>
+            <select
+              value={formVisualSettings.display_mode}
+              onChange={e => setFormVisualSettings(s => ({ ...s, display_mode: e.target.value as FormDisplayMode }))}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              {FORM_DISPLAY_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label} - {option.desc}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Wariant stylu</span>
+            <select
+              value={formVisualSettings.style_variant}
+              onChange={e => setFormVisualSettings(s => ({ ...s, style_variant: e.target.value as FormStyleVariant }))}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              {FORM_STYLE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label} - {option.desc}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className={`form-admin-preview form-style-${formVisualSettings.style_variant}`}>
+          <div className={`form-admin-preview-row ${formVisualSettings.display_mode === 'full_effects' ? 'form-effect-hot' : ''}`}>
+            {formVisualSettings.display_mode !== 'off' && (
+              <span className="form-rank form-rank-hot"><span className="form-rank-icon">🔥</span><span className="form-rank-label">Gorąca seria</span></span>
+            )}
+            {formVisualSettings.display_mode !== 'badge_only' && formVisualSettings.display_mode !== 'off' && (
+              <span className="form-custom-title">Profesor Typów</span>
+            )}
+            {formVisualSettings.display_mode === 'off' && (
+              <span className="text-xs font-semibold text-gray-500">Bez odznak, tytułów i efektów</span>
+            )}
+            <span className="ml-auto text-xs text-gray-400">{formVisualSettings.display_mode}</span>
+          </div>
+        </div>
+
+        {formVisualStatus && <p className="mt-2 text-xs text-gray-500">{formVisualStatus}</p>}
       </Card>
 
       <Card>
@@ -921,10 +1109,11 @@ export function AdminPanel() {
 
       <Card>
         <h2 className="text-white font-bold text-lg mb-2">Wszyscy gracze</h2>
-        <div className="space-y-2">
+        <div className="overflow-hidden rounded-lg border border-gray-800">
           {users.map(user => (
-            <div key={user.id} className="flex items-center justify-between py-2 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
+            <div key={user.id} className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-800 px-3 py-2.5 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                 {editingNickId === user.id ? (
                   <input
                     type="text"
@@ -943,9 +1132,15 @@ export function AdminPanel() {
                 {user.role === 'admin' && <Badge variant="admin">Admin</Badge>}
                 {user.status === 'pending' && <Badge variant="pending">Oczekuje</Badge>}
                 {user.status === 'blocked' && <Badge variant="default" className="text-red-400">Zablokowany</Badge>}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                  <span>{user.form_effect_override === 'auto' ? 'Efekt: auto' : `Efekt: ${user.form_effect_override}`}</span>
+                  {user.custom_form_title && <span className="truncate">• {user.custom_form_title}</span>}
+                </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
+                <Button size="sm" variant="secondary" onClick={() => openUserEditor(user)}>Edytuj</Button>
                 {editingNickId === user.id ? (
                   <>
                     <Button size="sm" onClick={() => handleRenameUser(user.id, editNickValue)}>Zapisz</Button>
@@ -962,6 +1157,72 @@ export function AdminPanel() {
           ))}
         </div>
       </Card>
+
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center">
+          <div className="w-full max-w-lg rounded-xl border border-gray-800 bg-gray-950 p-4 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white">Edycja gracza</h3>
+                <p className="text-xs text-gray-500">Tylko profil i status formy. Punkty oraz typy nie są edytowane.</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={closeUserEditor}>✕</Button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-400">Nick</span>
+                <input
+                  value={userEditForm.nick}
+                  onChange={e => setUserEditForm(f => ({ ...f, nick: e.target.value }))}
+                  className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-400">Ręczny tytuł gracza</span>
+                <input
+                  value={userEditForm.customFormTitle}
+                  onChange={e => setUserEditForm(f => ({ ...f, customFormTitle: e.target.value }))}
+                  placeholder="np. Król VAR-u"
+                  className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-400">Efekt/status formy</span>
+                <select
+                  value={userEditForm.formEffectOverride}
+                  onChange={e => setUserEditForm(f => ({ ...f, formEffectOverride: e.target.value as FormEffectOverride }))}
+                  className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+                >
+                  {FORM_EFFECT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-400">Notatka admina</span>
+                <textarea
+                  value={userEditForm.adminNote}
+                  onChange={e => setUserEditForm(f => ({ ...f, adminNote: e.target.value }))}
+                  rows={3}
+                  placeholder="Widoczne tylko w panelu admina"
+                  className="w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+                />
+              </label>
+            </div>
+
+            {userEditStatus && <p className="mt-3 text-xs text-gray-400">{userEditStatus}</p>}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={closeUserEditor}>Anuluj</Button>
+              <Button onClick={handleSaveUserProfile} disabled={userEditStatus === 'Zapisywanie...'}>Zapisz zmiany</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

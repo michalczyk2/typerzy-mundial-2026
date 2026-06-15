@@ -2,7 +2,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
-import type { LeaderboardEntry } from '@/types'
+import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
+import type { FormEffect, FormVisualSettings, LeaderboardEntry } from '@/types'
 import type { LeaderboardFormPred, LeaderboardFormMatch } from '@/app/api/data/leaderboard-form/route'
 
 const LEGEND = [
@@ -29,6 +30,16 @@ const FALLBACK_POINTS: Record<string, number> = {
 type DotColor = 'green' | 'orange' | 'red' | 'gray'
 type FormSlot = { color: DotColor; tooltip: string }
 
+const FORM_STATUS_LEGEND: { effect: FormEffect; label: string; desc: string }[] = [
+  { effect: 'hot', label: '🔥 Gorąca seria', desc: 'kilka trafień z rzędu' },
+  { effect: 'sniper', label: '🎯 Snajper', desc: 'kilka dokładnych trafień' },
+  { effect: 'cold', label: '❄️ Zimna seria', desc: '5 nietrafionych typów' },
+  { effect: 'storm', label: '⛈️ Czarne chmury', desc: 'bardzo słaba ostatnia forma' },
+  { effect: 'curse', label: '🔮 Klątwa typera', desc: 'pechowa seria' },
+  { effect: 'wooden', label: '🪵 Drewniana forma', desc: 'brak skuteczności lub typów' },
+  { effect: 'var', label: '👁️ VAR sprawdza typy', desc: 'forma mieszana, podejrzanie blisko' },
+]
+
 // Counts scoring streak from most recent match backwards.
 // green=+1.0, orange=+0.5; red/gray breaks the streak.
 // Returns 0 if fewer than 2 consecutive scoring hits (no fire for a single hit).
@@ -42,6 +53,37 @@ function calcFireScore(slots: FormSlot[]): number {
     else break
   }
   return count >= 2 ? score : 0
+}
+
+function hasRedRun(colors: DotColor[], runLength: number): boolean {
+  let run = 0
+  for (const color of colors) {
+    run = color === 'red' ? run + 1 : 0
+    if (run >= runLength) return true
+  }
+  return false
+}
+
+function getFormEffect(entry: LeaderboardEntry, lastFive: FormSlot[] | undefined, fireScore: number): FormEffect {
+  const override = entry.form_effect_override ?? 'auto'
+  if (override !== 'auto') return override
+  if (!lastFive || lastFive.length < 5) return fireScore > 0 ? 'hot' : 'none'
+
+  const colors = lastFive.map(slot => slot.color)
+  const redCount = colors.filter(color => color === 'red').length
+  const orangeCount = colors.filter(color => color === 'orange').length
+  const greenCount = colors.filter(color => color === 'green').length
+  const grayCount = colors.filter(color => color === 'gray').length
+  const hasGreen = colors.includes('green')
+
+  if (redCount === 5) return 'cold'
+  if (redCount >= 4) return 'storm'
+  if (hasRedRun(colors, 3)) return 'curse'
+  if (grayCount >= 3 || (grayCount >= 2 && redCount >= 1)) return 'wooden'
+  if (!hasGreen && orangeCount + redCount >= 3 && orangeCount >= 1) return 'var'
+  if (greenCount >= 2) return 'sniper'
+  if (fireScore > 0) return 'hot'
+  return 'none'
 }
 
 function dotColor(
@@ -68,6 +110,7 @@ export default function TabelaPage() {
   const [pointsMap, setPointsMap] = useState<Record<string, number>>(FALLBACK_POINTS)
   const [formMatches, setFormMatches] = useState<LeaderboardFormMatch[]>([])
   const [formPreds, setFormPreds] = useState<LeaderboardFormPred[]>([])
+  const [visualSettings, setVisualSettings] = useState<FormVisualSettings>(DEFAULT_FORM_VISUAL_SETTINGS)
 
   useEffect(() => {
     fetch('/api/admin/scoring-settings')
@@ -85,6 +128,15 @@ export default function TabelaPage() {
       .then(({ matches, predictions }: { matches: LeaderboardFormMatch[]; predictions: LeaderboardFormPred[] }) => {
         if (matches) setFormMatches(matches)
         if (predictions) setFormPreds(predictions)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/data/form-visual-settings')
+      .then(r => r.json())
+      .then(({ settings }: { settings?: FormVisualSettings }) => {
+        if (settings) setVisualSettings(settings)
       })
       .catch(() => {})
   }, [])
@@ -129,6 +181,14 @@ export default function TabelaPage() {
     return result
   }, [leaderboard, formData])
 
+  const formEffects = useMemo((): Record<string, FormEffect> => {
+    const result: Record<string, FormEffect> = {}
+    for (const entry of leaderboard) {
+      result[entry.id] = getFormEffect(entry, formData[entry.id], fireScores[entry.id] ?? 0)
+    }
+    return result
+  }, [leaderboard, formData, fireScores])
+
   const myBonuses = useMemo(() => bonusPoints.filter(b => b.user_id === currentUser?.id), [bonusPoints, currentUser])
   const totalBonus = myBonuses.reduce((s, b) => s + b.points, 0)
 
@@ -141,19 +201,39 @@ export default function TabelaPage() {
         currentUserId={currentUser?.id}
         formData={formData}
         fireScores={fireScores}
+        formEffects={formEffects}
+        visualSettings={visualSettings}
       />
 
       {/* Legend */}
-      <div className="mt-4 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-1">
+      <div className="mt-4 mb-3 rounded-xl border border-gray-800 bg-gray-900/65 p-3">
+        <p className="mb-3 text-xs font-black uppercase tracking-wide text-gray-400">Legenda kropek - Ostatnie 5</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {LEGEND.map(({ dot, label }) => (
-          <div key={label} className="flex items-center gap-1.5">
+          <div key={label} className="flex items-center gap-2 rounded-lg bg-gray-950/45 px-2.5 py-2">
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
             <span className="text-xs text-gray-500">{label}</span>
           </div>
         ))}
-        <div className="flex items-center gap-1.5">
+        </div>
+        <div className="hidden">
           <span className="text-sm leading-none">🔥</span>
           <span className="text-xs text-gray-500">forma gracza</span>
+        </div>
+      </div>
+
+      <div className={`form-legend-panel form-style-${visualSettings.style_variant}`}>
+        <p className="mb-3 text-xs font-black uppercase tracking-wide text-gray-400">Statusy / rangi formy</p>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {FORM_STATUS_LEGEND.map(({ effect, label, desc }) => (
+            <div key={effect} className={`form-legend-card form-legend-card-${effect}`}>
+              <span className={`form-status-dot form-status-dot-${effect}`} />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black text-gray-100">{label}</p>
+                <p className="truncate text-[0.68rem] text-gray-500">{desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

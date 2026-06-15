@@ -1,5 +1,6 @@
 'use client'
-import type { LeaderboardEntry } from '@/types'
+import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
+import type { FormEffect, FormVisualSettings, LeaderboardEntry } from '@/types'
 
 type DotColor = 'green' | 'orange' | 'red' | 'gray'
 type FormSlot = { color: DotColor; tooltip: string }
@@ -9,6 +10,8 @@ interface Props {
   currentUserId?: string
   formData?: Record<string, FormSlot[]>
   fireScores?: Record<string, number>
+  formEffects?: Record<string, FormEffect>
+  visualSettings?: FormVisualSettings
 }
 
 const medals = ['🥇', '🥈', '🥉']
@@ -28,90 +31,106 @@ interface FireConfig {
 function getFireConfig(fireScore: number): FireConfig | null {
   if (fireScore < 1.0) return null
 
+  const baseGlow = 'linear-gradient(90deg, rgba(253,224,71,0.05), transparent 82%)'
+
   if (fireScore < 1.5) {
     return {
       glowBg: [
-        'radial-gradient(ellipse 78% 185% at 0% 88%, rgba(153,27,27,0.09) 0%, transparent 100%)',
-        'radial-gradient(ellipse 56% 155% at 1% 65%, rgba(234,88,12,0.07) 0%, transparent 100%)',
-        'radial-gradient(ellipse 36% 120% at 2% 42%, rgba(251,191,36,0.05) 0%, transparent 100%)',
+        'radial-gradient(ellipse 70% 150% at 0% 88%, rgba(251,146,60,0.10) 0%, transparent 76%)',
+        'radial-gradient(ellipse 44% 118% at 2% 62%, rgba(245,158,11,0.08) 0%, transparent 72%)',
+        baseGlow,
       ].join(','),
       flameBg: [
-        'radial-gradient(ellipse 85% 190% at 0% 90%, rgba(153,27,27,0.35) 0%, transparent 100%)',
-        'radial-gradient(ellipse 60% 160% at 0% 68%, rgba(234,88,12,0.28) 0%, transparent 100%)',
-        'radial-gradient(ellipse 38% 125% at 1% 45%, rgba(251,191,36,0.20) 0%, transparent 100%)',
+        'radial-gradient(ellipse 78% 170% at 0% 92%, rgba(234,88,12,0.20) 0%, transparent 76%)',
+        'radial-gradient(ellipse 54% 138% at 1% 68%, rgba(251,146,60,0.16) 0%, transparent 72%)',
+        'radial-gradient(ellipse 28% 90% at 2% 46%, rgba(253,224,71,0.11) 0%, transparent 68%)',
       ].join(','),
-      flameMask: buildFlameUrl('M0,100 L0,68 Q3,54 5,48 Q7,54 10,64 Q13,52 15,46 Q17,54 22,66 Q28,74 40,84 L100,100 Z'),
-      speed: '4.5s',
-      width: 'min(160px, 42vw)',
+      flameMask: buildFlameUrl('M0,100 L0,78 Q4,64 8,58 Q11,66 16,76 Q20,62 25,54 Q29,66 37,77 Q48,86 66,93 L100,100 Z'),
+      speed: '5.8s',
+      width: 'min(130px, 34vw)',
     }
   }
 
   if (fireScore < 2.0) {
     return {
       glowBg: [
-        'radial-gradient(ellipse 82% 190% at 0% 86%, rgba(153,27,27,0.11) 0%, transparent 100%)',
-        'radial-gradient(ellipse 62% 165% at 1% 63%, rgba(234,88,12,0.09) 0%, transparent 100%)',
-        'radial-gradient(ellipse 42% 132% at 2% 40%, rgba(251,191,36,0.07) 0%, transparent 100%)',
+        'radial-gradient(ellipse 74% 160% at 0% 88%, rgba(251,146,60,0.12) 0%, transparent 76%)',
+        'radial-gradient(ellipse 50% 128% at 1% 62%, rgba(245,158,11,0.09) 0%, transparent 72%)',
+        baseGlow,
       ].join(','),
       flameBg: [
-        'radial-gradient(ellipse 88% 195% at 0% 88%, rgba(153,27,27,0.40) 0%, transparent 100%)',
-        'radial-gradient(ellipse 65% 168% at 0% 65%, rgba(234,88,12,0.32) 0%, transparent 100%)',
-        'radial-gradient(ellipse 45% 140% at 1% 42%, rgba(251,146,60,0.25) 0%, transparent 100%)',
-        'radial-gradient(ellipse 28% 108% at 1% 22%, rgba(251,191,36,0.18) 0%, transparent 100%)',
+        'radial-gradient(ellipse 82% 176% at 0% 92%, rgba(234,88,12,0.23) 0%, transparent 76%)',
+        'radial-gradient(ellipse 58% 148% at 0% 68%, rgba(251,146,60,0.18) 0%, transparent 72%)',
+        'radial-gradient(ellipse 34% 104% at 1% 45%, rgba(253,224,71,0.13) 0%, transparent 68%)',
       ].join(','),
-      flameMask: buildFlameUrl('M0,100 L0,58 Q3,42 6,32 Q9,42 13,54 Q16,38 20,28 Q23,38 28,50 Q32,38 36,44 Q40,50 48,60 Q58,70 72,80 L100,100 Z'),
-      speed: '3.8s',
-      width: 'min(230px, 46vw)',
+      flameMask: buildFlameUrl('M0,100 L0,70 Q4,50 9,42 Q13,58 20,72 Q25,50 32,38 Q36,56 45,70 Q56,82 74,91 L100,100 Z'),
+      speed: '5.2s',
+      width: 'min(180px, 38vw)',
     }
   }
 
   if (fireScore < 2.5) {
     return {
       glowBg: [
-        'radial-gradient(ellipse 86% 195% at -1% 84%, rgba(127,29,29,0.12) 0%, transparent 100%)',
-        'radial-gradient(ellipse 68% 172% at 1% 62%, rgba(185,28,28,0.10) 0%, transparent 100%)',
-        'radial-gradient(ellipse 50% 148% at 2% 42%, rgba(234,88,12,0.09) 0%, transparent 100%)',
-        'radial-gradient(ellipse 32% 112% at 2% 22%, rgba(251,191,36,0.06) 0%, transparent 100%)',
+        'radial-gradient(ellipse 78% 170% at -1% 86%, rgba(251,146,60,0.14) 0%, transparent 76%)',
+        'radial-gradient(ellipse 56% 138% at 1% 62%, rgba(245,158,11,0.11) 0%, transparent 72%)',
+        baseGlow,
       ].join(','),
       flameBg: [
-        'radial-gradient(ellipse 90% 200% at -1% 86%, rgba(127,29,29,0.44) 0%, transparent 100%)',
-        'radial-gradient(ellipse 70% 175% at 0% 65%, rgba(185,28,28,0.38) 0%, transparent 100%)',
-        'radial-gradient(ellipse 52% 152% at 1% 44%, rgba(234,88,12,0.30) 0%, transparent 100%)',
-        'radial-gradient(ellipse 34% 118% at 1% 25%, rgba(251,146,60,0.22) 0%, transparent 100%)',
-        'radial-gradient(ellipse 18% 85% at 0% 8%, rgba(251,191,36,0.16) 0%, transparent 100%)',
+        'radial-gradient(ellipse 86% 184% at -1% 91%, rgba(234,88,12,0.25) 0%, transparent 76%)',
+        'radial-gradient(ellipse 62% 154% at 0% 67%, rgba(251,146,60,0.21) 0%, transparent 72%)',
+        'radial-gradient(ellipse 38% 112% at 1% 44%, rgba(253,224,71,0.15) 0%, transparent 68%)',
       ].join(','),
-      flameMask: buildFlameUrl('M0,100 L0,44 Q3,28 7,16 Q10,28 15,40 Q18,26 23,14 Q26,26 32,38 Q36,24 40,30 Q44,38 50,46 Q56,38 60,44 Q66,52 75,62 L88,78 L100,100 Z'),
-      speed: '3.0s',
-      width: 'min(310px, 50vw)',
+      flameMask: buildFlameUrl('M0,100 L0,60 Q4,38 10,26 Q14,46 22,65 Q28,40 36,24 Q41,44 50,62 Q60,76 80,90 L100,100 Z'),
+      speed: '4.6s',
+      width: 'min(230px, 42vw)',
     }
   }
 
   return {
     glowBg: [
-      'radial-gradient(ellipse 90% 200% at -1% 82%, rgba(127,29,29,0.14) 0%, transparent 100%)',
-      'radial-gradient(ellipse 74% 180% at 0% 62%, rgba(185,28,28,0.12) 0%, transparent 100%)',
-      'radial-gradient(ellipse 56% 158% at 1% 44%, rgba(234,88,12,0.10) 0%, transparent 100%)',
-      'radial-gradient(ellipse 38% 128% at 2% 26%, rgba(251,146,60,0.08) 0%, transparent 100%)',
-      'radial-gradient(ellipse 24% 95% at 1% 10%, rgba(251,191,36,0.06) 0%, transparent 100%)',
+      'radial-gradient(ellipse 82% 178% at -1% 84%, rgba(251,146,60,0.15) 0%, transparent 76%)',
+      'radial-gradient(ellipse 62% 148% at 0% 62%, rgba(245,158,11,0.12) 0%, transparent 72%)',
+      baseGlow,
     ].join(','),
     flameBg: [
-      'radial-gradient(ellipse 92% 205% at -2% 85%, rgba(127,29,29,0.48) 0%, transparent 100%)',
-      'radial-gradient(ellipse 76% 182% at 0% 65%, rgba(185,28,28,0.42) 0%, transparent 100%)',
-      'radial-gradient(ellipse 58% 162% at 0% 46%, rgba(234,88,12,0.35) 0%, transparent 100%)',
-      'radial-gradient(ellipse 40% 132% at 1% 28%, rgba(251,146,60,0.26) 0%, transparent 100%)',
-      'radial-gradient(ellipse 26% 98% at 0% 10%, rgba(251,191,36,0.18) 0%, transparent 100%)',
+      'radial-gradient(ellipse 88% 190% at -1% 90%, rgba(234,88,12,0.27) 0%, transparent 76%)',
+      'radial-gradient(ellipse 66% 162% at 0% 66%, rgba(251,146,60,0.23) 0%, transparent 72%)',
+      'radial-gradient(ellipse 42% 118% at 1% 42%, rgba(253,224,71,0.16) 0%, transparent 68%)',
     ].join(','),
-    flameMask: buildFlameUrl('M0,100 L0,34 Q3,18 7,8 Q10,18 16,30 Q19,16 24,6 Q27,16 33,28 Q36,14 41,22 Q45,30 50,20 Q53,12 58,24 Q62,34 68,26 Q72,18 76,30 Q80,40 86,52 L95,68 L100,100 Z'),
-    speed: '2.5s',
-    width: 'min(400px, 55vw)',
+    flameMask: buildFlameUrl('M0,100 L0,52 Q4,30 10,18 Q14,38 23,60 Q30,34 39,18 Q45,42 55,60 Q66,76 86,90 L100,100 Z'),
+    speed: '4.2s',
+    width: 'min(280px, 46vw)',
   }
 }
 
+const EFFECT_CLASS: Record<FormEffect, string> = {
+  hot: 'form-effect-hot',
+  sniper: 'form-effect-sniper',
+  cold: 'form-effect-cold',
+  storm: 'form-effect-storm',
+  curse: 'form-effect-curse',
+  wooden: 'form-effect-wooden',
+  var: 'form-effect-var',
+  none: '',
+}
+
+const EFFECT_META: Record<FormEffect, { icon: string; label: string; badge: string }> = {
+  hot: { icon: '🔥', label: 'Gorąca seria', badge: 'form-rank-hot' },
+  sniper: { icon: '🎯', label: 'Snajper', badge: 'form-rank-sniper' },
+  cold: { icon: '❄️', label: 'Zimna seria', badge: 'form-rank-cold' },
+  storm: { icon: '⛈️', label: 'Czarne chmury', badge: 'form-rank-storm' },
+  curse: { icon: '🔮', label: 'Klątwa typera', badge: 'form-rank-curse' },
+  wooden: { icon: '🪵', label: 'Drewniana forma', badge: 'form-rank-wooden' },
+  var: { icon: '👁️', label: 'VAR sprawdza typy', badge: 'form-rank-var' },
+  none: { icon: '', label: '', badge: '' },
+}
+
 const DOT_CLASS: Record<DotColor, string> = {
-  green:  'bg-emerald-500',
+  green: 'bg-emerald-500',
   orange: 'bg-orange-400',
-  red:    'bg-red-500',
-  gray:   'bg-gray-700',
+  red: 'bg-red-500',
+  gray: 'bg-gray-700',
 }
 
 function FormDot({ slot }: { slot: FormSlot | undefined }) {
@@ -120,12 +139,20 @@ function FormDot({ slot }: { slot: FormSlot | undefined }) {
   return <div className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLASS[color]}`} title={title} />
 }
 
-export function LeaderboardTable({ entries, currentUserId, formData = {}, fireScores = {} }: Props) {
+export function LeaderboardTable({
+  entries,
+  currentUserId,
+  formData = {},
+  fireScores = {},
+  formEffects = {},
+  visualSettings = DEFAULT_FORM_VISUAL_SETTINGS,
+}: Props) {
   if (entries.length === 0) {
-    return <div className="text-center py-12 text-gray-500">Brak danych — zostań pierwszym typerym!</div>
+    return <div className="text-center py-12 text-gray-500">Brak danych - zostań pierwszym typerem!</div>
   }
+
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800">
+    <div className={`leaderboard-form-system form-style-${visualSettings.style_variant} form-mode-${visualSettings.display_mode} overflow-hidden rounded-xl border border-gray-800`}>
       <table className="w-full">
         <thead>
           <tr className="bg-gray-950 border-b border-gray-800">
@@ -142,10 +169,20 @@ export function LeaderboardTable({ entries, currentUserId, formData = {}, fireSc
           {entries.map((entry, i) => {
             const isMe = entry.id === currentUserId
             const score = fireScores[entry.id] ?? 0
-            const config = getFireConfig(score)
+            const effect = formEffects[entry.id] ?? 'none'
+            const showEffects = visualSettings.display_mode === 'full_effects'
+            const showBadge = visualSettings.display_mode !== 'off'
+            const showTitle = visualSettings.display_mode === 'badge_and_title' || visualSettings.display_mode === 'full_effects'
+            const config = null as ReturnType<typeof getFireConfig>
+            const meta = EFFECT_META[effect]
+            const customTitle = entry.custom_form_title?.trim()
+            const showRank = showBadge && effect !== 'none'
+
             return (
-              <tr key={entry.id} className="border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50">
-                {/* Position column — fire overlay anchored here so it starts at the true left edge */}
+              <tr
+                key={entry.id}
+                className={`border-b border-gray-800 last:border-0 transition-colors bg-gray-900 hover:bg-gray-800/50 ${showEffects ? EFFECT_CLASS[effect] : ''}`}
+              >
                 <td className="py-3 px-4 text-center relative">
                   {config && (
                     <>
@@ -183,31 +220,38 @@ export function LeaderboardTable({ entries, currentUserId, formData = {}, fireSc
                   </span>
                 </td>
 
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-sm text-white">{entry.nick}</span>
-                    {isMe && <span className="text-sm leading-none">👤</span>}
-                    {score >= 2.0 && <span className="text-xs leading-none">🔥</span>}
+                <td className="py-3 px-4 relative z-[2]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-semibold text-sm text-white truncate">{entry.nick}</span>
+                    {isMe && <span className="text-sm leading-none" title="Ty">👤</span>}
+                    {showRank && (
+                      <span className={`form-rank ${meta.badge || 'form-rank-none'}`} title={meta.label}>
+                        {meta.icon && <span className="form-rank-icon">{meta.icon}</span>}
+                        <span className="form-rank-label">{meta.label}</span>
+                      </span>
+                    )}
+                    {showTitle && customTitle && (
+                      <span className="form-custom-title" title={customTitle}>{customTitle}</span>
+                    )}
                   </div>
                 </td>
 
-                <td className="py-3 px-4 text-right">
+                <td className="py-3 px-4 text-right relative z-[2]">
                   <span className="font-black text-lg tabular-nums text-white">
                     {entry.total_points}
                   </span>
                 </td>
-                <td className="py-3 px-2 text-right hidden sm:table-cell">
+                <td className="py-3 px-2 text-right hidden sm:table-cell relative z-[2]">
                   <span className="text-gray-300 text-sm tabular-nums">{entry.correct_outcomes}</span>
                 </td>
-                <td className="py-3 px-2 text-right hidden sm:table-cell">
+                <td className="py-3 px-2 text-right hidden sm:table-cell relative z-[2]">
                   <span className="text-amber-400 text-sm tabular-nums">{entry.correct_scores}</span>
                 </td>
-                <td className="py-3 px-2 text-right hidden sm:table-cell">
+                <td className="py-3 px-2 text-right hidden sm:table-cell relative z-[2]">
                   <span className="text-purple-400 text-sm tabular-nums">{entry.bonus_points}</span>
                 </td>
 
-                {/* Ostatnie 5 rozliczonych meczów — te same dla każdego gracza */}
-                <td className="py-3 px-3">
+                <td className="py-3 px-3 relative z-[2]">
                   <div className="flex items-center gap-1 justify-center">
                     {Array.from({ length: 5 }).map((_, idx) => (
                       <FormDot key={idx} slot={formData[entry.id]?.[idx]} />

@@ -17,6 +17,8 @@ function mapDbToUser(row: Record<string, unknown>): User {
     current_streak: (row.current_streak as number) ?? 0,
     best_streak: (row.best_streak as number) ?? 0,
     tournament_winner_pick: (row.tournament_winner_pick as string | null) ?? null,
+    form_effect_override: (row.form_effect_override as User['form_effect_override']) ?? 'auto',
+    custom_form_title: (row.custom_form_title as string | null) ?? null,
     created_at: row.created_at as string,
   }
 }

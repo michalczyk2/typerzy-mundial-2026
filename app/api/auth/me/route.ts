@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
       current_streak: profile.current_streak ?? 0,
       best_streak: profile.best_streak ?? 0,
       tournament_winner_pick: profile.tournament_winner_pick ?? null,
+      form_effect_override: profile.form_effect_override ?? 'auto',
+      custom_form_title: profile.custom_form_title ?? null,
       created_at: profile.created_at,
     }
     return NextResponse.json({ user })

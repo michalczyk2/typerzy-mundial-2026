@@ -58,7 +58,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       const [matchesRes, standingsRes, profilesRes, bonusRes, lastPredsRes] = await Promise.all([
         db.from('matches').select('*').order('match_date', { ascending: true }),
         db.from('standings').select('*').order('position', { ascending: true }),
-        db.from('profiles').select('id, nick, role, status, total_points, match_points, bonus_points_total, predictions_count, correct_outcomes, correct_scores, current_streak, best_streak, tournament_winner_pick, created_at').eq('status', 'active').neq('role', 'admin'),
+        db.from('profiles').select('id, nick, role, status, total_points, match_points, bonus_points_total, predictions_count, correct_outcomes, correct_scores, current_streak, best_streak, tournament_winner_pick, form_effect_override, custom_form_title, created_at').eq('status', 'active').neq('role', 'admin'),
         db.from('bonus_points').select('*'),
         fetch('/api/data/last-predictions'),
       ])
@@ -85,6 +85,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           current_streak: row.current_streak ?? 0,
           best_streak: row.best_streak ?? 0,
           tournament_winner_pick: row.tournament_winner_pick ?? null,
+          form_effect_override: row.form_effect_override ?? 'auto',
+          custom_form_title: row.custom_form_title ?? null,
           created_at: row.created_at,
         })))
       }

@@ -5,11 +5,11 @@ function past(days: number): string { const d=new Date(NOW); d.setDate(d.getDate
 function future(days: number, hours=20): string { const d=new Date(NOW); d.setDate(d.getDate()+days); d.setHours(hours,0,0,0); return d.toISOString() }
 
 export const MOCK_USERS: User[] = [
-  { id:'u1', nick:'admin', role:'admin', status:'active', total_points:47, match_points:38, bonus_points:9, predictions_count:14, correct_outcomes:10, correct_scores:3, current_streak:3, best_streak:5, tournament_winner_pick:'br', created_at:past(30) },
-  { id:'u2', nick:'Dawid', role:'user', status:'active', total_points:42, match_points:36, bonus_points:6, predictions_count:14, correct_outcomes:9, correct_scores:2, current_streak:1, best_streak:4, tournament_winner_pick:'fr', created_at:past(30) },
-  { id:'u3', nick:'Flickswagen', role:'user', status:'active', total_points:39, match_points:33, bonus_points:6, predictions_count:13, correct_outcomes:8, correct_scores:2, current_streak:0, best_streak:3, tournament_winner_pick:'de', created_at:past(30) },
-  { id:'u4', nick:'Typer4', role:'user', status:'active', total_points:31, match_points:28, bonus_points:3, predictions_count:12, correct_outcomes:7, correct_scores:1, current_streak:2, best_streak:3, tournament_winner_pick:'ar', created_at:past(30) },
-  { id:'u5', nick:'Typer5', role:'user', status:'pending', total_points:0, match_points:0, bonus_points:0, predictions_count:0, correct_outcomes:0, correct_scores:0, current_streak:0, best_streak:0, tournament_winner_pick:null, created_at:past(10) },
+  { id:'u1', nick:'admin', role:'admin', status:'active', total_points:47, match_points:38, bonus_points:9, predictions_count:14, correct_outcomes:10, correct_scores:3, current_streak:3, best_streak:5, tournament_winner_pick:'br', form_effect_override:'auto', custom_form_title:null, admin_note:null, created_at:past(30) },
+  { id:'u2', nick:'Dawid', role:'user', status:'active', total_points:42, match_points:36, bonus_points:6, predictions_count:14, correct_outcomes:9, correct_scores:2, current_streak:1, best_streak:4, tournament_winner_pick:'fr', form_effect_override:'auto', custom_form_title:null, admin_note:null, created_at:past(30) },
+  { id:'u3', nick:'Flickswagen', role:'user', status:'active', total_points:39, match_points:33, bonus_points:6, predictions_count:13, correct_outcomes:8, correct_scores:2, current_streak:0, best_streak:3, tournament_winner_pick:'de', form_effect_override:'auto', custom_form_title:null, admin_note:null, created_at:past(30) },
+  { id:'u4', nick:'Typer4', role:'user', status:'active', total_points:31, match_points:28, bonus_points:3, predictions_count:12, correct_outcomes:7, correct_scores:1, current_streak:2, best_streak:3, tournament_winner_pick:'ar', form_effect_override:'auto', custom_form_title:null, admin_note:null, created_at:past(30) },
+  { id:'u5', nick:'Typer5', role:'user', status:'pending', total_points:0, match_points:0, bonus_points:0, predictions_count:0, correct_outcomes:0, correct_scores:0, current_streak:0, best_streak:0, tournament_winner_pick:null, form_effect_override:'auto', custom_form_title:null, admin_note:null, created_at:past(10) },
 ]
 
 export const MOCK_MATCHES: Match[] = [

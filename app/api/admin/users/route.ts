@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { User } from '@/types'
+import type { FormEffectOverride, User } from '@/types'
+
+const FORM_EFFECT_OVERRIDES: FormEffectOverride[] = ['auto', 'none', 'hot', 'sniper', 'cold', 'storm', 'curse', 'wooden', 'var']
 
 async function requireAdmin(req: NextRequest) {
   const sessionId = req.cookies.get('typerzy_session')?.value
@@ -25,6 +27,11 @@ function mapRow(row: Record<string, unknown>): User {
     current_streak: (row.current_streak as number) ?? 0,
     best_streak: (row.best_streak as number) ?? 0,
     tournament_winner_pick: (row.tournament_winner_pick as string | null) ?? null,
+    form_effect_override: FORM_EFFECT_OVERRIDES.includes(row.form_effect_override as FormEffectOverride)
+      ? row.form_effect_override as FormEffectOverride
+      : 'auto',
+    custom_form_title: (row.custom_form_title as string | null) ?? null,
+    admin_note: (row.admin_note as string | null) ?? null,
     created_at: row.created_at as string,
   }
 }
@@ -70,13 +77,27 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   try {
-    const { id, status, role, nick } = await req.json()
+    const { id, status, role, nick, form_effect_override, custom_form_title, admin_note } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     const update: Record<string, unknown> = {}
     if (status) update.status = status
     if (role) update.role = role
     if (nick) update.nick = nick.trim()
+    if (form_effect_override !== undefined) {
+      if (!FORM_EFFECT_OVERRIDES.includes(form_effect_override)) {
+        return NextResponse.json({ error: 'Invalid form_effect_override' }, { status: 400 })
+      }
+      update.form_effect_override = form_effect_override
+    }
+    if (custom_form_title !== undefined) {
+      const value = typeof custom_form_title === 'string' ? custom_form_title.trim() : ''
+      update.custom_form_title = value || null
+    }
+    if (admin_note !== undefined) {
+      const value = typeof admin_note === 'string' ? admin_note.trim() : ''
+      update.admin_note = value || null
+    }
 
     const db = createAdminClient()
     const { error } = await db.from('profiles').update(update).eq('id', id)

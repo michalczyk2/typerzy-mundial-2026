@@ -4,6 +4,15 @@ export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'can
 export type MatchPhase = 'group' | 'round_of_32' | 'round_of_16' | 'quarterfinal' | 'semifinal' | 'third_place' | 'final'
 export type DataSource = 'api' | 'manual' | 'mock'
 export type PredictionResult = 'home' | 'draw' | 'away' | 'home_or_draw' | 'away_or_draw'
+export type FormEffect = 'hot' | 'sniper' | 'cold' | 'storm' | 'curse' | 'wooden' | 'var' | 'none'
+export type FormEffectOverride = 'auto' | FormEffect
+export type FormDisplayMode = 'off' | 'badge_only' | 'badge_and_title' | 'full_effects'
+export type FormStyleVariant = 'light' | 'sport' | 'premium' | 'game' | 'strong'
+
+export interface FormVisualSettings {
+  display_mode: FormDisplayMode
+  style_variant: FormStyleVariant
+}
 
 export interface MatchEvent {
   minute: number
@@ -43,6 +52,9 @@ export interface User {
   current_streak: number
   best_streak: number
   tournament_winner_pick: string | null
+  form_effect_override: FormEffectOverride
+  custom_form_title: string | null
+  admin_note?: string | null
   created_at: string
 }
 

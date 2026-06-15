@@ -31,33 +31,870 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* Fire overlay for leaderboard streak — layered radial gradients, flame tongues from lower-left */
+/* Leaderboard form effects */
 .fire-layer {
   transform-origin: 0% 100%;
-  will-change: transform, opacity;
+  mix-blend-mode: screen;
+  will-change: transform, opacity, filter;
 }
 
 @keyframes fire-dance {
-  0%   { opacity: 0.72; transform: scaleY(1.000) translateX(0px)    translateY(0px); }
-  22%  { opacity: 0.86; transform: scaleY(0.976) translateX(0.8px)  translateY(-1.2px); }
-  48%  { opacity: 0.98; transform: scaleY(1.022) translateX(-0.7px) translateY(1.0px); }
-  72%  { opacity: 0.78; transform: scaleY(0.988) translateX(0.6px)  translateY(-0.6px); }
-  88%  { opacity: 0.92; transform: scaleY(1.010) translateX(0px)    translateY(0.8px); }
-  100% { opacity: 0.72; transform: scaleY(1.000) translateX(0px)    translateY(0px); }
+  0%   { opacity: 0.48; filter: blur(0.2px); transform: scaleY(1.000) translateX(0px) translateY(0px); }
+  35%  { opacity: 0.62; filter: blur(0.3px); transform: scaleY(0.986) translateX(0.7px) translateY(-0.8px); }
+  68%  { opacity: 0.55; filter: blur(0.1px); transform: scaleY(1.014) translateX(-0.6px) translateY(0.7px); }
+  100% { opacity: 0.48; filter: blur(0.2px); transform: scaleY(1.000) translateX(0px) translateY(0px); }
 }
 
 @keyframes fire-shape {
-  0%   { opacity: 0.85; transform: scaleY(1.000) translateY(0px); }
-  28%  { opacity: 0.95; transform: scaleY(0.968) translateY(-1.8px); }
-  55%  { opacity: 1.00; transform: scaleY(1.028) translateY(1.2px); }
-  76%  { opacity: 0.88; transform: scaleY(0.982) translateY(-0.7px); }
-  100% { opacity: 0.85; transform: scaleY(1.000) translateY(0px); }
+  0%   { opacity: 0.36; transform: scaleY(1.000) translateY(0px); }
+  40%  { opacity: 0.52; transform: scaleY(0.980) translateY(-1px); }
+  72%  { opacity: 0.43; transform: scaleY(1.018) translateY(0.8px); }
+  100% { opacity: 0.36; transform: scaleY(1.000) translateY(0px); }
+}
+
+.form-effect-badge,
+.form-rank {
+  align-items: center;
+  border-radius: 9999px;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.form-rank {
+  display: inline-flex;
+  gap: 0.25rem;
+  max-width: min(10.5rem, 36vw);
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.66rem;
+  font-weight: 850;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.form-rank-icon {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.form-rank-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-rank-hot { color: #fed7aa; border-color: rgba(251, 146, 60, 0.36); background: rgba(154, 52, 18, 0.22); }
+.form-rank-sniper { color: #fde68a; border-color: rgba(250, 204, 21, 0.40); background: rgba(113, 63, 18, 0.20); }
+.form-rank-cold { color: #cffafe; border-color: rgba(103, 232, 249, 0.36); background: rgba(14, 116, 144, 0.20); }
+.form-rank-storm { color: #e2e8f0; border-color: rgba(148, 163, 184, 0.32); background: rgba(30, 41, 59, 0.34); }
+.form-rank-curse { color: #ddd6fe; border-color: rgba(167, 139, 250, 0.34); background: rgba(76, 29, 149, 0.22); }
+.form-rank-wooden { color: #fed7aa; border-color: rgba(180, 83, 9, 0.34); background: rgba(120, 53, 15, 0.22); }
+.form-rank-var { color: #d9f99d; border-color: rgba(190, 242, 100, 0.34); background: rgba(63, 98, 18, 0.20); }
+.form-rank-none { color: #d1d5db; border-color: rgba(156, 163, 175, 0.24); background: rgba(31, 41, 55, 0.50); }
+
+.form-effect-hot > td {
+  background-image:
+    linear-gradient(90deg, rgba(251, 146, 60, 0.075), rgba(245, 158, 11, 0.03) 34%, transparent 74%);
+}
+
+.form-effect-hot > td:first-child {
+  box-shadow: inset 2px 0 rgba(251, 146, 60, 0.36);
+}
+
+.form-effect-sniper > td {
+  background-image:
+    radial-gradient(circle at 2.2rem 50%, transparent 0 0.52rem, rgba(250, 204, 21, 0.13) 0.55rem 0.62rem, transparent 0.65rem),
+    linear-gradient(90deg, rgba(250, 204, 21, 0.07), transparent 58%);
+}
+
+.form-effect-sniper > td:first-child {
+  box-shadow: inset 2px 0 rgba(250, 204, 21, 0.42);
+}
+
+.form-effect-cold > td {
+  background-image:
+    linear-gradient(90deg, rgba(125, 211, 252, 0.115), rgba(219, 234, 254, 0.035) 34%, transparent 72%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.055) 42%, transparent 58%);
+  background-size: 100% 100%, 220% 100%;
+  box-shadow:
+    inset 0 1px rgba(186, 230, 253, 0.34),
+    inset 0 -1px rgba(14, 165, 233, 0.16);
+  animation: form-frost-shimmer 7s ease-in-out infinite;
+}
+
+.form-effect-cold > td:first-child {
+  box-shadow:
+    inset 2px 0 rgba(186, 230, 253, 0.55),
+    inset 0 1px rgba(186, 230, 253, 0.34),
+    inset 0 -1px rgba(14, 165, 233, 0.16);
+}
+
+.form-effect-storm > td {
+  background-image:
+    radial-gradient(ellipse 52% 150% at 10% 20%, rgba(30, 41, 59, 0.38), transparent 64%),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.34), rgba(30, 41, 59, 0.10) 46%, transparent 82%);
+}
+
+.form-effect-storm > td:first-child {
+  position: relative;
+  overflow: visible;
+}
+
+.form-effect-storm > td:first-child::after {
+  content: "";
+  position: absolute;
+  top: 28%;
+  left: 0.55rem;
+  width: 4.5rem;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(226, 232, 240, 0.72), transparent);
+  opacity: 0;
+  transform: rotate(-12deg);
+  animation: form-storm-flash 9s ease-in-out infinite;
+}
+
+.form-effect-var > td {
+  background-image:
+    linear-gradient(100deg, transparent 0%, rgba(190, 242, 100, 0.075) 42%, transparent 54%),
+    linear-gradient(90deg, rgba(132, 204, 22, 0.07), transparent 52%);
+  background-size: 240% 100%, 100% 100%;
+  animation: form-var-sweep 8s ease-in-out infinite;
+}
+
+.form-effect-var > td:first-child {
+  box-shadow: inset 2px 0 rgba(132, 204, 22, 0.38);
+}
+
+.form-effect-wooden > td {
+  background-image:
+    linear-gradient(90deg, rgba(146, 64, 14, 0.13), rgba(120, 53, 15, 0.035) 34%, transparent 72%),
+    repeating-linear-gradient(98deg, transparent 0 13px, rgba(251, 191, 36, 0.035) 13px 14px);
+}
+
+.form-effect-wooden > td:first-child {
+  box-shadow: inset 2px 0 rgba(180, 83, 9, 0.38);
+}
+
+.form-effect-curse > td {
+  background-image:
+    radial-gradient(ellipse 50% 140% at 6% 50%, rgba(124, 58, 237, 0.18), transparent 66%),
+    linear-gradient(90deg, rgba(49, 46, 129, 0.16), transparent 70%);
+}
+
+.form-effect-curse > td:first-child {
+  box-shadow: inset 2px 0 rgba(167, 139, 250, 0.40);
+}
+
+@keyframes form-frost-shimmer {
+  0% { background-position: 0 0, 120% 0; }
+  50% { background-position: 0 0, -35% 0; }
+  100% { background-position: 0 0, 120% 0; }
+}
+
+@keyframes form-storm-flash {
+  0%, 72%, 100% { opacity: 0; }
+  74% { opacity: 0.42; }
+  75.5% { opacity: 0.06; }
+  77% { opacity: 0.24; }
+  79% { opacity: 0; }
+}
+
+@keyframes form-var-sweep {
+  0%, 30% { background-position: 125% 0, 0 0; }
+  58%, 100% { background-position: -65% 0, 0 0; }
+}
+
+.form-status-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 12px currentColor;
+}
+
+.form-status-dot-hot { color: #fb923c; background: #fb923c; }
+.form-status-dot-sniper { color: #facc15; background: #facc15; }
+.form-status-dot-cold { color: #67e8f9; background: #67e8f9; }
+.form-status-dot-storm { color: #94a3b8; background: #94a3b8; }
+.form-status-dot-curse { color: #a78bfa; background: #a78bfa; }
+.form-status-dot-wooden { color: #b45309; background: #b45309; }
+.form-status-dot-var { color: #bef264; background: #bef264; }
+
+.leaderboard-form-system {
+  --form-row-alpha: 0.11;
+  --form-texture-alpha: 0.08;
+  --form-border-alpha: 0.42;
+  --form-badge-scale: 1;
+}
+
+.leaderboard-form-system.form-style-light {
+  --form-row-alpha: 0.07;
+  --form-texture-alpha: 0.035;
+  --form-border-alpha: 0.32;
+  --form-badge-scale: 0.96;
+}
+
+.leaderboard-form-system.form-style-sport {
+  --form-row-alpha: 0.13;
+  --form-texture-alpha: 0.08;
+  --form-border-alpha: 0.48;
+  --form-badge-scale: 1;
+}
+
+.leaderboard-form-system.form-style-premium {
+  --form-row-alpha: 0.12;
+  --form-texture-alpha: 0.10;
+  --form-border-alpha: 0.42;
+  --form-badge-scale: 1;
+}
+
+.leaderboard-form-system.form-style-game {
+  --form-row-alpha: 0.16;
+  --form-texture-alpha: 0.12;
+  --form-border-alpha: 0.56;
+  --form-badge-scale: 1.02;
+}
+
+.leaderboard-form-system.form-style-strong {
+  --form-row-alpha: 0.21;
+  --form-texture-alpha: 0.17;
+  --form-border-alpha: 0.68;
+  --form-badge-scale: 1.04;
+}
+
+.leaderboard-form-system .form-rank {
+  transform: scale(var(--form-badge-scale));
+  transform-origin: left center;
+}
+
+.leaderboard-form-system.form-style-light .form-rank {
+  box-shadow: inset 0 1px rgba(255,255,255,0.08);
+  backdrop-filter: blur(4px);
+}
+
+.leaderboard-form-system.form-style-sport .form-rank {
+  text-transform: uppercase;
+  border-radius: 0.45rem;
+  box-shadow: inset 0 1px rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,0.035), 0 6px 18px rgba(0,0,0,0.22);
+}
+
+.leaderboard-form-system.form-style-premium .form-rank {
+  border-radius: 0.5rem;
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.10), transparent 42%);
+  box-shadow: inset 0 1px rgba(255,255,255,0.16), inset 0 -1px rgba(0,0,0,0.24), 0 8px 22px rgba(0,0,0,0.28);
+}
+
+.leaderboard-form-system.form-style-game .form-rank {
+  border-radius: 0.38rem;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 18px color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.leaderboard-form-system.form-style-strong .form-rank {
+  height: 1.48rem;
+  border-radius: 0.36rem;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px rgba(255,255,255,0.20), 0 0 22px color-mix(in srgb, currentColor 38%, transparent), 0 8px 24px rgba(0,0,0,0.30);
+}
+
+.leaderboard-form-system .form-custom-title {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(11rem, 32vw);
+  height: 1.25rem;
+  padding: 0 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: linear-gradient(135deg, rgba(15,23,42,0.78), rgba(31,41,55,0.52));
+  color: #e5e7eb;
+  font-size: 0.65rem;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-form-system.form-style-premium .form-custom-title,
+.leaderboard-form-system.form-style-game .form-custom-title,
+.leaderboard-form-system.form-style-strong .form-custom-title {
+  color: #f8fafc;
+  border-color: rgba(250, 204, 21, 0.22);
+  background:
+    linear-gradient(135deg, rgba(250,204,21,0.12), transparent 38%),
+    linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.78));
+}
+
+.leaderboard-form-system .form-effect-hot > td {
+  background-image:
+    radial-gradient(ellipse 32% 125% at 2% 98%, rgba(251, 146, 60, calc(var(--form-row-alpha) + 0.12)), transparent 68%),
+    radial-gradient(circle at 1.2rem 72%, rgba(253, 224, 71, var(--form-texture-alpha)) 0 0.12rem, transparent 0.14rem),
+    radial-gradient(circle at 4.8rem 38%, rgba(251, 146, 60, var(--form-texture-alpha)) 0 0.10rem, transparent 0.12rem),
+    linear-gradient(90deg, rgba(154, 52, 18, var(--form-row-alpha)), rgba(245, 158, 11, 0.04) 44%, transparent 76%);
+}
+
+.leaderboard-form-system .form-effect-sniper > td {
+  background-image:
+    radial-gradient(circle at 2.4rem 50%, transparent 0 0.44rem, rgba(250, 204, 21, calc(var(--form-row-alpha) + 0.04)) 0.46rem 0.53rem, transparent 0.55rem),
+    linear-gradient(0deg, transparent 48%, rgba(250,204,21,var(--form-texture-alpha)) 49%, rgba(250,204,21,var(--form-texture-alpha)) 51%, transparent 52%),
+    linear-gradient(90deg, rgba(250, 204, 21, var(--form-row-alpha)), transparent 58%);
+}
+
+.leaderboard-form-system .form-effect-cold > td {
+  background-image:
+    linear-gradient(90deg, rgba(125, 211, 252, calc(var(--form-row-alpha) + 0.03)), rgba(219, 234, 254, 0.04) 34%, transparent 72%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,var(--form-texture-alpha)) 0 1px, transparent 1px 9px),
+    linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.075) 42%, transparent 58%);
+  background-size: 100% 100%, 100% 100%, 220% 100%;
+}
+
+.leaderboard-form-system .form-effect-storm > td {
+  background-image:
+    linear-gradient(112deg, transparent 0 42%, rgba(226,232,240,var(--form-texture-alpha)) 43%, transparent 45%),
+    repeating-linear-gradient(102deg, rgba(148,163,184,var(--form-texture-alpha)) 0 1px, transparent 1px 10px),
+    radial-gradient(ellipse 54% 155% at 8% 8%, rgba(30, 41, 59, calc(var(--form-row-alpha) + 0.18)), transparent 64%),
+    linear-gradient(90deg, rgba(15, 23, 42, calc(var(--form-row-alpha) + 0.10)), rgba(30, 41, 59, 0.10) 48%, transparent 82%);
+}
+
+.leaderboard-form-system .form-effect-curse > td {
+  background-image:
+    radial-gradient(circle at 2.2rem 52%, rgba(167,139,250,var(--form-texture-alpha)) 0 0.12rem, transparent 0.14rem),
+    radial-gradient(circle at 5.8rem 34%, rgba(124,58,237,var(--form-texture-alpha)) 0 0.10rem, transparent 0.12rem),
+    repeating-linear-gradient(72deg, transparent 0 13px, rgba(167,139,250,calc(var(--form-texture-alpha) * 0.55)) 13px 14px),
+    radial-gradient(ellipse 52% 145% at 6% 50%, rgba(124, 58, 237, calc(var(--form-row-alpha) + 0.07)), transparent 66%),
+    linear-gradient(90deg, rgba(49, 46, 129, var(--form-row-alpha)), transparent 70%);
+}
+
+.leaderboard-form-system .form-effect-wooden > td {
+  background-image:
+    radial-gradient(ellipse 44% 80% at 8% 55%, transparent 0 32%, rgba(251,191,36,var(--form-texture-alpha)) 34%, transparent 38%),
+    repeating-linear-gradient(98deg, rgba(251, 191, 36, calc(var(--form-texture-alpha) * 0.75)) 0 1px, transparent 1px 12px),
+    linear-gradient(90deg, rgba(146, 64, 14, calc(var(--form-row-alpha) + 0.03)), rgba(120, 53, 15, 0.05) 44%, transparent 76%);
+}
+
+.leaderboard-form-system .form-effect-var > td {
+  background-image:
+    linear-gradient(100deg, transparent 0%, rgba(190, 242, 100, calc(var(--form-texture-alpha) + 0.03)) 42%, transparent 54%),
+    linear-gradient(0deg, transparent 47%, rgba(190,242,100,var(--form-texture-alpha)) 48%, transparent 50%),
+    linear-gradient(90deg, rgba(132, 204, 22, var(--form-row-alpha)), rgba(22, 163, 74, 0.04) 42%, transparent 72%);
+}
+
+.leaderboard-form-system .form-effect-hot > td:first-child { box-shadow: inset 3px 0 rgba(251,146,60,var(--form-border-alpha)); }
+.leaderboard-form-system .form-effect-sniper > td:first-child { box-shadow: inset 3px 0 rgba(250,204,21,var(--form-border-alpha)); }
+.leaderboard-form-system .form-effect-cold > td:first-child { box-shadow: inset 3px 0 rgba(103,232,249,var(--form-border-alpha)), inset 0 1px rgba(186,230,253,0.26), inset 0 -1px rgba(14,165,233,0.15); }
+.leaderboard-form-system .form-effect-storm > td:first-child { box-shadow: inset 3px 0 rgba(148,163,184,var(--form-border-alpha)); }
+.leaderboard-form-system .form-effect-curse > td:first-child { box-shadow: inset 3px 0 rgba(167,139,250,var(--form-border-alpha)); }
+.leaderboard-form-system .form-effect-wooden > td:first-child { box-shadow: inset 3px 0 rgba(180,83,9,var(--form-border-alpha)); }
+.leaderboard-form-system .form-effect-var > td:first-child { box-shadow: inset 3px 0 rgba(190,242,100,var(--form-border-alpha)); }
+
+.form-legend-panel {
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(31, 41, 55, 1);
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(ellipse at 0 0, rgba(255,255,255,0.045), transparent 46%),
+    rgba(17, 24, 39, 0.66);
+  padding: 0.75rem;
+}
+
+.form-legend-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(55, 65, 81, 0.82);
+  background: rgba(3, 7, 18, 0.38);
+  padding: 0.55rem 0.65rem;
+}
+
+.form-legend-card-hot { box-shadow: inset 2px 0 rgba(251,146,60,0.42); }
+.form-legend-card-sniper { box-shadow: inset 2px 0 rgba(250,204,21,0.44); }
+.form-legend-card-cold { box-shadow: inset 2px 0 rgba(103,232,249,0.42); }
+.form-legend-card-storm { box-shadow: inset 2px 0 rgba(148,163,184,0.42); }
+.form-legend-card-curse { box-shadow: inset 2px 0 rgba(167,139,250,0.42); }
+.form-legend-card-wooden { box-shadow: inset 2px 0 rgba(180,83,9,0.42); }
+.form-legend-card-var { box-shadow: inset 2px 0 rgba(190,242,100,0.42); }
+
+.form-admin-preview {
+  margin-top: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(55,65,81,0.85);
+  background: rgba(3,7,18,0.36);
+  padding: 0.65rem;
+}
+
+.form-admin-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.3rem;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.form-admin-preview-row.form-effect-hot {
+  background-image:
+    radial-gradient(ellipse 42% 130% at 0% 100%, rgba(251,146,60,0.20), transparent 68%),
+    radial-gradient(circle at 2rem 65%, rgba(253,224,71,0.12) 0 0.12rem, transparent 0.14rem),
+    linear-gradient(90deg, rgba(154,52,18,0.18), transparent 76%);
+  box-shadow: inset 3px 0 rgba(251,146,60,0.48);
+}
+
+/* Static, badge-first leaderboard form UI. Row effects are accents, not animated overlays. */
+.leaderboard-form-system .fire-layer {
+  display: none !important;
+  animation: none !important;
+}
+
+.leaderboard-form-system .form-effect-cold > td,
+.leaderboard-form-system .form-effect-storm > td,
+.leaderboard-form-system .form-effect-var > td {
+  animation: none !important;
+  background-position: 0 0 !important;
+}
+
+.leaderboard-form-system .form-effect-storm > td:first-child::after {
+  display: none !important;
+}
+
+.leaderboard-form-system {
+  --form-row-alpha: 0.08;
+  --form-texture-alpha: 0.055;
+  --form-border-alpha: 0.46;
+  --rank-glow: 0.18;
+}
+
+.leaderboard-form-system.form-style-light {
+  --form-row-alpha: 0.045;
+  --form-texture-alpha: 0.028;
+  --form-border-alpha: 0.30;
+  --rank-glow: 0.10;
+}
+
+.leaderboard-form-system.form-style-sport {
+  --form-row-alpha: 0.075;
+  --form-texture-alpha: 0.052;
+  --form-border-alpha: 0.46;
+  --rank-glow: 0.16;
+}
+
+.leaderboard-form-system.form-style-premium {
+  --form-row-alpha: 0.070;
+  --form-texture-alpha: 0.060;
+  --form-border-alpha: 0.40;
+  --rank-glow: 0.15;
+}
+
+.leaderboard-form-system.form-style-game {
+  --form-row-alpha: 0.105;
+  --form-texture-alpha: 0.075;
+  --form-border-alpha: 0.54;
+  --rank-glow: 0.22;
+}
+
+.leaderboard-form-system.form-style-strong {
+  --form-row-alpha: 0.135;
+  --form-texture-alpha: 0.095;
+  --form-border-alpha: 0.64;
+  --rank-glow: 0.28;
+}
+
+.leaderboard-form-system .form-rank,
+.form-admin-preview .form-rank {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  height: 1.55rem;
+  max-width: min(13.5rem, 42vw);
+  padding: 0 0.58rem 0 0.44rem;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.52rem;
+  font-size: 0.69rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,0.16),
+    inset 0 -1px rgba(0,0,0,0.30),
+    0 7px 18px rgba(0,0,0,0.22);
+  transform: none;
+  backdrop-filter: blur(8px);
+}
+
+.leaderboard-form-system .form-rank::before,
+.form-admin-preview .form-rank::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0.9;
+  background:
+    radial-gradient(circle at 15% 18%, rgba(255,255,255,0.20), transparent 26%),
+    linear-gradient(135deg, rgba(255,255,255,0.12), transparent 38%);
+}
+
+.leaderboard-form-system .form-rank::after,
+.form-admin-preview .form-rank::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  opacity: 0.85;
+  background: currentColor;
+}
+
+.leaderboard-form-system .form-rank-icon,
+.form-admin-preview .form-rank-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.35rem;
+  background: rgba(0,0,0,0.24);
+  box-shadow: inset 0 1px rgba(255,255,255,0.12);
+  font-size: 0.78rem;
+}
+
+.leaderboard-form-system .form-rank-label,
+.form-admin-preview .form-rank-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leaderboard-form-system .form-rank-hot,
+.form-admin-preview .form-rank-hot {
+  color: #ffedd5;
+  border-color: rgba(251, 146, 60, 0.56);
+  background:
+    radial-gradient(circle at 16% 95%, rgba(253,224,71,0.30), transparent 26%),
+    radial-gradient(circle at 8% 20%, rgba(239,68,68,0.26), transparent 30%),
+    linear-gradient(135deg, rgba(127,29,29,0.92), rgba(194,65,12,0.76) 52%, rgba(67,20,7,0.92));
+  box-shadow: 0 0 18px rgba(251,146,60,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.18), inset 0 -1px rgba(0,0,0,0.34);
+}
+
+.leaderboard-form-system .form-rank-sniper,
+.form-admin-preview .form-rank-sniper {
+  color: #fef3c7;
+  border-color: rgba(250,204,21,0.58);
+  background:
+    radial-gradient(circle at 16% 50%, transparent 0 0.36rem, rgba(250,204,21,0.28) 0.38rem 0.43rem, transparent 0.45rem),
+    linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,58,138,0.76) 48%, rgba(82,55,12,0.82));
+  box-shadow: 0 0 18px rgba(250,204,21,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.16), inset 0 -1px rgba(0,0,0,0.34);
+}
+
+.leaderboard-form-system .form-rank-cold,
+.form-admin-preview .form-rank-cold {
+  color: #ecfeff;
+  border-color: rgba(103,232,249,0.58);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.22), transparent 18%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.10) 0 1px, transparent 1px 7px),
+    linear-gradient(135deg, rgba(8,47,73,0.94), rgba(14,116,144,0.74), rgba(15,23,42,0.90));
+  box-shadow: 0 0 18px rgba(103,232,249,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.22), inset 0 -1px rgba(0,0,0,0.30);
+}
+
+.leaderboard-form-system .form-rank-storm,
+.form-admin-preview .form-rank-storm {
+  color: #f1f5f9;
+  border-color: rgba(148,163,184,0.56);
+  background:
+    linear-gradient(112deg, transparent 0 45%, rgba(226,232,240,0.22) 46%, transparent 49%),
+    radial-gradient(ellipse at 18% 0%, rgba(148,163,184,0.18), transparent 34%),
+    linear-gradient(135deg, rgba(2,6,23,0.98), rgba(30,41,59,0.86), rgba(49,46,129,0.72));
+  box-shadow: 0 0 18px rgba(148,163,184,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.14), inset 0 -1px rgba(0,0,0,0.36);
+}
+
+.leaderboard-form-system .form-rank-curse,
+.form-admin-preview .form-rank-curse {
+  color: #ede9fe;
+  border-color: rgba(167,139,250,0.58);
+  background:
+    radial-gradient(circle at 16% 50%, rgba(216,180,254,0.18) 0 0.18rem, transparent 0.20rem),
+    radial-gradient(circle at 76% 30%, rgba(167,139,250,0.16) 0 0.12rem, transparent 0.14rem),
+    linear-gradient(135deg, rgba(30,27,75,0.96), rgba(91,33,182,0.68), rgba(17,24,39,0.94));
+  box-shadow: 0 0 18px rgba(167,139,250,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.14), inset 0 -1px rgba(0,0,0,0.34);
+}
+
+.leaderboard-form-system .form-rank-wooden,
+.form-admin-preview .form-rank-wooden {
+  color: #ffedd5;
+  border-color: rgba(180,83,9,0.62);
+  background:
+    radial-gradient(ellipse at 24% 58%, transparent 0 34%, rgba(251,191,36,0.20) 36%, transparent 42%),
+    repeating-linear-gradient(98deg, rgba(251,191,36,0.10) 0 1px, transparent 1px 11px),
+    linear-gradient(135deg, rgba(69,26,3,0.98), rgba(146,64,14,0.78), rgba(67,20,7,0.94));
+  box-shadow: 0 0 18px rgba(180,83,9,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.14), inset 0 -1px rgba(0,0,0,0.34);
+}
+
+.leaderboard-form-system .form-rank-var,
+.form-admin-preview .form-rank-var {
+  color: #ecfccb;
+  border-color: rgba(190,242,100,0.58);
+  background:
+    linear-gradient(90deg, rgba(190,242,100,0.16) 0 1px, transparent 1px 10px),
+    linear-gradient(0deg, rgba(190,242,100,0.12) 0 1px, transparent 1px 10px),
+    linear-gradient(135deg, rgba(20,83,45,0.96), rgba(63,98,18,0.76), rgba(5,46,22,0.94));
+  box-shadow: 0 0 18px rgba(190,242,100,var(--rank-glow)), inset 0 1px rgba(255,255,255,0.14), inset 0 -1px rgba(0,0,0,0.34);
+}
+
+.leaderboard-form-system .form-custom-title {
+  height: 1.42rem;
+  max-width: min(12rem, 34vw);
+  border-radius: 0.48rem;
+  border-color: rgba(148,163,184,0.30);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.08), transparent 38%),
+    rgba(15,23,42,0.84);
+  color: #f3f4f6;
+  font-size: 0.68rem;
+  font-weight: 850;
+  box-shadow: inset 0 1px rgba(255,255,255,0.12), 0 6px 16px rgba(0,0,0,0.18);
+}
+
+.form-admin-preview .form-custom-title {
+  display: inline-flex;
+  align-items: center;
+  height: 1.42rem;
+  max-width: min(12rem, 42vw);
+  padding: 0 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(148,163,184,0.30);
+  border-radius: 0.48rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 38%), rgba(15,23,42,0.84);
+  color: #f3f4f6;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: inset 0 1px rgba(255,255,255,0.12), 0 6px 16px rgba(0,0,0,0.18);
+}
+
+/* Single-piece row backgrounds. Keep textures on the row, never per-cell. */
+.leaderboard-form-system table {
+  border-collapse: collapse;
+}
+
+.leaderboard-form-system tbody tr.form-effect-hot,
+.leaderboard-form-system tbody tr.form-effect-sniper,
+.leaderboard-form-system tbody tr.form-effect-cold,
+.leaderboard-form-system tbody tr.form-effect-storm,
+.leaderboard-form-system tbody tr.form-effect-curse,
+.leaderboard-form-system tbody tr.form-effect-wooden,
+.leaderboard-form-system tbody tr.form-effect-var {
+  background-color: #111827;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: 0 0;
+}
+
+.leaderboard-form-system tbody tr.form-effect-hot > td,
+.leaderboard-form-system tbody tr.form-effect-sniper > td,
+.leaderboard-form-system tbody tr.form-effect-cold > td,
+.leaderboard-form-system tbody tr.form-effect-storm > td,
+.leaderboard-form-system tbody tr.form-effect-curse > td,
+.leaderboard-form-system tbody tr.form-effect-wooden > td,
+.leaderboard-form-system tbody tr.form-effect-var > td {
+  background: transparent !important;
+  background-image: none !important;
+  animation: none !important;
+}
+
+.leaderboard-form-system tbody tr.form-effect-hot {
+  background-image:
+    radial-gradient(ellipse 24% 110% at 2rem 92%, rgba(251, 146, 60, calc(var(--form-row-alpha) + 0.07)), transparent 72%),
+    radial-gradient(circle at 5.5rem 58%, rgba(253, 224, 71, var(--form-texture-alpha)) 0 0.10rem, transparent 0.12rem),
+    linear-gradient(90deg, rgba(154, 52, 18, var(--form-row-alpha)), rgba(245, 158, 11, 0.035) 38%, transparent 78%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-sniper {
+  background-image:
+    radial-gradient(circle at 2.2rem 50%, transparent 0 0.42rem, rgba(250, 204, 21, calc(var(--form-texture-alpha) + 0.055)) 0.44rem 0.50rem, transparent 0.52rem),
+    linear-gradient(90deg, rgba(30, 58, 138, var(--form-row-alpha)), rgba(250, 204, 21, 0.035) 34%, transparent 72%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-cold {
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255,255,255,var(--form-texture-alpha)) 0 1px, transparent 1px 12px),
+    radial-gradient(ellipse 26% 120% at 2rem 50%, rgba(103,232,249,calc(var(--form-row-alpha) + 0.035)), transparent 72%),
+    linear-gradient(90deg, rgba(14,116,144,var(--form-row-alpha)), rgba(219,234,254,0.03) 36%, transparent 76%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-storm {
+  background-image:
+    linear-gradient(112deg, transparent 0 44%, rgba(226,232,240,var(--form-texture-alpha)) 45%, transparent 47%),
+    radial-gradient(ellipse 28% 120% at 2rem 8%, rgba(71,85,105,calc(var(--form-row-alpha) + 0.09)), transparent 70%),
+    linear-gradient(90deg, rgba(15,23,42,calc(var(--form-row-alpha) + 0.06)), rgba(49,46,129,0.04) 40%, transparent 78%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-curse {
+  background-image:
+    radial-gradient(circle at 3rem 54%, rgba(167,139,250,var(--form-texture-alpha)) 0 0.12rem, transparent 0.14rem),
+    radial-gradient(circle at 7rem 34%, rgba(124,58,237,calc(var(--form-texture-alpha) * 0.85)) 0 0.10rem, transparent 0.12rem),
+    linear-gradient(90deg, rgba(76,29,149,var(--form-row-alpha)), rgba(49,46,129,0.04) 38%, transparent 76%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-wooden {
+  background-image:
+    radial-gradient(ellipse 34% 88% at 4rem 54%, transparent 0 34%, rgba(251,191,36,var(--form-texture-alpha)) 36%, transparent 42%),
+    repeating-linear-gradient(98deg, rgba(251,191,36,calc(var(--form-texture-alpha) * 0.78)) 0 1px, transparent 1px 15px),
+    linear-gradient(90deg, rgba(120,53,15,var(--form-row-alpha)), rgba(180,83,9,0.035) 38%, transparent 78%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-var {
+  background-image:
+    linear-gradient(90deg, rgba(190,242,100,var(--form-texture-alpha)) 0 1px, transparent 1px 14px),
+    linear-gradient(0deg, rgba(190,242,100,calc(var(--form-texture-alpha) * 0.70)) 0 1px, transparent 1px 14px),
+    linear-gradient(90deg, rgba(22,101,52,var(--form-row-alpha)), rgba(132,204,22,0.035) 36%, transparent 76%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-hot > td:first-child { box-shadow: inset 3px 0 rgba(251,146,60,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-sniper > td:first-child { box-shadow: inset 3px 0 rgba(250,204,21,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-cold > td:first-child { box-shadow: inset 3px 0 rgba(103,232,249,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-storm > td:first-child { box-shadow: inset 3px 0 rgba(148,163,184,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-curse > td:first-child { box-shadow: inset 3px 0 rgba(167,139,250,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-wooden > td:first-child { box-shadow: inset 3px 0 rgba(180,83,9,var(--form-border-alpha)); }
+.leaderboard-form-system tbody tr.form-effect-var > td:first-child { box-shadow: inset 3px 0 rgba(190,242,100,var(--form-border-alpha)); }
+
+.leaderboard-form-system.form-style-light .form-rank {
+  height: 1.38rem;
+  border-radius: 9999px;
+  box-shadow: inset 0 1px rgba(255,255,255,0.14);
+}
+
+.leaderboard-form-system.form-style-light .form-rank::after {
+  opacity: 0.45;
+}
+
+.leaderboard-form-system.form-style-sport .form-rank {
+  border-radius: 0.42rem;
+  text-transform: uppercase;
+}
+
+.leaderboard-form-system.form-style-premium .form-rank {
+  border-radius: 0.62rem;
+  box-shadow: inset 0 1px rgba(255,255,255,0.20), inset 0 -1px rgba(0,0,0,0.34), 0 10px 24px rgba(0,0,0,0.28);
+}
+
+.leaderboard-form-system.form-style-game .form-rank {
+  border-radius: 0.34rem;
+  text-transform: uppercase;
+  outline: 1px solid rgba(255,255,255,0.06);
+}
+
+.leaderboard-form-system.form-style-strong .form-rank {
+  height: 1.62rem;
+  border-radius: 0.32rem;
+  text-transform: uppercase;
+  box-shadow: 0 0 22px color-mix(in srgb, currentColor 32%, transparent), inset 0 1px rgba(255,255,255,0.22), inset 0 -1px rgba(0,0,0,0.40);
+}
+
+.leaderboard-form-system .form-effect-hot > td,
+.leaderboard-form-system .form-effect-sniper > td,
+.leaderboard-form-system .form-effect-cold > td,
+.leaderboard-form-system .form-effect-storm > td,
+.leaderboard-form-system .form-effect-curse > td,
+.leaderboard-form-system .form-effect-wooden > td,
+.leaderboard-form-system .form-effect-var > td {
+  background-size: auto !important;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.leaderboard-form-system .form-effect-hot > td {
+  background-image:
+    radial-gradient(ellipse 22% 90% at 1.5rem 88%, rgba(251,146,60,calc(var(--form-row-alpha) + 0.05)), transparent 72%),
+    radial-gradient(circle at 3.8rem 58%, rgba(253,224,71,var(--form-texture-alpha)) 0 0.10rem, transparent 0.12rem),
+    linear-gradient(90deg, rgba(154,52,18,var(--form-row-alpha)), transparent 58%);
+}
+
+.leaderboard-form-system .form-effect-sniper > td {
+  background-image:
+    radial-gradient(circle at 2.15rem 50%, transparent 0 0.36rem, rgba(250,204,21,calc(var(--form-texture-alpha) + 0.04)) 0.38rem 0.43rem, transparent 0.45rem),
+    linear-gradient(90deg, rgba(30,58,138,var(--form-row-alpha)), transparent 56%);
+}
+
+.leaderboard-form-system .form-effect-cold > td {
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255,255,255,var(--form-texture-alpha)) 0 1px, transparent 1px 10px),
+    linear-gradient(90deg, rgba(14,116,144,var(--form-row-alpha)), transparent 60%);
+}
+
+.leaderboard-form-system .form-effect-storm > td {
+  background-image:
+    linear-gradient(112deg, transparent 0 44%, rgba(226,232,240,var(--form-texture-alpha)) 45%, transparent 47%),
+    linear-gradient(90deg, rgba(15,23,42,calc(var(--form-row-alpha) + 0.04)), transparent 62%);
+}
+
+.leaderboard-form-system .form-effect-curse > td {
+  background-image:
+    radial-gradient(circle at 2.8rem 54%, rgba(167,139,250,var(--form-texture-alpha)) 0 0.12rem, transparent 0.14rem),
+    linear-gradient(90deg, rgba(76,29,149,var(--form-row-alpha)), transparent 60%);
+}
+
+.leaderboard-form-system .form-effect-wooden > td {
+  background-image:
+    repeating-linear-gradient(98deg, rgba(251,191,36,calc(var(--form-texture-alpha) * 0.85)) 0 1px, transparent 1px 13px),
+    linear-gradient(90deg, rgba(120,53,15,var(--form-row-alpha)), transparent 62%);
+}
+
+.leaderboard-form-system .form-effect-var > td {
+  background-image:
+    linear-gradient(90deg, rgba(190,242,100,var(--form-texture-alpha)) 0 1px, transparent 1px 12px),
+    linear-gradient(90deg, rgba(22,101,52,var(--form-row-alpha)), transparent 58%);
+}
+
+.leaderboard-form-system tbody tr.form-effect-hot > td,
+.leaderboard-form-system tbody tr.form-effect-sniper > td,
+.leaderboard-form-system tbody tr.form-effect-cold > td,
+.leaderboard-form-system tbody tr.form-effect-storm > td,
+.leaderboard-form-system tbody tr.form-effect-curse > td,
+.leaderboard-form-system tbody tr.form-effect-wooden > td,
+.leaderboard-form-system tbody tr.form-effect-var > td {
+  background: transparent !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  animation: none !important;
+}
+
+.form-legend-panel {
+  margin-bottom: 1.35rem;
+  border-radius: 0.9rem;
+  padding: 0.9rem;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(255,255,255,0.055), transparent 42%),
+    rgba(17,24,39,0.70);
+}
+
+.form-legend-card {
+  min-height: 3.05rem;
+  border-radius: 0.78rem;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.045), transparent 38%),
+    rgba(3,7,18,0.44);
+  box-shadow: inset 0 1px rgba(255,255,255,0.055);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fire-layer {
     animation: none !important;
-    opacity: 0.65 !important;
+    opacity: 0.40 !important;
+  }
+
+  .form-effect-cold > td,
+  .form-effect-storm > td:first-child::after,
+  .form-effect-var > td {
+    animation: none !important;
   }
 }
 
