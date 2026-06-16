@@ -39,12 +39,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ event: null })
     }
 
-    // Fetch the match details
-    const { data: match } = await db
+    // Fetch the match details — include external_id and is_archived to detect legacy ofb_* matches
+    const { data: rawMatch } = await db
       .from('matches')
-      .select('id, team_a, team_b, team_a_code, team_b_code, match_date, status, score_a, score_b')
+      .select('id, team_a, team_b, team_a_code, team_b_code, match_date, status, score_a, score_b, external_id, is_archived')
       .eq('id', event.match_id)
       .single()
+
+    // Auto-remap: if event still points to an ofb_* or archived match, upgrade to the canonical wc26_* match
+    let match = rawMatch
+    if (rawMatch && (String(rawMatch.external_id ?? '').startsWith('ofb_') || rawMatch.is_archived)) {
+      const { data: canonical } = await db
+        .from('matches')
+        .select('id, team_a, team_b, team_a_code, team_b_code, match_date, status, score_a, score_b, external_id, is_archived')
+        .like('external_id', 'wc26_%')
+        .ilike('team_a', String(rawMatch.team_a))
+        .ilike('team_b', String(rawMatch.team_b))
+        .neq('is_archived', true)
+        .limit(1)
+        .maybeSingle()
+
+      if (canonical) {
+        await db
+          .from('match_of_day_events')
+          .update({ match_id: canonical.id })
+          .eq('id', event.id)
+        console.log('[match-of-day/current] remapped event', event.id, 'from', rawMatch.id, '→', canonical.id)
+        match = canonical
+      }
+    }
 
     const isVotingOpen =
       event.status !== 'settled' && new Date(event.vote_deadline) > new Date()

@@ -117,12 +117,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set(s => ({ predictions: [...s.predictions, pred] }))
     if (IS_PRODUCTION_MODE) {
+      const payload = { match_id: matchId, predicted_a: predictedA, predicted_b: predictedB, predicted_result }
+      console.log('MATCH OF DAY ID', matchId)
+      console.log('PAYLOAD', payload)
+      console.log('USER', user.id)
       fetch('/api/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ match_id: matchId, predicted_a: predictedA, predicted_b: predictedB, predicted_result }),
+        body: JSON.stringify(payload),
       }).then(res => {
-        if (!res.ok) toast.error('Nie udało się zapisać typu. Spróbuj ponownie.')
+        if (!res.ok) {
+          res.json().then(body => console.error('addPrediction API error', res.status, body)).catch(() => {})
+          toast.error('Nie udało się zapisać typu. Spróbuj ponownie.')
+        }
       }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))
     }
   },
@@ -130,6 +137,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   updatePrediction: (id, a, b, predictedResult) => {
     const pred = get().predictions.find(p => p.id === id)
     const predicted_result: PredictionResult = predictedResult ?? (a > b ? 'home' : a < b ? 'away' : 'draw')
+    console.log('MATCH OF DAY ID', pred?.match_id)
+    console.log('PAYLOAD', { match_id: pred?.match_id, a, b, predictedResult })
+    console.log('USER', get().currentUser?.id)
     set(s => ({
       predictions: s.predictions.map(p => p.id === id ? {
         ...p, predicted_a: a, predicted_b: b, predicted_result,
@@ -142,7 +152,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b, predicted_result }),
       }).then(res => {
-        if (!res.ok) toast.error('Nie udało się zaktualizować typu. Spróbuj ponownie.')
+        if (!res.ok) {
+          res.json().then(body => console.error('updatePrediction API error', res.status, body)).catch(() => {})
+          toast.error('Nie udało się zaktualizować typu. Spróbuj ponownie.')
+        }
       }).catch(() => toast.error('Błąd sieci — typ może nie być zapisany.'))
     }
   },
