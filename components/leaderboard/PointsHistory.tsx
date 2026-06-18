@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { User } from '@/types'
 import { buildPointsHistory } from '@/lib/points-history'
-import type { PointsHistoryData, MatchHistoryEntry, BonusHistoryEntry } from '@/lib/points-history'
+import type { PointsHistoryData, PointsHistoryEntry, MatchGroupEntry, PlayerMatchLine, BonusHistoryEntry } from '@/lib/points-history'
+import { TeamBadge } from '@/components/ui/TeamBadge'
+import { formatMatchDate, getPhaseLabel } from '@/lib/utils'
 
 interface Props {
   users: User[]
@@ -45,11 +47,22 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
   }, [data, outcomePoints, exactScorePoints])
 
   const filteredEntries = useMemo(() => {
-    let result = allEntries
-    if (viewMode !== 'all') result = result.filter(e => e.userId === viewMode)
+    let result: PointsHistoryEntry[] = allEntries
+
+    if (viewMode !== 'all') {
+      result = result
+        .map(e => {
+          if (e.kind !== 'match') return e
+          const players = e.players.filter(p => p.userId === viewMode)
+          return { ...e, players, hasModBonus: players.some(p => p.hasModBonus) }
+        })
+        .filter(e => e.kind === 'match' ? e.players.length > 0 : e.userId === viewMode)
+    }
+
     if (filter === 'matches') result = result.filter(e => e.kind === 'match')
     else if (filter === 'bonuses') result = result.filter(e => e.kind === 'bonus')
     else if (filter === 'mod') result = result.filter(e => e.kind === 'match' && e.hasModBonus)
+
     return result
   }, [allEntries, viewMode, filter])
 
@@ -102,7 +115,7 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
             <div className="space-y-2">
               {filteredEntries.map(entry =>
                 entry.kind === 'match'
-                  ? <MatchEntryCard key={entry.key} entry={entry} nick={usersById.get(entry.userId) ?? '—'} />
+                  ? <MatchGroupCard key={entry.key} entry={entry} usersById={usersById} totalUsers={users.length} />
                   : <BonusEntryCard key={entry.key} entry={entry} nick={usersById.get(entry.userId) ?? '—'} />
               )}
             </div>
@@ -113,27 +126,74 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
   )
 }
 
-function MatchEntryCard({ entry, nick }: { entry: MatchHistoryEntry; nick: string }) {
-  return (
-    <div className="bg-gray-950/50 border border-gray-800/70 rounded-lg px-3 py-3">
-      <p className="text-white font-bold text-sm mb-1.5">
-        {entry.teamA} {entry.scoreA}:{entry.scoreB} {entry.teamB}
-      </p>
-      <p className="text-gray-400 text-xs mb-0.5">Gracz: <span className="text-gray-200 font-medium">{nick}</span></p>
-      <p className="text-gray-400 text-xs mb-2">Typ: <span className="text-gray-200 font-medium">{entry.predictedA}:{entry.predictedB}</span></p>
+function MatchGroupCard({ entry, usersById, totalUsers }: { entry: MatchGroupEntry; usersById: Map<string, string>; totalUsers: number }) {
+  const [open, setOpen] = useState(false)
+  const playerCount = entry.players.length
+  const totalAwarded = entry.players.reduce((s, p) => s + p.total, 0)
+  const roundLabel = entry.groupName ? `Grupa ${entry.groupName} · Kolejka ${entry.round}` : getPhaseLabel(entry.phase)
 
-      {entry.components.length === 0 ? (
-        <p className="text-gray-500 text-sm font-semibold">0 pkt</p>
-      ) : (
-        <div className="space-y-0.5">
-          {entry.components.map((c, i) => (
-            <p key={i} className="text-emerald-400 text-sm font-medium">+{c.points} {c.label}</p>
-          ))}
-          <p className="text-white text-sm font-bold mt-1.5 pt-1.5 border-t border-gray-800/70">
-            Razem: {entry.total} pkt
-          </p>
+  return (
+    <div className="bg-gray-950/50 border border-gray-800/70 rounded-lg overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full px-3 py-3 text-left">
+        <div className="flex items-center justify-between gap-2">
+          <TeamBadge code={entry.teamACode} name={entry.teamA} size="sm" direction="row" className="flex-1 min-w-0" />
+          <div className="text-lg font-black text-white tabular-nums shrink-0">
+            {entry.scoreA}<span className="text-gray-600 mx-1">:</span>{entry.scoreB}
+          </div>
+          <TeamBadge code={entry.teamBCode} name={entry.teamB} size="sm" direction="row" reverse className="flex-1 min-w-0 justify-end" />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 mt-2 text-xs">
+          <span className="text-gray-500">Zakończony</span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-500">{roundLabel}</span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-500">{formatMatchDate(entry.matchDate)}</span>
+          {entry.hasModBonus && (
+            <>
+              <span className="text-gray-600">•</span>
+              <span className="text-amber-400 font-semibold">🔥 Mecz Dnia</span>
+            </>
+          )}
+        </div>
+
+        <p className="text-center text-gray-600 text-xs mt-2">{open ? '▲ Zwiń' : `▼ Rozwiń (${playerCount})`}</p>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-800/70">
+          <div className="divide-y divide-gray-800/70">
+            {entry.players.map(p => (
+              <PlayerLine key={p.userId} player={p} nick={usersById.get(p.userId) ?? '—'} />
+            ))}
+          </div>
+          <div className="px-3 py-2 bg-gray-900/60 flex items-center justify-between text-xs text-gray-400">
+            <span>Typujących: <span className="text-gray-200 font-medium">{playerCount}/{totalUsers}</span></span>
+            <span>Rozdano: <span className="text-emerald-400 font-semibold">{totalAwarded} pkt</span></span>
+          </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string }) {
+  return (
+    <div className="px-3 py-2.5">
+      <p className="text-gray-200 text-sm font-semibold truncate">{nick}</p>
+      <p className="text-gray-400 text-xs mt-0.5">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
+      <p className={`text-sm font-bold mt-1 ${player.total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+        {player.total > 0 ? `+${player.total} pkt` : '0 pkt'}
+      </p>
+      <div className="mt-0.5 space-y-0.5">
+        {player.components.length === 0 ? (
+          <p className="text-gray-600 text-xs">Brak punktów</p>
+        ) : (
+          player.components.map((c, i) => (
+            <p key={i} className="text-gray-500 text-xs">+{c.points} {c.label}</p>
+          ))
+        )}
+      </div>
     </div>
   )
 }
