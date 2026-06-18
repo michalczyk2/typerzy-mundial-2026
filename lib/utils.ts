@@ -16,19 +16,6 @@ export function formatMatchTime(dateStr: string): string {
 export function isMatchLocked(matchDate: string): boolean {
   return new Date(matchDate) <= new Date()
 }
-export function getPredictionResult(a: number, b: number): 'home' | 'draw' | 'away' {
-  if (a > b) return 'home'; if (a < b) return 'away'; return 'draw'
-}
-export function calculatePoints(pA: number, pB: number, sA: number, sB: number) {
-  const pr = getPredictionResult(pA, pB)
-  const ar = getPredictionResult(sA, sB)
-  const isCorrectOutcome = pr === ar
-  const isCorrectScore = pA === sA && pB === sB
-  let points = 0
-  if (isCorrectOutcome) points += 3
-  if (isCorrectScore) points += 5
-  return { points, isCorrectOutcome, isCorrectScore }
-}
 export function getPhaseLabel(phase: string): string {
   const labels: Record<string,string> = { group:'Faza grupowa', round_of_32:'1/32 finału', round_of_16:'1/16 finału', quarterfinal:'Ćwierćfinał', semifinal:'Półfinał', third_place:'Mecz o 3. miejsce', final:'Finał' }
   return labels[phase] || phase

@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import type { Match, Prediction } from '@/types'
 import { Button } from '@/components/ui/Button'
-import { calculatePoints } from '@/lib/utils'
 
 interface Props { match: Match; prediction?: Prediction; locked: boolean; onSubmit: (a: number, b: number) => void }
 
@@ -26,7 +25,7 @@ export function PredictionForm({ match, prediction, locked, onSubmit }: Props) {
 
   if (locked && prediction) {
     const pts = isFinished && match.score_a !== null && match.score_b !== null
-      ? calculatePoints(prediction.predicted_a, prediction.predicted_b, match.score_a, match.score_b).points
+      ? prediction.points_earned
       : null
     return (
       <div className="flex items-center justify-between">

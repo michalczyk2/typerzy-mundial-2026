@@ -19,6 +19,7 @@ export function calculateMatchPoints(
   const ar = sA > sB ? 'home' : sA < sB ? 'away' : 'draw'
   const pr: PredictionResult = predictedResult ?? (pA > pB ? 'home' : pA < pB ? 'away' : 'draw')
   const isDoubleChance = pr === 'home_or_draw' || pr === 'away_or_draw'
+  const scoreSide = pA > pB ? 'home' : pA < pB ? 'away' : 'draw'
 
   let is_correct_outcome: boolean
   if (pr === 'home_or_draw') {
@@ -29,7 +30,10 @@ export function calculateMatchPoints(
     is_correct_outcome = pr === ar
   }
 
-  const is_correct_score = pA === sA && pB === sB
+  // Double chance: the exact-score bonus only counts when the typed score itself
+  // falls within the selected range — otherwise predicted_result contradicts the typed score.
+  const isConsistent = !isDoubleChance || scoreSide === 'draw' || scoreSide === (pr === 'home_or_draw' ? 'home' : 'away')
+  const is_correct_score = isConsistent && pA === sA && pB === sB
   let points = 0
   if (is_correct_outcome) points += isDoubleChance ? 1 : outcomePoints
   if (is_correct_score) points += exactScorePoints

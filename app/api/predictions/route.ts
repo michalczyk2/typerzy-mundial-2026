@@ -19,6 +19,16 @@ export async function POST(req: NextRequest) {
       ? (rawResult as ValidResult)
       : predicted_a > predicted_b ? 'home' : predicted_a < predicted_b ? 'away' : 'draw'
 
+    // The typed score must fall within the selected double-chance range — otherwise
+    // predicted_result and predicted_a/predicted_b contradict each other.
+    const scoreSide = predicted_a > predicted_b ? 'home' : predicted_a < predicted_b ? 'away' : 'draw'
+    if (predicted_result === 'home_or_draw' && scoreSide === 'away') {
+      return NextResponse.json({ error: 'Wynik nie zgadza się z wybranym typem (drużyna gospodarzy lub remis)' }, { status: 400 })
+    }
+    if (predicted_result === 'away_or_draw' && scoreSide === 'home') {
+      return NextResponse.json({ error: 'Wynik nie zgadza się z wybranym typem (drużyna gości lub remis)' }, { status: 400 })
+    }
+
     const db = createAdminClient()
 
     // Verify user is active
