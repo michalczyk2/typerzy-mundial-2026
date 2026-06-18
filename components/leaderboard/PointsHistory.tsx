@@ -115,7 +115,7 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
             <div className="space-y-2">
               {filteredEntries.map(entry =>
                 entry.kind === 'match'
-                  ? <MatchGroupCard key={entry.key} entry={entry} usersById={usersById} />
+                  ? <MatchGroupCard key={entry.key} entry={entry} usersById={usersById} totalUsers={users.length} />
                   : <BonusEntryCard key={entry.key} entry={entry} nick={usersById.get(entry.userId) ?? '—'} />
               )}
             </div>
@@ -126,7 +126,7 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
   )
 }
 
-function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersById: Map<string, string> }) {
+function MatchGroupCard({ entry, usersById, totalUsers }: { entry: MatchGroupEntry; usersById: Map<string, string>; totalUsers: number }) {
   const [open, setOpen] = useState(false)
   const playerCount = entry.players.length
   const totalAwarded = entry.players.reduce((s, p) => s + p.total, 0)
@@ -143,17 +143,19 @@ function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersByI
           <TeamBadge code={entry.teamBCode} name={entry.teamB} size="sm" direction="row" reverse className="flex-1 min-w-0 justify-end" />
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 mt-2 text-xs text-gray-500">
-          <span>Zakończony</span>
-          <span>•</span>
-          <span>{roundLabel}</span>
-          <span>•</span>
-          <span>{formatMatchDate(entry.matchDate)}</span>
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 mt-2 text-xs">
+          <span className="text-gray-500">Zakończony</span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-500">{roundLabel}</span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-500">{formatMatchDate(entry.matchDate)}</span>
+          {entry.hasModBonus && (
+            <>
+              <span className="text-gray-600">•</span>
+              <span className="text-amber-400 font-semibold">🔥 Mecz Dnia</span>
+            </>
+          )}
         </div>
-
-        {entry.hasModBonus && (
-          <p className="text-center text-amber-400 text-xs font-semibold mt-1">🔥 Mecz Dnia</p>
-        )}
 
         <p className="text-center text-gray-600 text-xs mt-2">{open ? '▲ Zwiń' : `▼ Rozwiń (${playerCount})`}</p>
       </button>
@@ -166,8 +168,8 @@ function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersByI
             ))}
           </div>
           <div className="px-3 py-2 bg-gray-900/60 flex items-center justify-between text-xs text-gray-400">
-            <span>Typujących: <span className="text-gray-200 font-medium">{playerCount}</span></span>
-            <span>Suma punktów: <span className="text-emerald-400 font-semibold">{totalAwarded}</span></span>
+            <span>Typujących: <span className="text-gray-200 font-medium">{playerCount}/{totalUsers}</span></span>
+            <span>Rozdano: <span className="text-emerald-400 font-semibold">{totalAwarded} pkt</span></span>
           </div>
         </div>
       )}
@@ -185,10 +187,10 @@ function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string })
       </p>
       <div className="mt-0.5 space-y-0.5">
         {player.components.length === 0 ? (
-          <p className="text-gray-600 text-xs">• brak punktów</p>
+          <p className="text-gray-600 text-xs">Brak punktów</p>
         ) : (
           player.components.map((c, i) => (
-            <p key={i} className="text-gray-500 text-xs">• +{c.points} {c.label}</p>
+            <p key={i} className="text-gray-500 text-xs">+{c.points} {c.label}</p>
           ))
         )}
       </div>
