@@ -2,6 +2,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
+import { PointsHistory } from '@/components/leaderboard/PointsHistory'
 import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
 import type { FormEffect, FormVisualSettings, LeaderboardEntry } from '@/types'
 import type { LeaderboardFormPred, LeaderboardFormMatch } from '@/app/api/data/leaderboard-form/route'
@@ -317,6 +318,12 @@ export default function TabelaPage() {
             )
           })}
       </div>
+
+      <PointsHistory
+        users={users.filter(u => u.status === 'active' && u.role !== 'admin')}
+        outcomePoints={pointsMap['outcome_points'] ?? FALLBACK_POINTS['outcome_points']}
+        exactScorePoints={pointsMap['exact_score_points'] ?? FALLBACK_POINTS['exact_score_points']}
+      />
     </div>
   )
 }
