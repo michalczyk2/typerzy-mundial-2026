@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/sync-results",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/recalculate-points",
