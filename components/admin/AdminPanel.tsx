@@ -44,6 +44,19 @@ type DuplicatePair = {
   canonicalDay: string
 }
 
+type DuplicateSafetyViolation = {
+  legacyId: string
+  legacyExt: string | null
+  canonicalId: string
+  canonicalExt: string
+  teamA: string
+  teamB: string
+  day: string
+  predictionsCount: number
+  bonusPointsCount: number
+  modEventsCount: number
+}
+
 type ModEvent = {
   id: string
   official_match_day: string
@@ -143,11 +156,14 @@ export function AdminPanel() {
   const [modStatus, setModStatus] = useState<ModStatusData>(null)
   const [modActionStatus, setModActionStatus] = useState<Record<string, string>>({})
   const [duplicates, setDuplicates] = useState<DuplicatePair[] | null>(null)
+  const [duplicateSafetyViolations, setDuplicateSafetyViolations] = useState<DuplicateSafetyViolation[]>([])
+  const [allDuplicatesSafe, setAllDuplicatesSafe] = useState(false)
   const [orphanedLegacy, setOrphanedLegacy] = useState<OrphanedMatch[]>([])
   const [allOrphanedSafe, setAllOrphanedSafe] = useState(false)
   const [dupAuditMsg, setDupAuditMsg] = useState('')
   const [dupAuditLoading, setDupAuditLoading] = useState(false)
-  const [archiveMsg, setArchiveMsg] = useState<Record<string, string>>({})
+  const [archiveDuplicatesLoading, setArchiveDuplicatesLoading] = useState(false)
+  const [archiveDuplicatesMsg, setArchiveDuplicatesMsg] = useState('')
   const [archiveOrphanedLoading, setArchiveOrphanedLoading] = useState(false)
   const [archiveOrphanedMsg, setArchiveOrphanedMsg] = useState('')
   const [showAllMatches, setShowAllMatches] = useState(false)
@@ -244,11 +260,15 @@ export function AdminPanel() {
     }
     setDupAuditLoading(true)
     setDupAuditMsg('Szukam...')
+    setDuplicateSafetyViolations([])
+    setAllDuplicatesSafe(false)
     try {
       const res = await fetch('/api/admin/matches/audit-duplicates')
       const json = await res.json().catch(() => ({}))
       if (res.ok) {
         setDuplicates(json.duplicates ?? [])
+        setDuplicateSafetyViolations(json.duplicateSafetyViolations ?? [])
+        setAllDuplicatesSafe(json.allDuplicatesSafe ?? false)
         setOrphanedLegacy(json.orphanedLegacy ?? [])
         setAllOrphanedSafe(json.allOrphanedSafe ?? false)
         setDupAuditMsg(json.message ?? '')
@@ -259,6 +279,28 @@ export function AdminPanel() {
       setDupAuditMsg('Błąd sieci')
     } finally {
       setDupAuditLoading(false)
+    }
+  }
+
+  const handleArchiveAllSafeDuplicates = async () => {
+    if (!IS_PRODUCTION_MODE || duplicates === null) return
+    if (!allDuplicatesSafe || duplicateSafetyViolations.length > 0) {
+      setArchiveDuplicatesMsg('Archiwizacja zablokowana: audit wykazał rekordy z powiązanymi danymi.')
+      return
+    }
+    if (!window.confirm(`Archiwizować ${duplicates.length} bezpiecznych duplikatów ofb_*? Rekordy NIE zostaną usunięte.`)) return
+
+    setArchiveDuplicatesLoading(true)
+    setArchiveDuplicatesMsg('Archiwizuję...')
+    try {
+      const res = await fetch('/api/admin/matches/archive-safe-duplicates', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      await handleAuditDuplicates()
+      setArchiveDuplicatesMsg(res.ok ? (json.message ?? 'Zarchiwizowano bezpieczne duplikaty.') : `Błąd: ${json.error ?? 'Nieznany'}`)
+    } catch {
+      setArchiveDuplicatesMsg('Błąd sieci')
+    } finally {
+      setArchiveDuplicatesLoading(false)
     }
   }
 
@@ -283,28 +325,6 @@ export function AdminPanel() {
     setArchiveOrphanedMsg(`Zarchiwizowano ${ok}/${safeOnes.length}.`)
     setArchiveOrphanedLoading(false)
     await handleAuditDuplicates()
-  }
-
-  const handleArchiveMatch = async (matchId: string, archived: boolean) => {
-    if (!IS_PRODUCTION_MODE) return
-    setArchiveMsg(s => ({ ...s, [matchId]: 'Zapisywanie...' }))
-    try {
-      const res = await fetch('/api/admin/matches/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ match_id: matchId, archived }),
-      })
-      const json = await res.json().catch(() => ({}))
-      if (res.ok) {
-        setArchiveMsg(s => ({ ...s, [matchId]: json.message ?? 'OK' }))
-        // Re-run audit to refresh the list
-        await handleAuditDuplicates()
-      } else {
-        setArchiveMsg(s => ({ ...s, [matchId]: `Błąd: ${json.error ?? 'Nieznany'}` }))
-      }
-    } catch {
-      setArchiveMsg(s => ({ ...s, [matchId]: 'Błąd sieci' }))
-    }
   }
 
   useEffect(() => {
@@ -756,7 +776,7 @@ export function AdminPanel() {
         <h2 className="text-white font-bold text-lg mb-1">🔍 Naprawa danych — duplikaty meczów</h2>
         <p className="text-gray-600 text-xs mb-3">
           Wykrywa mecze z dwoma rekordami: stary (ręczny/ofb_*) + nowy z API worldcup26.ir.
-          Przed archiwizacją uruchom migrację SQL 004 w Supabase — przeniesie typowania i usunie stare.
+          Archiwizacja zbiorcza działa tylko dla starych ofb_* bez typów, bonusów i Meczu dnia.
         </p>
         <div className="flex items-center gap-3 flex-wrap mb-3">
           <Button variant="secondary" onClick={handleAuditDuplicates} disabled={dupAuditLoading}>
@@ -769,24 +789,41 @@ export function AdminPanel() {
           )}
         </div>
         {duplicates !== null && duplicates.length > 0 && (
-          <div className="space-y-3">
-            {duplicates.map(dup => (
-              <div key={dup.legacyId} className="bg-gray-800/50 rounded-lg p-3 text-xs space-y-1">
-                <p className="text-white font-medium">{dup.legacyTeamA} vs {dup.legacyTeamB}</p>
-                <p className="text-red-400">Stary: {dup.legacyExt ?? 'brak external_id'} · {dup.legacyDay} · gr.{dup.legacyGroup} kol.{dup.legacyRound}</p>
-                <p className="text-emerald-400">Nowy: {dup.canonicalExt} · {dup.canonicalDay}</p>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <Button size="sm" variant="danger"
-                    onClick={() => handleArchiveMatch(dup.legacyId, true)}
-                    disabled={archiveMsg[dup.legacyId] === 'Zapisywanie...'}>
-                    🗑️ Archiwizuj stary
-                  </Button>
-                  {archiveMsg[dup.legacyId] && (
-                    <span className="text-gray-400 text-xs">{archiveMsg[dup.legacyId]}</span>
-                  )}
-                </div>
+          <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-950/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-gray-300">Sprawdzono pary ofb_* → wc26_*: {duplicates.length}</span>
+              <span className={duplicateSafetyViolations.length === 0 ? 'text-emerald-400' : 'text-red-400'}>
+                Rekordy naruszające warunki: {duplicateSafetyViolations.length}
+              </span>
+            </div>
+
+            {duplicateSafetyViolations.length > 0 ? (
+              <div className="space-y-2">
+                {duplicateSafetyViolations.map(row => (
+                  <div key={row.legacyId} className="bg-red-950/30 border border-red-900/60 rounded-lg p-2.5 text-xs space-y-1">
+                    <p className="text-white font-medium">{row.teamA} vs {row.teamB}</p>
+                    <p className="text-gray-400">{row.legacyExt ?? 'brak external_id'} → {row.canonicalExt} · {row.day}</p>
+                    <div className="flex gap-3">
+                      <span className={row.predictionsCount > 0 ? 'text-red-400' : 'text-gray-500'}>typy: {row.predictionsCount}</span>
+                      <span className={row.bonusPointsCount > 0 ? 'text-red-400' : 'text-gray-500'}>bonusy: {row.bonusPointsCount}</span>
+                      <span className={row.modEventsCount > 0 ? 'text-red-400' : 'text-gray-500'}>MOD: {row.modEventsCount}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="space-y-2">
+                <p className="text-emerald-400 text-xs">0 rekordów naruszających warunki bezpieczeństwa.</p>
+                <Button variant="danger" className="w-full"
+                  onClick={handleArchiveAllSafeDuplicates}
+                  disabled={archiveDuplicatesLoading || !allDuplicatesSafe}>
+                  Archiwizuj wszystkie bezpieczne duplikaty
+                </Button>
+                {archiveDuplicatesMsg && (
+                  <p className="text-xs text-gray-400">{archiveDuplicatesMsg}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
         {duplicates !== null && duplicates.length === 0 && orphanedLegacy.length === 0 && (

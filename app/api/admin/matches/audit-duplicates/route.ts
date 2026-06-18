@@ -65,6 +65,19 @@ export async function GET(req: NextRequest) {
     modEventsCount: number
   }
 
+  type DuplicateSafetyViolation = {
+    legacyId: string
+    legacyExt: string | null
+    canonicalId: string
+    canonicalExt: string
+    teamA: string
+    teamB: string
+    day: string
+    predictionsCount: number
+    bonusPointsCount: number
+    modEventsCount: number
+  }
+
   const duplicates: DuplicatePair[] = []
   const pairedLegacyIds = new Set<string>()
 
@@ -101,6 +114,57 @@ export async function GET(req: NextRequest) {
         pairedLegacyIds.add(leg.id as string)
       }
     }
+  }
+
+  const duplicateLegacyIds = Array.from(pairedLegacyIds)
+  let duplicateSafetyViolations: DuplicateSafetyViolation[] = []
+  if (duplicateLegacyIds.length > 0) {
+    const [predsRes, bonusRes, modRes] = await Promise.all([
+      db.from('predictions').select('match_id').in('match_id', duplicateLegacyIds),
+      db.from('bonus_points').select('match_id').in('match_id', duplicateLegacyIds),
+      db.from('match_of_day_events').select('match_id').in('match_id', duplicateLegacyIds),
+    ])
+
+    const safetyError = predsRes.error ?? bonusRes.error ?? modRes.error
+    if (safetyError) {
+      return NextResponse.json({ error: safetyError.message }, { status: 500 })
+    }
+
+    const predCounts = new Map<string, number>()
+    const bonusCounts = new Map<string, number>()
+    const modCounts = new Map<string, number>()
+
+    for (const p of predsRes.data ?? []) {
+      const id = p.match_id as string
+      predCounts.set(id, (predCounts.get(id) ?? 0) + 1)
+    }
+    for (const b of bonusRes.data ?? []) {
+      const id = b.match_id as string
+      bonusCounts.set(id, (bonusCounts.get(id) ?? 0) + 1)
+    }
+    for (const m of modRes.data ?? []) {
+      const id = m.match_id as string
+      modCounts.set(id, (modCounts.get(id) ?? 0) + 1)
+    }
+
+    duplicateSafetyViolations = duplicates
+      .map(dup => ({
+        legacyId: dup.legacyId,
+        legacyExt: dup.legacyExt,
+        canonicalId: dup.canonicalId,
+        canonicalExt: dup.canonicalExt,
+        teamA: dup.legacyTeamA,
+        teamB: dup.legacyTeamB,
+        day: dup.legacyDay,
+        predictionsCount: predCounts.get(dup.legacyId) ?? 0,
+        bonusPointsCount: bonusCounts.get(dup.legacyId) ?? 0,
+        modEventsCount: modCounts.get(dup.legacyId) ?? 0,
+      }))
+      .filter(row =>
+        row.predictionsCount !== 0 ||
+        row.bonusPointsCount !== 0 ||
+        row.modEventsCount !== 0
+      )
   }
 
   // Orphaned: active legacy matches with no wc26_* counterpart
@@ -156,9 +220,13 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     duplicates,
+    duplicateSafetyViolations,
+    allDuplicatesSafe: duplicateSafetyViolations.length === 0,
+    safeDuplicateCount: duplicates.length - duplicateSafetyViolations.length,
     orphanedLegacy,
     allOrphanedSafe,
     count: duplicates.length,
+    duplicateViolationCount: duplicateSafetyViolations.length,
     orphanedCount: orphanedLegacy.length,
     legacyTotal: legacy.length,
     message: msgs.join(' · '),
