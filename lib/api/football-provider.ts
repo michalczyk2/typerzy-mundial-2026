@@ -138,6 +138,10 @@ export interface FootballFixture {
 const WC26_API_URL = 'https://worldcup26.ir/get/games'
 const WC26_TIMEOUT_MS = 10_000
 
+export interface WC26FetchOptions {
+  timeoutMs?: number
+}
+
 // English team name → ISO 3166-1 alpha-2 lowercase, matching FlagImg convention
 const WC26_TEAM_CODE_MAP: Record<string, string> = {
   // CONMEBOL
@@ -183,10 +187,17 @@ interface WC26Game {
   away_team_name_en: string
   home_score: number | string | null
   away_score: number | string | null
+  home_halftime_score?: number | string | null
+  away_halftime_score?: number | string | null
+  halftime_home_score?: number | string | null
+  halftime_away_score?: number | string | null
+  home_ht_score?: number | string | null
+  away_ht_score?: number | string | null
   group: string | null
   matchday: number | string | null
   local_date: string | null
   finished: boolean | string
+  status?: string | null
   time_elapsed: string | null
   type: string | null
   home_team_code?: string
@@ -214,9 +225,22 @@ function wc26Phase(type: string | null): MatchPhase {
 }
 
 function wc26Status(g: WC26Game): MatchStatus {
-  if (g.finished === true || g.finished === 'TRUE') return 'finished'
-  const elapsed = typeof g.time_elapsed === 'string' ? g.time_elapsed.trim() : ''
-  if (elapsed && elapsed !== 'finished' && elapsed !== 'notstarted') return 'live'
+  const finished = String(g.finished ?? '').trim().toLowerCase()
+  const status = String(g.status ?? '').trim().toLowerCase()
+  const elapsed = typeof g.time_elapsed === 'string' ? g.time_elapsed.trim().toLowerCase() : ''
+  const finishedValues = new Set(['true', '1', 'yes', 'finished', 'ft', 'fulltime', 'full_time'])
+
+  if (
+    g.finished === true ||
+    finishedValues.has(finished) ||
+    finishedValues.has(status) ||
+    finishedValues.has(elapsed)
+  ) {
+    return 'finished'
+  }
+
+  if (['live', 'in_progress', 'inprogress', 'playing'].includes(status)) return 'live'
+  if (elapsed && !['notstarted', 'not_started', 'not started', 'scheduled', '0', '0:00'].includes(elapsed)) return 'live'
   return 'scheduled'
 }
 
@@ -224,6 +248,35 @@ function wc26ParseScore(val: number | string | null | undefined): number | null 
   if (val === null || val === undefined || val === 'null' || val === '') return null
   const n = Number(val)
   return isNaN(n) ? null : n
+}
+
+function wc26ParseFirstScore(...values: Array<number | string | null | undefined>): number | null {
+  for (const value of values) {
+    const parsed = wc26ParseScore(value)
+    if (parsed !== null) return parsed
+  }
+  return null
+}
+
+function wc26ParseHalftimeScore(g: WC26Game, side: 'home' | 'away'): number | null {
+  const row = g as unknown as Record<string, number | string | null | undefined>
+  return side === 'home'
+    ? wc26ParseFirstScore(
+      g.home_halftime_score,
+      g.halftime_home_score,
+      g.home_ht_score,
+      row.ht_home_score,
+      row.home_score_ht,
+      row.half_time_home_score
+    )
+    : wc26ParseFirstScore(
+      g.away_halftime_score,
+      g.halftime_away_score,
+      g.away_ht_score,
+      row.ht_away_score,
+      row.away_score_ht,
+      row.half_time_away_score
+    )
 }
 
 // UTC offset (hours) for each WC2026 stadium during summer (June–July 2026)
@@ -270,10 +323,11 @@ function wc26ParseDate(raw: string | null, stadiumId?: string | number | null): 
   return new Date(localMs - utcOffset * 3_600_000).toISOString()
 }
 
-export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
+export async function fetchWC26Fixtures(options: WC26FetchOptions = {}): Promise<FootballFixture[] | null> {
   try {
+    const timeoutMs = options.timeoutMs ?? WC26_TIMEOUT_MS
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), WC26_TIMEOUT_MS)
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     let res: Response
     try {
       res = await fetch(WC26_API_URL, { cache: 'no-store', signal: controller.signal })
@@ -301,8 +355,8 @@ export async function fetchWC26Fixtures(): Promise<FootballFixture[] | null> {
         status: wc26Status(g),
         score_a: wc26ParseScore(g.home_score),
         score_b: wc26ParseScore(g.away_score),
-        halftime_a: null,
-        halftime_b: null,
+        halftime_a: wc26ParseHalftimeScore(g, 'home'),
+        halftime_b: wc26ParseHalftimeScore(g, 'away'),
         phase: wc26Phase(g.type),
         group_name: g.group ?? null,
         round: typeof g.matchday === 'string' ? (parseInt(g.matchday, 10) || 1) : (g.matchday ?? 1),

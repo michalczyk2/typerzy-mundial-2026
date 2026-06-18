@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { checkFootballConfig, fetchFixtures } from '@/lib/api/football-provider'
+import { checkFootballConfig, fetchWC26Fixtures } from '@/lib/api/football-provider'
+
+export const maxDuration = 60
+
+const WC26_RESULTS_TIMEOUT_MS = 30_000
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -40,13 +44,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const fixtures = await fetchFixtures()
+    const fixtures = await fetchWC26Fixtures({ timeoutMs: WC26_RESULTS_TIMEOUT_MS })
+    if (!fixtures || fixtures.length === 0) {
+      const msg = 'worldcup26.ir odpowiada za wolno albo nie zwrocilo danych w limicie 30s. Sync wynikow nie uzywa fallbacku OFB, zeby nie mieszac wc26_* i ofb_*. Sprobuj ponownie albo wpisz wynik recznie w Adminie i uruchom Przelicz punkty.'
+      console.error('[sync-results]', msg)
+      await db.from('sync_logs').insert({
+        sync_type: 'results',
+        status: 'error',
+        records_updated: 0,
+        message: msg,
+      })
+      return NextResponse.json({ error: msg }, { status: 503 })
+    }
+
     const relevant = fixtures.filter(f => ['live', 'finished'].includes(f.status))
 
     let updated = 0
     for (const f of relevant) {
       if (!f.external_id) continue
-      const { error } = await db
+      const { error, count } = await db
         .from('matches')
         .update({
           status: f.status,
@@ -54,21 +70,24 @@ export async function POST(req: NextRequest) {
           score_b: f.score_b,
           halftime_a: f.halftime_a,
           halftime_b: f.halftime_b,
-        })
+        }, { count: 'exact' })
         .eq('external_id', f.external_id)
-      if (!error) updated++
+        .like('external_id', 'wc26_%')
+        .or('is_archived.is.null,is_archived.eq.false')
+      if (!error) updated += count ?? 0
       else console.error('[sync-results] update error for', f.external_id, error.message)
     }
 
+    const message = `Zaktualizowano ${updated} wynikow z worldcup26.ir`
     await db.from('sync_logs').insert({
       sync_type: 'results',
       status: 'success',
       records_updated: updated,
-      message: `Zaktualizowano ${updated} wyników`,
+      message,
     })
 
     // Trigger point recalculation for finished matches
-    if (relevant.some(f => f.status === 'finished')) {
+    if (updated > 0 && relevant.some(f => f.status === 'finished')) {
       const baseUrl = new URL(req.url).origin
       const recalcHeaders: Record<string, string> = { 'content-type': 'application/json' }
       const cronSecret = process.env.CRON_SECRET
@@ -88,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[sync-results] updated ${updated} results`)
-    return NextResponse.json({ message: `Zaktualizowano ${updated} wyników`, count: updated })
+    return NextResponse.json({ message, count: updated, source_count: relevant.length })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[sync-results]', msg)

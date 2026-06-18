@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { fetchWC26Fixtures, calculateStandings } from '@/lib/api/football-provider'
 
+export const maxDuration = 60
+
+const WC26_SYNC_TIMEOUT_MS = 30_000
+
 // Part C — Vercel Cron architecture (ready to activate in vercel.json when needed):
 // { "path": "/api/sync-wc26", "schedule": "*/30 12-23 * * *" }  — co 30 min w godz. 12-23 UTC
 // { "path": "/api/sync-wc26", "schedule": "0 */2 * * *" }        — co 2 godz. poza dniem meczowym
@@ -22,8 +26,8 @@ type DbClient = ReturnType<typeof createAdminClient>
 
 async function checkLegacyConflicts(db: DbClient): Promise<string | null> {
   const [nullResult, ofbResult] = await Promise.all([
-    db.from('matches').select('id, external_id, team_a, team_b').is('external_id', null),
-    db.from('matches').select('id, external_id, team_a, team_b').like('external_id', 'ofb_%'),
+    db.from('matches').select('id, external_id, team_a, team_b').is('external_id', null).or('is_archived.is.null,is_archived.eq.false'),
+    db.from('matches').select('id, external_id, team_a, team_b').like('external_id', 'ofb_%').or('is_archived.is.null,is_archived.eq.false'),
   ])
 
   const legacy = [...(nullResult.data ?? []), ...(ofbResult.data ?? [])] as {
@@ -43,16 +47,10 @@ async function checkLegacyConflicts(db: DbClient): Promise<string | null> {
     .limit(1)
 
   if (!preds || preds.length === 0) {
-    // Brak typów na starych meczach — bezpiecznie usuwamy przed sync WC26 żeby uniknąć duplikatów
-    const { error: delErr } = await db.from('matches').delete().in('id', legacyIds)
-    if (delErr) {
-      return (
-        `Nie udało się automatycznie usunąć ${legacy.length} starych meczów (ofb_*/null): ${delErr.message}. ` +
-        `Uruchom ręcznie w Supabase: DELETE FROM matches WHERE external_id LIKE 'ofb_%' OR external_id IS NULL;`
-      )
-    }
-    console.log(`[sync-wc26] Auto-usunięto ${legacyIds.length} starych meczów bez typów (ofb_*/null)`)
-    return null
+    return (
+      `Synchronizacja zablokowana: ${legacy.length} aktywnych starych meczow (NULL lub ofb_*) bez typow. ` +
+      `Najpierw uruchom Audyt duplikatow i archiwizuj bezpieczne rekordy. Nie wykonano DELETE.`
+    )
   }
 
   const examples = legacy
@@ -85,9 +83,9 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: conflictMsg }, { status: 409 })
   }
 
-  const fixtures = await fetchWC26Fixtures()
+  const fixtures = await fetchWC26Fixtures({ timeoutMs: WC26_SYNC_TIMEOUT_MS })
   if (!fixtures || fixtures.length === 0) {
-    const msg = 'worldcup26.ir API niedostępne lub brak danych'
+    const msg = 'worldcup26.ir odpowiada za wolno albo nie zwrocilo danych w limicie 30s. Sprobuj ponownie; nie wykonano zadnych zmian.'
     console.error('[sync-wc26]', msg)
     await db.from('sync_logs').insert({
       sync_type: 'wc26',
@@ -95,11 +93,26 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       records_updated: 0,
       message: msg,
     })
-    return NextResponse.json({ error: msg }, { status: 502 })
+    return NextResponse.json({ error: msg }, { status: 503 })
   }
 
   try {
-    const matchRows = fixtures.map(f => ({
+    let fixturesToApply = fixtures
+    let skippedNewFixtures = 0
+    const { data: existingWc26, error: existingErr } = await db
+      .from('matches')
+      .select('external_id')
+      .like('external_id', 'wc26_%')
+      .or('is_archived.is.null,is_archived.eq.false')
+
+    if (existingErr) throw existingErr
+    const existingIds = new Set((existingWc26 ?? []).map(m => m.external_id).filter(Boolean))
+    if (existingIds.size > 0) {
+      fixturesToApply = fixtures.filter(f => existingIds.has(f.external_id))
+      skippedNewFixtures = fixtures.length - fixturesToApply.length
+    }
+
+    const matchRows = fixturesToApply.map(f => ({
       external_id: f.external_id,
       team_a: f.team_a,
       team_b: f.team_b,
@@ -119,6 +132,17 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       data_source: 'api' as const,
     }))
 
+    if (matchRows.length === 0) {
+      const msg = 'worldcup26.ir zwrocilo dane, ale zaden rekord nie pasuje do aktywnych wc26_* w bazie. Nie utworzono nowych meczow.'
+      await db.from('sync_logs').insert({
+        sync_type: 'wc26',
+        status: 'success',
+        records_updated: 0,
+        message: msg,
+      })
+      return NextResponse.json({ message: msg, count: 0, skipped_new_fixtures: skippedNewFixtures })
+    }
+
     const { error: matchErr } = await db
       .from('matches')
       .upsert(matchRows, { onConflict: 'external_id' })
@@ -126,7 +150,7 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
     if (matchErr) throw matchErr
 
     // Calculate standings directly from fetched fixtures — no second API call needed
-    const standings = calculateStandings(fixtures)
+    const standings = calculateStandings(fixturesToApply)
     if (standings.length > 0) {
       const { error: standErr } = await db
         .from('standings')
@@ -149,7 +173,7 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       if (standErr) console.error('[sync-wc26] standings upsert:', standErr.message)
     }
 
-    if (fixtures.some(f => f.status === 'finished')) {
+    if (fixturesToApply.some(f => f.status === 'finished')) {
       const baseUrl = new URL(req.url).origin
       const recalcHeaders: Record<string, string> = { 'content-type': 'application/json' }
       const cronSecret = process.env.CRON_SECRET
@@ -163,16 +187,21 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
         .catch(e => console.error('[sync-wc26] recalculate-points:', e))
     }
 
-    const msg = `Zsynchronizowano ${fixtures.length} meczów${standings.length ? `, ${standings.length} wpisów tabeli` : ''} z worldcup26.ir`
+    const msg = `Zsynchronizowano ${matchRows.length} istniejacych meczow${standings.length ? `, ${standings.length} wpisow tabeli` : ''} z worldcup26.ir${skippedNewFixtures ? `; pominieto ${skippedNewFixtures} nowych meczow z API` : ''}`
     await db.from('sync_logs').insert({
       sync_type: 'wc26',
       status: 'success',
-      records_updated: fixtures.length,
+      records_updated: matchRows.length,
       message: msg,
     })
 
     console.log('[sync-wc26]', msg)
-    return NextResponse.json({ message: msg, count: fixtures.length, standings_count: standings.length })
+    return NextResponse.json({
+      message: msg,
+      count: matchRows.length,
+      standings_count: standings.length,
+      skipped_new_fixtures: skippedNewFixtures,
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[sync-wc26]', msg)

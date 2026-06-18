@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { fetchFixtures } from '@/lib/api/football-provider'
+import { fetchWC26Fixtures } from '@/lib/api/football-provider'
+
+export const maxDuration = 60
+
+const WC26_SYNC_TIMEOUT_MS = 30_000
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -34,8 +38,24 @@ export async function POST(req: NextRequest) {
   let matchesSynced = 0
   let matchSyncError: string | null = null
   try {
-    const fixtures = await fetchFixtures()
-    const rows = fixtures.map(f => ({
+    const fixtures = await fetchWC26Fixtures({ timeoutMs: WC26_SYNC_TIMEOUT_MS })
+    if (!fixtures || fixtures.length === 0) {
+      throw new Error('worldcup26.ir odpowiada za wolno albo nie zwrocilo danych w limicie 30s. Daily refresh nie uzywa OFB fallback.')
+    }
+
+    const { data: existingWc26, error: existingErr } = await db
+      .from('matches')
+      .select('external_id')
+      .like('external_id', 'wc26_%')
+      .or('is_archived.is.null,is_archived.eq.false')
+
+    if (existingErr) throw existingErr
+    const existingIds = new Set((existingWc26 ?? []).map(m => m.external_id).filter(Boolean))
+    const fixturesToApply = existingIds.size > 0
+      ? fixtures.filter(f => existingIds.has(f.external_id))
+      : fixtures
+
+    const rows = fixturesToApply.map(f => ({
       external_id: f.external_id,
       team_a: f.team_a,
       team_b: f.team_b,
@@ -55,9 +75,11 @@ export async function POST(req: NextRequest) {
       city: f.city,
       data_source: 'api' as const,
     }))
-    const { error } = await db.from('matches').upsert(rows, { onConflict: 'external_id' })
-    if (error) throw error
-    matchesSynced = rows.length
+    if (rows.length > 0) {
+      const { error } = await db.from('matches').upsert(rows, { onConflict: 'external_id' })
+      if (error) throw error
+      matchesSynced = rows.length
+    }
   } catch (err) {
     matchSyncError = err instanceof Error ? err.message : String(err)
     console.error('[daily-refresh] match sync failed:', matchSyncError)

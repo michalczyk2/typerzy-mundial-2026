@@ -764,7 +764,10 @@ export function AdminPanel() {
         </div>
         {IS_PRODUCTION_MODE && wc26LastSync?.status === 'error' && !wc26Msg && (
           <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded text-xs text-red-400">
-            Ostatnia sync nie powiodła się: {wc26LastSync.message}
+            <p>Ostatnia sync nie powiodła się: {wc26LastSync.message}</p>
+            <p className="mt-1 text-red-300">
+              Jesli API odpowiada za wolno, wpisz wynik recznie na liscie meczow i uruchom Przelicz punkty.
+            </p>
           </div>
         )}
         {!IS_PRODUCTION_MODE && (
@@ -1026,7 +1029,10 @@ export function AdminPanel() {
             {showAllMatches ? 'Ukryj' : 'Pokaż'}
           </button>
         </div>
-        <p className="text-gray-600 text-xs mb-4">{matches.length} aktywnych meczów (zarchiwizowane ukryte — patrz Audyt duplikatów)</p>
+        <p className="text-gray-600 text-xs mb-1">{matches.length} aktywnych meczów (zarchiwizowane ukryte — patrz Audyt duplikatów)</p>
+        <p className="text-gray-600 text-xs mb-4">
+          Recznie: kliknij przy meczu przycisk pilki, wpisz wynik i OK; zapisze status finished. Potem uruchom Przelicz punkty.
+        </p>
         {showAllMatches && (
           <div className="space-y-2">
             {matches.map(match => (

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { checkFootballConfig, fetchStandings } from '@/lib/api/football-provider'
+import { calculateStandings, checkFootballConfig, fetchWC26Fixtures } from '@/lib/api/football-provider'
+
+export const maxDuration = 60
+
+const WC26_SYNC_TIMEOUT_MS = 30_000
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -40,7 +44,20 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const standings = await fetchStandings()
+    const fixtures = await fetchWC26Fixtures({ timeoutMs: WC26_SYNC_TIMEOUT_MS })
+    if (!fixtures || fixtures.length === 0) {
+      const msg = 'worldcup26.ir odpowiada za wolno albo nie zwrocilo danych w limicie 30s. Sync grup pomija OFB fallback, bo baza uzywa wc26_*.'
+      console.error('[sync-standings]', msg)
+      await db.from('sync_logs').insert({
+        sync_type: 'standings',
+        status: 'error',
+        records_updated: 0,
+        message: msg,
+      })
+      return NextResponse.json({ error: msg }, { status: 503 })
+    }
+
+    const standings = calculateStandings(fixtures)
 
     const rows = standings.map(s => ({
       group_name: s.group_name,
