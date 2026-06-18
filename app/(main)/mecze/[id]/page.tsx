@@ -81,7 +81,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleSave = () => {
-    if (!currentUser || locked || scoreA === '' || scoreB === '' || selectedResult === null) return
+    if (!currentUser || locked || scoreA === '' || scoreB === '' || selectedResult === null || scoreMismatch) return
     const a = Number(scoreA), b = Number(scoreB)
     if (myPrediction) {
       updatePrediction(myPrediction.id, a, b, selectedResult)
@@ -251,7 +251,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
 
             {scoreMismatch && (
               <div className="bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2.5 text-amber-400 text-xs">
-                ⚠ Wynik {scoreA}:{scoreB} nie zgadza się z wybranym rezultatem meczu
+                ⚠ Wynik {scoreA}:{scoreB} nie zgadza się z wybranym rezultatem meczu — zapisz dopiero po poprawieniu
               </div>
             )}
 
@@ -300,10 +300,10 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
 
             <button
               onClick={handleSave}
-              disabled={selectedResult === null}
+              disabled={selectedResult === null || scoreMismatch}
               className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all text-base"
             >
-              {saved ? '✓ Zapisano!' : myPrediction ? 'Aktualizuj typ' : 'Zapisz typ'}
+              {scoreMismatch ? 'Popraw wynik przed zapisem' : saved ? '✓ Zapisano!' : myPrediction ? 'Aktualizuj typ' : 'Zapisz typ'}
             </button>
 
             {saved && (
