@@ -51,7 +51,11 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
 
     if (viewMode !== 'all') {
       result = result
-        .map(e => e.kind === 'match' ? { ...e, players: e.players.filter(p => p.userId === viewMode) } : e)
+        .map(e => {
+          if (e.kind !== 'match') return e
+          const players = e.players.filter(p => p.userId === viewMode)
+          return { ...e, players, hasModBonus: players.some(p => p.hasModBonus) }
+        })
         .filter(e => e.kind === 'match' ? e.players.length > 0 : e.userId === viewMode)
     }
 
@@ -108,7 +112,7 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
           )}
 
           {!loading && filteredEntries.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {filteredEntries.map(entry =>
                 entry.kind === 'match'
                   ? <MatchGroupCard key={entry.key} entry={entry} usersById={usersById} />
@@ -123,13 +127,14 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
 }
 
 function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersById: Map<string, string> }) {
+  const [open, setOpen] = useState(false)
+  const playerCount = entry.players.length
+  const totalAwarded = entry.players.reduce((s, p) => s + p.total, 0)
+  const roundLabel = entry.groupName ? `Grupa ${entry.groupName} · Kolejka ${entry.round}` : getPhaseLabel(entry.phase)
+
   return (
     <div className="bg-gray-950/50 border border-gray-800/70 rounded-lg overflow-hidden">
-      <div className="px-3 py-3 border-b border-gray-800/70">
-        <p className="text-center text-xs text-gray-500 mb-2">
-          {entry.groupName ? `Grupa ${entry.groupName} · Kolejka ${entry.round}` : getPhaseLabel(entry.phase)}
-          {' · '}{formatMatchDate(entry.matchDate)}
-        </p>
+      <button onClick={() => setOpen(o => !o)} className="w-full px-3 py-3 text-left">
         <div className="flex items-center justify-between gap-2">
           <TeamBadge code={entry.teamACode} name={entry.teamA} size="sm" direction="row" className="flex-1 min-w-0" />
           <div className="text-lg font-black text-white tabular-nums shrink-0">
@@ -137,13 +142,35 @@ function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersByI
           </div>
           <TeamBadge code={entry.teamBCode} name={entry.teamB} size="sm" direction="row" reverse className="flex-1 min-w-0 justify-end" />
         </div>
-      </div>
 
-      <div className="divide-y divide-gray-800/70">
-        {entry.players.map(p => (
-          <PlayerLine key={p.userId} player={p} nick={usersById.get(p.userId) ?? '—'} />
-        ))}
-      </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 mt-2 text-xs text-gray-500">
+          <span>Zakończony</span>
+          <span>•</span>
+          <span>{roundLabel}</span>
+          <span>•</span>
+          <span>{formatMatchDate(entry.matchDate)}</span>
+        </div>
+
+        {entry.hasModBonus && (
+          <p className="text-center text-amber-400 text-xs font-semibold mt-1">🔥 Mecz Dnia</p>
+        )}
+
+        <p className="text-center text-gray-600 text-xs mt-2">{open ? '▲ Zwiń' : `▼ Rozwiń (${playerCount})`}</p>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-800/70">
+          <div className="divide-y divide-gray-800/70">
+            {entry.players.map(p => (
+              <PlayerLine key={p.userId} player={p} nick={usersById.get(p.userId) ?? '—'} />
+            ))}
+          </div>
+          <div className="px-3 py-2 bg-gray-900/60 flex items-center justify-between text-xs text-gray-400">
+            <span>Typujących: <span className="text-gray-200 font-medium">{playerCount}</span></span>
+            <span>Suma punktów: <span className="text-emerald-400 font-semibold">{totalAwarded}</span></span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -151,23 +178,20 @@ function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersByI
 function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string }) {
   return (
     <div className="px-3 py-2.5">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <p className="text-gray-200 text-sm font-medium truncate">{nick}</p>
-        <p className="text-gray-400 text-xs shrink-0">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
+      <p className="text-gray-200 text-sm font-semibold truncate">{nick}</p>
+      <p className="text-gray-400 text-xs mt-0.5">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
+      <p className={`text-sm font-bold mt-1 ${player.total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+        {player.total > 0 ? `+${player.total} pkt` : '0 pkt'}
+      </p>
+      <div className="mt-0.5 space-y-0.5">
+        {player.components.length === 0 ? (
+          <p className="text-gray-600 text-xs">• brak punktów</p>
+        ) : (
+          player.components.map((c, i) => (
+            <p key={i} className="text-gray-500 text-xs">• +{c.points} {c.label}</p>
+          ))
+        )}
       </div>
-
-      {player.components.length === 0 ? (
-        <p className="text-gray-500 text-sm font-semibold">0 pkt</p>
-      ) : (
-        <div className="space-y-0.5">
-          {player.components.map((c, i) => (
-            <p key={i} className="text-emerald-400 text-sm font-medium">+{c.points} {c.label}</p>
-          ))}
-          <p className="text-white text-sm font-bold mt-1 pt-1 border-t border-gray-800/70">
-            Razem: {player.total} pkt
-          </p>
-        </div>
-      )}
     </div>
   )
 }

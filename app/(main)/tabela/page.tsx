@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
 import { PointsHistory } from '@/components/leaderboard/PointsHistory'
+import { Accordion } from '@/components/ui/Accordion'
 import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
 import type { FormEffect, FormVisualSettings, LeaderboardEntry } from '@/types'
 import type { LeaderboardFormPred, LeaderboardFormMatch } from '@/app/api/data/leaderboard-form/route'
@@ -207,8 +208,7 @@ export default function TabelaPage() {
       />
 
       {/* Legend */}
-      <div className="mt-4 mb-3 rounded-xl border border-gray-800 bg-gray-900/65 p-3">
-        <p className="mb-3 text-xs font-black uppercase tracking-wide text-gray-400">Legenda kropek - Ostatnie 5</p>
+      <Accordion title="Legenda kropek" className="mt-4 mb-3">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {LEGEND.map(({ dot, label }) => (
           <div key={label} className="flex items-center gap-2 rounded-lg bg-gray-950/45 px-2.5 py-2">
@@ -217,107 +217,104 @@ export default function TabelaPage() {
           </div>
         ))}
         </div>
-        <div className="hidden">
-          <span className="text-sm leading-none">🔥</span>
-          <span className="text-xs text-gray-500">forma gracza</span>
-        </div>
-      </div>
+      </Accordion>
 
-      <div className={`form-legend-panel form-style-${visualSettings.style_variant}`}>
-        <p className="mb-3 text-xs font-black uppercase tracking-wide text-gray-400">Statusy / rangi formy</p>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {FORM_STATUS_LEGEND.map(({ effect, label, desc }) => (
-            <div key={effect} className={`form-legend-card form-legend-card-${effect}`}>
-              <span className={`form-status-dot form-status-dot-${effect}`} />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-black text-gray-100">{label}</p>
-                <p className="truncate text-[0.68rem] text-gray-500">{desc}</p>
+      <Accordion title="Statusy / Rangi formy" className="mb-3">
+        <div className={`form-legend-panel form-style-${visualSettings.style_variant}`}>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {FORM_STATUS_LEGEND.map(({ effect, label, desc }) => (
+              <div key={effect} className={`form-legend-card form-legend-card-${effect}`}>
+                <span className={`form-status-dot form-status-dot-${effect}`} />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-gray-100">{label}</p>
+                  <p className="truncate text-[0.68rem] text-gray-500">{desc}</p>
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </Accordion>
+
+      {/* Bonuses section */}
+      <Accordion title="Bonusy" className="mb-3">
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[
+            { label: 'Dokładny wynik', value: '5 pkt', color: 'text-emerald-400' },
+            { label: 'Trafna końcówka', value: '3 pkt', color: 'text-amber-400' },
+            { label: 'Szansa podwójna', value: '1 pkt', color: 'text-blue-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-gray-950/50 border border-gray-800/70 rounded-lg p-3 text-center">
+              <p className={`text-lg font-black ${color}`}>{value}</p>
+              <p className="text-gray-500 text-xs mt-0.5">{label}</p>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Scoring summary */}
-      <div className="mb-8 grid grid-cols-3 gap-3">
-        {[
-          { label: 'Dokładny wynik', value: '5 pkt', color: 'text-emerald-400' },
-          { label: 'Trafna końcówka', value: '3 pkt', color: 'text-amber-400' },
-          { label: 'Szansa podwójna', value: '1 pkt', color: 'text-blue-400' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
-            <p className={`text-lg font-black ${color}`}>{value}</p>
-            <p className="text-gray-500 text-xs mt-0.5">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Bonuses section */}
-      <h2 className="text-lg font-bold text-white mb-3">Bonusy</h2>
-      <div className="grid gap-3 mb-6">
-        {Object.entries(BONUS_META).map(([key, meta]) => (
-          <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-sm">{meta.label}</p>
-              <p className="text-gray-400 text-xs mt-0.5">{meta.desc}</p>
+        <div className="grid gap-3 mb-4">
+          {Object.entries(BONUS_META).map(([key, meta]) => (
+            <div key={key} className="bg-gray-950/50 border border-gray-800/70 rounded-lg p-4 flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm">{meta.label}</p>
+                <p className="text-gray-400 text-xs mt-0.5">{meta.desc}</p>
+              </div>
+              <span className="text-emerald-400 font-black text-sm shrink-0">
+                +{pointsMap[meta.settingKey] ?? FALLBACK_POINTS[meta.settingKey]} pkt
+              </span>
             </div>
-            <span className="text-emerald-400 font-black text-sm shrink-0">
-              +{pointsMap[meta.settingKey] ?? FALLBACK_POINTS[meta.settingKey]} pkt
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* My bonuses */}
-      {currentUser && myBonuses.length > 0 && (
-        <>
-          <h2 className="text-base font-bold text-white mb-3">Moje bonusy</h2>
-          <div className="space-y-2 mb-6">
-            {myBonuses.map(bonus => {
-              const meta = BONUS_META[bonus.bonus_type]
+        {currentUser && myBonuses.length > 0 && (
+          <>
+            <h3 className="text-sm font-bold text-white mb-3">Moje bonusy</h3>
+            <div className="space-y-2">
+              {myBonuses.map(bonus => {
+                const meta = BONUS_META[bonus.bonus_type]
+                return (
+                  <div key={bonus.id} className="bg-gray-950/50 border border-gray-800/70 rounded-lg px-4 py-3 flex items-center justify-between">
+                    <p className="text-white text-sm font-medium">{meta?.label || bonus.bonus_type}</p>
+                    <span className="text-emerald-400 font-black">+{bonus.points}</span>
+                  </div>
+                )
+              })}
+              <div className="bg-emerald-950/40 border border-emerald-900 rounded-lg px-4 py-3 flex items-center justify-between">
+                <span className="text-emerald-300 font-bold text-sm">Suma bonusów</span>
+                <span className="text-emerald-400 font-black">+{totalBonus}</span>
+              </div>
+            </div>
+          </>
+        )}
+      </Accordion>
+
+      {/* Bonus ranking */}
+      <Accordion title="Ranking bonusów" className="mb-3">
+        <div className="rounded-lg overflow-hidden border border-gray-800/70">
+          {users
+            .filter(u => u.status === 'active' && u.role !== 'admin')
+            .sort((a, b) => {
+              const aB = bonusPoints.filter(bp => bp.user_id === a.id).reduce((s, bp) => s + bp.points, 0)
+              const bB = bonusPoints.filter(bp => bp.user_id === b.id).reduce((s, bp) => s + bp.points, 0)
+              return bB - aB
+            })
+            .map((user, i) => {
+              const total = bonusPoints.filter(bp => bp.user_id === user.id).reduce((s, bp) => s + bp.points, 0)
               return (
-                <div key={bonus.id} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <p className="text-white text-sm font-medium">{meta?.label || bonus.bonus_type}</p>
-                  <span className="text-emerald-400 font-black">+{bonus.points}</span>
+                <div
+                  key={user.id}
+                  className={`flex items-center justify-between px-4 py-3 border-b border-gray-800/70 last:border-0 ${user.id === currentUser?.id ? 'bg-emerald-950/30' : 'bg-gray-950/50'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-600 text-sm w-6 text-center">{i + 1}</span>
+                    <span className={`font-medium text-sm ${user.id === currentUser?.id ? 'text-emerald-400' : 'text-white'}`}>
+                      {user.nick}
+                    </span>
+                  </div>
+                  <span className="text-purple-400 font-bold">{total > 0 ? `+${total}` : '0'} pkt</span>
                 </div>
               )
             })}
-            <div className="bg-emerald-950/40 border border-emerald-900 rounded-xl px-4 py-3 flex items-center justify-between">
-              <span className="text-emerald-300 font-bold text-sm">Suma bonusów</span>
-              <span className="text-emerald-400 font-black">+{totalBonus}</span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Bonus ranking */}
-      <h2 className="text-base font-bold text-white mb-3">Ranking bonusów</h2>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        {users
-          .filter(u => u.status === 'active' && u.role !== 'admin')
-          .sort((a, b) => {
-            const aB = bonusPoints.filter(bp => bp.user_id === a.id).reduce((s, bp) => s + bp.points, 0)
-            const bB = bonusPoints.filter(bp => bp.user_id === b.id).reduce((s, bp) => s + bp.points, 0)
-            return bB - aB
-          })
-          .map((user, i) => {
-            const total = bonusPoints.filter(bp => bp.user_id === user.id).reduce((s, bp) => s + bp.points, 0)
-            return (
-              <div
-                key={user.id}
-                className={`flex items-center justify-between px-4 py-3 border-b border-gray-800 last:border-0 ${user.id === currentUser?.id ? 'bg-emerald-950/30' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-600 text-sm w-6 text-center">{i + 1}</span>
-                  <span className={`font-medium text-sm ${user.id === currentUser?.id ? 'text-emerald-400' : 'text-white'}`}>
-                    {user.nick}
-                  </span>
-                </div>
-                <span className="text-purple-400 font-bold">{total > 0 ? `+${total}` : '0'} pkt</span>
-              </div>
-            )
-          })}
-      </div>
+        </div>
+      </Accordion>
 
       <PointsHistory
         users={users.filter(u => u.status === 'active' && u.role !== 'admin')}
