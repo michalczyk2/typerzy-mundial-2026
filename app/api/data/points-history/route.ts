@@ -25,10 +25,14 @@ export async function GET() {
       id: m.id,
       team_a: m.team_a,
       team_b: m.team_b,
+      team_a_code: m.team_a_code,
+      team_b_code: m.team_b_code,
       score_a: m.score_a as number,
       score_b: m.score_b as number,
       match_date: m.match_date,
       round: m.round,
+      group_name: m.group_name,
+      phase: m.phase,
     }))
 
     const predictions: PointsHistoryPred[] = MOCK_PREDICTIONS
@@ -63,7 +67,7 @@ export async function GET() {
 
     const { data: matchRows, error: matchErr } = await db
       .from('matches')
-      .select('id, team_a, team_b, score_a, score_b, match_date, round')
+      .select('id, team_a, team_b, team_a_code, team_b_code, score_a, score_b, match_date, round, group_name, phase')
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
@@ -79,10 +83,14 @@ export async function GET() {
       id: m.id,
       team_a: m.team_a,
       team_b: m.team_b,
+      team_a_code: m.team_a_code,
+      team_b_code: m.team_b_code,
       score_a: m.score_a as number,
       score_b: m.score_b as number,
       match_date: m.match_date,
       round: m.round,
+      group_name: m.group_name,
+      phase: m.phase,
     }))
 
     const matchIds = matches.map(m => m.id)

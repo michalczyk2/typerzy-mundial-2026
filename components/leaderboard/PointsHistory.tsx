@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { User } from '@/types'
 import { buildPointsHistory } from '@/lib/points-history'
-import type { PointsHistoryData, MatchHistoryEntry, BonusHistoryEntry } from '@/lib/points-history'
+import type { PointsHistoryData, PointsHistoryEntry, MatchGroupEntry, PlayerMatchLine, BonusHistoryEntry } from '@/lib/points-history'
+import { TeamBadge } from '@/components/ui/TeamBadge'
+import { formatMatchDate, getPhaseLabel } from '@/lib/utils'
 
 interface Props {
   users: User[]
@@ -45,11 +47,18 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
   }, [data, outcomePoints, exactScorePoints])
 
   const filteredEntries = useMemo(() => {
-    let result = allEntries
-    if (viewMode !== 'all') result = result.filter(e => e.userId === viewMode)
+    let result: PointsHistoryEntry[] = allEntries
+
+    if (viewMode !== 'all') {
+      result = result
+        .map(e => e.kind === 'match' ? { ...e, players: e.players.filter(p => p.userId === viewMode) } : e)
+        .filter(e => e.kind === 'match' ? e.players.length > 0 : e.userId === viewMode)
+    }
+
     if (filter === 'matches') result = result.filter(e => e.kind === 'match')
     else if (filter === 'bonuses') result = result.filter(e => e.kind === 'bonus')
     else if (filter === 'mod') result = result.filter(e => e.kind === 'match' && e.hasModBonus)
+
     return result
   }, [allEntries, viewMode, filter])
 
@@ -99,10 +108,10 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
           )}
 
           {!loading && filteredEntries.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {filteredEntries.map(entry =>
                 entry.kind === 'match'
-                  ? <MatchEntryCard key={entry.key} entry={entry} nick={usersById.get(entry.userId) ?? '—'} />
+                  ? <MatchGroupCard key={entry.key} entry={entry} usersById={usersById} />
                   : <BonusEntryCard key={entry.key} entry={entry} nick={usersById.get(entry.userId) ?? '—'} />
               )}
             </div>
@@ -113,24 +122,49 @@ export function PointsHistory({ users, outcomePoints, exactScorePoints }: Props)
   )
 }
 
-function MatchEntryCard({ entry, nick }: { entry: MatchHistoryEntry; nick: string }) {
+function MatchGroupCard({ entry, usersById }: { entry: MatchGroupEntry; usersById: Map<string, string> }) {
   return (
-    <div className="bg-gray-950/50 border border-gray-800/70 rounded-lg px-3 py-3">
-      <p className="text-white font-bold text-sm mb-1.5">
-        {entry.teamA} {entry.scoreA}:{entry.scoreB} {entry.teamB}
-      </p>
-      <p className="text-gray-400 text-xs mb-0.5">Gracz: <span className="text-gray-200 font-medium">{nick}</span></p>
-      <p className="text-gray-400 text-xs mb-2">Typ: <span className="text-gray-200 font-medium">{entry.predictedA}:{entry.predictedB}</span></p>
+    <div className="bg-gray-950/50 border border-gray-800/70 rounded-lg overflow-hidden">
+      <div className="px-3 py-3 border-b border-gray-800/70">
+        <p className="text-center text-xs text-gray-500 mb-2">
+          {entry.groupName ? `Grupa ${entry.groupName} · Kolejka ${entry.round}` : getPhaseLabel(entry.phase)}
+          {' · '}{formatMatchDate(entry.matchDate)}
+        </p>
+        <div className="flex items-center justify-between gap-2">
+          <TeamBadge code={entry.teamACode} name={entry.teamA} size="sm" direction="row" className="flex-1 min-w-0" />
+          <div className="text-lg font-black text-white tabular-nums shrink-0">
+            {entry.scoreA}<span className="text-gray-600 mx-1">:</span>{entry.scoreB}
+          </div>
+          <TeamBadge code={entry.teamBCode} name={entry.teamB} size="sm" direction="row" reverse className="flex-1 min-w-0 justify-end" />
+        </div>
+      </div>
 
-      {entry.components.length === 0 ? (
+      <div className="divide-y divide-gray-800/70">
+        {entry.players.map(p => (
+          <PlayerLine key={p.userId} player={p} nick={usersById.get(p.userId) ?? '—'} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string }) {
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <p className="text-gray-200 text-sm font-medium truncate">{nick}</p>
+        <p className="text-gray-400 text-xs shrink-0">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
+      </div>
+
+      {player.components.length === 0 ? (
         <p className="text-gray-500 text-sm font-semibold">0 pkt</p>
       ) : (
         <div className="space-y-0.5">
-          {entry.components.map((c, i) => (
+          {player.components.map((c, i) => (
             <p key={i} className="text-emerald-400 text-sm font-medium">+{c.points} {c.label}</p>
           ))}
-          <p className="text-white text-sm font-bold mt-1.5 pt-1.5 border-t border-gray-800/70">
-            Razem: {entry.total} pkt
+          <p className="text-white text-sm font-bold mt-1 pt-1 border-t border-gray-800/70">
+            Razem: {player.total} pkt
           </p>
         </div>
       )}
