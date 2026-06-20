@@ -2,7 +2,7 @@
 
 Plik dla Claude Code z kluczowym kontekstem projektu. Załaduj przy każdej sesji.
 
-*Ostatnia aktualizacja: 2026-06-10*
+*Ostatnia aktualizacja: 2026-06-17 (patrz sekcja "Aktualizacja (2026-06-17)" niżej)*
 
 ## Status
 
@@ -98,3 +98,12 @@ RLS: anon może SELECT (bez auth.uid()), service role dla INSERT/UPDATE/DELETE.
 - `sync-matches/results/standings` są stubami — logują do sync_logs, nie fetchują z zewnętrznego API. Do uzupełnienia z `FOOTBALL_API_KEY`.
 - `recalculate-points` nie jest incremental — przelicza wszystkie skończone mecze przy każdym wywołaniu. OK dla ~48+16+8+4+2+1 meczów.
 - Bonusy (round_king, streak) nie są jeszcze obliczane automatycznie — tylko ręcznie przez admina w bonus_points tabeli.
+
+---
+
+## Aktualizacja (2026-06-17)
+
+- **Naprawa duplikatów meczów** — historycznie wykonana przez **archiwizację** osieroconych `ofb_*` (`is_archived = true`), nie przez DELETE. Tabela `matches` ma fizycznie 144 wiersze (72 `wc26_*` aktywne + 72 `ofb_*` zarchiwizowane). Logika aplikacji filtruje po `is_archived = true`.
+- **Next.js = 16.2.9** zgodnie z `package.json` (poprzednie wpisy w tym pliku/Vault mówiące "Next.js 14" są nieaktualne).
+- Pełna dokumentacja projektu w Vault (aktywny VAULT_ROOT od ETAP 20): `M:\Vault\02 Projekty\Typerzy Mundial 2026\` (fallback/backup lokalny: `C:\Users\micha\Vault\02 Projekty\Typerzy Mundial 2026\`).
+- Zasady bezpieczeństwa Supabase (zakaz DELETE na `predictions`, backup przed UPDATE/DELETE) dodane lokalnie do `CLAUDE.md` i `AGENTS.md` w tym repo — wcześniej istniały tylko w Vault.

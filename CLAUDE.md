@@ -18,6 +18,18 @@ Załaduj na początku sesji: SESSION_CONTEXT.md + PROJECT_MEMORY.md
 
 ---
 
+## KRYTYCZNE ZASADY BEZPIECZEŃSTWA DANYCH
+
+- **Nie wykonuj DELETE na `predictions` bez wyraźnej zgody właściciela.**
+- Przed każdą masową zmianą `UPDATE`/`DELETE` w Supabase — zrób backup lub przynajmniej pełny `SELECT`/audyt zmienianych rekordów.
+- Duplikaty meczów po integracji WC26 zostały **historycznie naprawione przez archiwizację** osieroconych `ofb_*` (`is_archived = true`), **nie przez DELETE**. Nie powtarzaj pierwotnego planu DELETE.
+- Logika aplikacji ma używać aktywnych `wc26_%` i pomijać wiersze z `is_archived = true`.
+- **Nigdy nie przywracaj** starego zachowania, które mieszało `wc26_*` i `ofb_*` jako aktywne mecze — to przywróci bug duplikatów.
+- Po każdej zmianie dotyczącej meczów/punktów — przetestuj `/mecze`, `/tabela`, `/admin`.
+- Jeśli lokalne pliki (ten `CLAUDE.md`, `AGENTS.md`, `PROJECT_MEMORY.md`) są sprzeczne z Vaultem (aktywny VAULT_ROOT od ETAP 20: `M:\Vault\02 Projekty\Typerzy Mundial 2026\`; fallback/backup lokalny: `C:\Users\micha\Vault\02 Projekty\Typerzy Mundial 2026\`) — **zatrzymaj się i zapytaj właściciela**, nie zgaduj które źródło jest aktualne.
+
+---
+
 ## Architektura dual-mode
 
 ```
