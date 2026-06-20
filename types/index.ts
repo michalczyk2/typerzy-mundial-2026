@@ -104,6 +104,10 @@ export interface Prediction {
   is_locked: boolean
   created_at: string
   updated_at: string
+  is_admin_override?: boolean
+  admin_override_reason?: string | null
+  admin_override_by?: string | null
+  admin_override_at?: string | null
 }
 
 export interface TournamentWinnerPrediction {

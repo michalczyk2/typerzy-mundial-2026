@@ -167,6 +167,12 @@ export function AdminPanel() {
   const [archiveOrphanedLoading, setArchiveOrphanedLoading] = useState(false)
   const [archiveOrphanedMsg, setArchiveOrphanedMsg] = useState('')
   const [showAllMatches, setShowAllMatches] = useState(false)
+  const [overrideMatchId, setOverrideMatchId] = useState('')
+  const [overrideUserId, setOverrideUserId] = useState('')
+  const [overrideScoreA, setOverrideScoreA] = useState('')
+  const [overrideScoreB, setOverrideScoreB] = useState('')
+  const [overrideReason, setOverrideReason] = useState('')
+  const [overrideStatus, setOverrideStatus] = useState<{ type: 'idle' | 'saving' | 'ok' | 'error'; message: string }>({ type: 'idle', message: '' })
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -582,6 +588,44 @@ export function AdminPanel() {
     }
   }
 
+  const handleAdminOverrideSubmit = async () => {
+    if (!overrideMatchId || !overrideUserId || overrideScoreA === '' || overrideScoreB === '') {
+      setOverrideStatus({ type: 'error', message: 'Wybierz mecz, gracza i podaj wynik typu.' })
+      return
+    }
+    const reasonTrimmed = overrideReason.trim()
+    if (!reasonTrimmed) {
+      setOverrideStatus({ type: 'error', message: 'Podaj powód korekty.' })
+      return
+    }
+    setOverrideStatus({ type: 'saving', message: 'Zapisywanie i przeliczanie punktów...' })
+    try {
+      const res = await fetch('/api/admin/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: overrideMatchId,
+          user_id: overrideUserId,
+          predicted_a: Number(overrideScoreA),
+          predicted_b: Number(overrideScoreB),
+          reason: reasonTrimmed,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setOverrideStatus({ type: 'error', message: json.error ?? 'Błąd zapisu' })
+        return
+      }
+      setOverrideStatus({
+        type: 'ok',
+        message: `Zapisano typ i przeliczono punkty.${json.recalcMessage ? ` (${json.recalcMessage})` : ''}`,
+      })
+      setOverrideReason('')
+    } catch {
+      setOverrideStatus({ type: 'error', message: 'Błąd sieci' })
+    }
+  }
+
   const handleUserAction = async (userId: string, status: 'active' | 'blocked') => {
     try {
       const res = await fetch('/api/admin/users', {
@@ -674,6 +718,96 @@ export function AdminPanel() {
           </div>
           {!IS_PRODUCTION_MODE && (
             <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">Ręczna korekta typu</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Dodaj lub popraw typ konkretnego gracza dla konkretnego meczu — działa też po terminie blokady.
+          Zwykli gracze nadal nie mogą typować po czasie.
+        </p>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz</span>
+            <select
+              value={overrideMatchId}
+              onChange={e => setOverrideMatchId(e.target.value)}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz mecz —</option>
+              {matches.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)} {formatMatchTime(m.match_date)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Gracz</span>
+            <select
+              value={overrideUserId}
+              onChange={e => setOverrideUserId(e.target.value)}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz gracza —</option>
+              {users.filter(u => u.status === 'active').map(u => (
+                <option key={u.id} value={u.id}>{u.nick}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-400">Typ gospodarzy</span>
+              <input
+                type="number" min="0" max="20"
+                value={overrideScoreA}
+                onChange={e => setOverrideScoreA(e.target.value)}
+                className="w-16 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </label>
+            <span className="text-gray-600 pb-2">:</span>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-400">Typ gości</span>
+              <input
+                type="number" min="0" max="20"
+                value={overrideScoreB}
+                onChange={e => setOverrideScoreB(e.target.value)}
+                className="w-16 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Powód korekty</span>
+            <textarea
+              value={overrideReason}
+              onChange={e => setOverrideReason(e.target.value)}
+              rows={2}
+              placeholder="np. gracz zgłosił awarię przed startem meczu"
+              className="w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+            />
+          </label>
+
+          <p className="text-amber-400 text-xs">
+            ⚠️ Korekta przelicza punkty dla meczu i może zmienić bonus Idealny typ u innych graczy.
+          </p>
+
+          <Button onClick={handleAdminOverrideSubmit} disabled={overrideStatus.type === 'saving'}>
+            Zapisz korektę i przelicz punkty
+          </Button>
+
+          {overrideStatus.message && (
+            <p className={`text-xs ${overrideStatus.type === 'ok' ? 'text-emerald-400' : overrideStatus.type === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
+              {overrideStatus.message}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — zapis i przeliczanie nie mają efektu.</p>
           )}
         </div>
       </Card>
