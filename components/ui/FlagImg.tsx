@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
-interface Props { code: string; name: string; size?: 'sm'|'md'|'lg'; className?: string }
-const sizes = { sm:20, md:28, lg:40 }
+interface Props { code: string; name: string; size?: 'sm'|'md'|'lg'|'xl'; className?: string }
+const sizes = { sm:20, md:28, lg:40, xl:52 }
 
 // Maps FIFA 3-letter codes → ISO 3166-1 alpha-2 codes required by flagcdn.com.
 //
