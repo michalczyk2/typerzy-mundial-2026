@@ -283,47 +283,45 @@ function HalfRounds({ rounds, side }: { rounds: BracketSlot[][]; side: 'left' | 
   )
 }
 
-function DesktopBracket({ bracket }: { bracket: BracketData }) {
+// Desktop: measures available width and scales the fixed-layout bracket canvas
+// to fill it exactly — no horizontal scroll, no overflow.
+function DesktopView({ bracket }: { bracket: BracketData }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => setScale(el.clientWidth / canvasWidth())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const cMidY = centerYMid()
   const finalWrapperX = leftColX(3) + CARD_W + FINAL_GAP
   const finalWrapperY = cMidY - CARD_H / 2
   const trophyX = finalWrapperX + FINAL_W / 2
   const trophyY = finalWrapperY - 64
-  const thirdWrapperX = finalWrapperX + (FINAL_W - CARD_W) / 2
-  const thirdWrapperY = finalWrapperY + CARD_H + 30
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-950 to-black" style={{ width: canvasWidth(), height: canvasHeight() }}>
-      <HalfConnectors side="left" />
-      <HalfConnectors side="right" />
-      <HalfRounds rounds={bracket.left.rounds} side="left" />
-      <HalfRounds rounds={bracket.right.rounds} side="right" />
-      <div className="absolute" style={{ left: trophyX, top: trophyY, transform: 'translate(-50%, -50%)' }}>
-        <TrophyMark />
+    <div ref={ref} className="hidden md:block w-full" style={{ height: canvasHeight() * scale }}>
+      <div
+        className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-950 to-black"
+        style={{ width: canvasWidth(), height: canvasHeight(), transform: `scale(${scale})`, transformOrigin: 'top left' }}
+      >
+        <HalfConnectors side="left" />
+        <HalfConnectors side="right" />
+        <HalfRounds rounds={bracket.left.rounds} side="left" />
+        <HalfRounds rounds={bracket.right.rounds} side="right" />
+        <div className="absolute" style={{ left: trophyX, top: trophyY, transform: 'translate(-50%, -50%)' }}>
+          <TrophyMark />
+        </div>
+        <div className="absolute" style={{ left: finalWrapperX, top: finalWrapperY, width: FINAL_W, height: CARD_H }}>
+          <MatchCard match={bracket.final.match} status={bracket.final.status} className="w-full" />
+        </div>
       </div>
-      <div className="absolute" style={{ left: finalWrapperX, top: finalWrapperY, width: FINAL_W, height: CARD_H }}>
-        <MatchCard match={bracket.final.match} status={bracket.final.status} className="w-full" />
-      </div>
-      <div className="absolute" style={{ left: thirdWrapperX, top: thirdWrapperY, width: CARD_W, height: CARD_H }}>
-        <MatchCard match={bracket.thirdPlace.match} status={bracket.thirdPlace.status} className="w-full" />
-      </div>
-    </div>
-  )
-}
-
-// Horizontally scrollable wrapper that starts centered on the trophy/final
-// instead of pinned to the left edge — keeps the bracket looking symmetric
-// even when the canvas is wider than the viewport.
-function DesktopScrollArea({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
-  }, [])
-  return (
-    <div ref={ref} className="hidden md:block overflow-x-auto">
-      {children}
     </div>
   )
 }
@@ -405,7 +403,6 @@ function MobileDirectConnector({ x, fromY, toY, pointDown }: { x: number; fromY:
 type MobileLevel =
   | { kind: 'round'; r: number; slots: BracketSlot[] }
   | { kind: 'final' }
-  | { kind: 'thirdPlace' }
 
 // The exact same horizontal-row bracket tree as the desktop view, rotated
 // 90°: round of 32 → round of 16 → quarterfinal → semifinal stack top to
@@ -441,7 +438,7 @@ function MobileBracket({ bracket }: { bracket: BracketData }) {
 
   const leftRounds: MobileLevel[] = bracket.left.rounds.map((slots, r): MobileLevel => ({ kind: 'round', r, slots }))
   const rightRounds: MobileLevel[] = bracket.right.rounds.map((slots, r): MobileLevel => ({ kind: 'round', r, slots })).reverse()
-  const levels: MobileLevel[] = [...leftRounds, { kind: 'final' }, ...rightRounds, { kind: 'thirdPlace' }]
+  const levels: MobileLevel[] = [...leftRounds, { kind: 'final' }, ...rightRounds]
 
   let cursor = 16
   const ys = levels.map(() => {
@@ -515,21 +512,6 @@ function MobileBracket({ bracket }: { bracket: BracketData }) {
             </div>
           )
         }
-        if (level.kind === 'thirdPlace') {
-          return (
-            <div key="third">
-              <div
-                className="absolute text-center text-gray-500 font-bold uppercase tracking-wider text-[9px]"
-                style={{ left: 0, width, top: y - mCardH / 2 - labelH }}
-              >
-                {getPhaseLabel('third_place')}
-              </div>
-              <div className="absolute" style={cardStyle(width / 2, y)}>
-                <MatchCard match={bracket.thirdPlace.match} status={bracket.thirdPlace.status} className="w-full" />
-              </div>
-            </div>
-          )
-        }
         return (
           <div key={idx}>
             <div
@@ -557,9 +539,7 @@ export function BracketCanvas({ matches }: { matches: Match[] }) {
   const bracket = buildBracket(matches)
   return (
     <>
-      <DesktopScrollArea>
-        <DesktopBracket bracket={bracket} />
-      </DesktopScrollArea>
+      <DesktopView bracket={bracket} />
       <div className="md:hidden">
         <MobileBracket bracket={bracket} />
       </div>
