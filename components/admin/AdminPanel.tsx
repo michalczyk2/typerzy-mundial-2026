@@ -167,6 +167,8 @@ export function AdminPanel() {
   const [archiveOrphanedLoading, setArchiveOrphanedLoading] = useState(false)
   const [archiveOrphanedMsg, setArchiveOrphanedMsg] = useState('')
   const [showAllMatches, setShowAllMatches] = useState(false)
+  const [bracketLoading, setBracketLoading] = useState(false)
+  const [bracketMsg, setBracketMsg] = useState('')
   const [overrideMatchId, setOverrideMatchId] = useState('')
   const [overrideUserId, setOverrideUserId] = useState('')
   const [overrideScoreA, setOverrideScoreA] = useState('')
@@ -642,6 +644,21 @@ export function AdminPanel() {
       loadPendingUsers()
     } catch (err) {
       console.error('[AdminPanel] handleUserAction fetch error:', err)
+    }
+  }
+
+  const handlePopulateBracket = async () => {
+    setBracketLoading(true)
+    setBracketMsg('')
+    try {
+      const res = await fetch('/api/admin/populate-bracket', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) setBracketMsg(`Błąd: ${json.error ?? res.statusText}`)
+      else setBracketMsg(json.message + (json.errors?.length ? ` Błędy: ${json.errors.join('; ')}` : ''))
+    } catch (err) {
+      setBracketMsg(`Błąd sieci: ${String(err)}`)
+    } finally {
+      setBracketLoading(false)
     }
   }
 
@@ -1150,6 +1167,24 @@ export function AdminPanel() {
         </div>
         {!IS_PRODUCTION_MODE && (
           <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
+        )}
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-3">Auto-wypełnianie drabinki KO</h2>
+        <p className="text-gray-400 text-sm mb-4">
+          Uzupełnia drużyny w meczach <code className="text-emerald-400">round_of_32</code> na podstawie aktualnych standings grup.
+          Działa tylko dla grup z kompletnymi standings (4 miejsca). Nie nadpisuje meczów już wypełnionych.
+        </p>
+        <button
+          onClick={handlePopulateBracket}
+          disabled={bracketLoading}
+          className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+        >
+          {bracketLoading ? 'Uzupełnianie…' : 'Uzupełnij drabinkę KO'}
+        </button>
+        {bracketMsg && (
+          <p className="mt-3 text-sm text-gray-300">{bracketMsg}</p>
         )}
       </Card>
 
