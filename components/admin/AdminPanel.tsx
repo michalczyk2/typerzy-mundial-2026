@@ -169,6 +169,8 @@ export function AdminPanel() {
   const [showAllMatches, setShowAllMatches] = useState(false)
   const [bracketLoading, setBracketLoading] = useState(false)
   const [bracketMsg, setBracketMsg] = useState('')
+  const [seedKoLoading, setSeedKoLoading] = useState(false)
+  const [seedKoMsg, setSeedKoMsg] = useState('')
   const [overrideMatchId, setOverrideMatchId] = useState('')
   const [overrideUserId, setOverrideUserId] = useState('')
   const [overrideScoreA, setOverrideScoreA] = useState('')
@@ -644,6 +646,21 @@ export function AdminPanel() {
       loadPendingUsers()
     } catch (err) {
       console.error('[AdminPanel] handleUserAction fetch error:', err)
+    }
+  }
+
+  const handleSeedKoBrackets = async () => {
+    setSeedKoLoading(true)
+    setSeedKoMsg('')
+    try {
+      const res = await fetch('/api/admin/seed-ko-brackets', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) setSeedKoMsg(`Błąd: ${json.error ?? res.statusText}`)
+      else setSeedKoMsg(json.message + (json.errors?.length ? ` Błędy: ${json.errors.join('; ')}` : ''))
+    } catch (err) {
+      setSeedKoMsg(`Błąd sieci: ${String(err)}`)
+    } finally {
+      setSeedKoLoading(false)
     }
   }
 
@@ -1175,15 +1192,27 @@ export function AdminPanel() {
         <p className="text-gray-400 text-sm mb-4">
           Uzupełnia drużyny w meczach <code className="text-emerald-400">round_of_32</code> na podstawie tabeli grup oraz awansuje zwycięzców przez kolejne rundy KO. Działa też automatycznie po każdym syncu.
         </p>
-        <button
-          onClick={handlePopulateBracket}
-          disabled={bracketLoading}
-          className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-        >
-          {bracketLoading ? 'Uzupełnianie…' : 'Uzupełnij drabinkę KO'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleSeedKoBrackets}
+            disabled={seedKoLoading}
+            className="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            {seedKoLoading ? 'Pobieranie…' : 'Seed mecze KO z API'}
+          </button>
+          <button
+            onClick={handlePopulateBracket}
+            disabled={bracketLoading}
+            className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            {bracketLoading ? 'Uzupełnianie…' : 'Uzupełnij drabinkę KO'}
+          </button>
+        </div>
+        {seedKoMsg && (
+          <p className="mt-3 text-sm text-gray-300">{seedKoMsg}</p>
+        )}
         {bracketMsg && (
-          <p className="mt-3 text-sm text-gray-300">{bracketMsg}</p>
+          <p className="mt-2 text-sm text-gray-300">{bracketMsg}</p>
         )}
       </Card>
 
