@@ -1173,8 +1173,7 @@ export function AdminPanel() {
       <Card>
         <h2 className="text-white font-bold text-lg mb-3">Auto-wypełnianie drabinki KO</h2>
         <p className="text-gray-400 text-sm mb-4">
-          Uzupełnia drużyny w meczach <code className="text-emerald-400">round_of_32</code> na podstawie aktualnych standings grup.
-          Działa tylko dla grup z kompletnymi standings (4 miejsca). Nie nadpisuje meczów już wypełnionych.
+          Uzupełnia drużyny w meczach <code className="text-emerald-400">round_of_32</code> na podstawie tabeli grup oraz awansuje zwycięzców przez kolejne rundy KO. Działa też automatycznie po każdym syncu.
         </p>
         <button
           onClick={handlePopulateBracket}

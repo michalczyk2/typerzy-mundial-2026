@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { fetchWC26Fixtures, calculateStandings } from '@/lib/api/football-provider'
+import { populateBracketFromStandings, advanceBracketWinners } from '@/lib/bracket-populate'
 
 export const maxDuration = 60
 
@@ -107,10 +108,12 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
 
     if (existingErr) throw existingErr
     const existingIds = new Set((existingWc26 ?? []).map(m => m.external_id).filter(Boolean))
-    if (existingIds.size > 0) {
-      fixturesToApply = fixtures.filter(f => existingIds.has(f.external_id))
-      skippedNewFixtures = fixtures.length - fixturesToApply.length
-    }
+    const groupFixtures = existingIds.size > 0
+      ? fixtures.filter(f => f.phase === 'group' && existingIds.has(f.external_id))
+      : fixtures.filter(f => f.phase === 'group')
+    const koFixtures = fixtures.filter(f => f.phase !== 'group')
+    fixturesToApply = [...groupFixtures, ...koFixtures]
+    skippedNewFixtures = fixtures.length - fixturesToApply.length
 
     const matchRows = fixturesToApply.map(f => ({
       external_id: f.external_id,
@@ -186,6 +189,15 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       await fetch(`${baseUrl}/api/recalculate-points`, { method: 'POST', headers: recalcHeaders })
         .catch(e => console.error('[sync-wc26] recalculate-points:', e))
     }
+
+    const [populateResult, advanceResult] = await Promise.all([
+      populateBracketFromStandings(db),
+      advanceBracketWinners(db),
+    ])
+    if (populateResult.updated > 0)
+      console.log(`[sync-wc26] Bracket: uzupełniono ${populateResult.updated} meczów KO z grup`)
+    if (advanceResult.advanced > 0)
+      console.log(`[sync-wc26] Bracket: awansowano ${advanceResult.advanced} zwycięzców`)
 
     const msg = `Zsynchronizowano ${matchRows.length} istniejacych meczow${standings.length ? `, ${standings.length} wpisow tabeli` : ''} z worldcup26.ir${skippedNewFixtures ? `; pominieto ${skippedNewFixtures} nowych meczow z API` : ''}`
     await db.from('sync_logs').insert({
