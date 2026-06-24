@@ -33,6 +33,7 @@ export interface BracketData {
   left: BracketHalf
   right: BracketHalf
   final: { match: Match | null; status: SlotStatus }
+  thirdPlace: { match: Match | null; status: SlotStatus }
   confirmedRoundOf32: number // how many of the 32 starting team-slots have a real team name
 }
 
@@ -77,6 +78,7 @@ export function buildBracket(matches: Match[]): BracketData {
   const right = buildHalf(koRounds, 1)
 
   const finalMatch = (byPhase.get('final') ?? [])[0] ?? null
+  const thirdPlaceMatch = sortMatches(matches.filter(m => m.phase === 'third_place'))[0] ?? null
 
   const ro32 = byPhase.get('round_of_32') ?? []
   let confirmedRoundOf32 = 0
@@ -89,6 +91,7 @@ export function buildBracket(matches: Match[]): BracketData {
     left,
     right,
     final: { match: finalMatch, status: slotStatus(finalMatch) },
+    thirdPlace: { match: thirdPlaceMatch, status: thirdPlaceMatch ? slotStatus(thirdPlaceMatch) : 'pending' },
     confirmedRoundOf32,
   }
 }

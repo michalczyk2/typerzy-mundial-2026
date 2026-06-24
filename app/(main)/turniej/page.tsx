@@ -1,15 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useAppStore } from '@/lib/store'
-import { ZoomPanView } from '@/components/ui/ZoomPanView'
-import {
-  BracketCanvasDesktop,
-  BracketCanvasMobile,
-  DESKTOP_CANVAS_WIDTH,
-  DESKTOP_CANVAS_HEIGHT,
-  MOBILE_CANVAS_WIDTH,
-  MOBILE_CANVAS_HEIGHT,
-} from '@/components/turniej/BracketCanvas'
+import { BracketCanvas } from '@/components/turniej/BracketCanvas'
 import { buildBracket } from '@/lib/bracket'
 
 export default function TurniejPage() {
@@ -48,16 +40,7 @@ export default function TurniejPage() {
         Drabinka będzie uzupełniana automatycznie wraz z rozstrzygnięciami fazy grupowej.
       </p>
 
-      <div className="hidden md:block">
-        <ZoomPanView contentWidth={DESKTOP_CANVAS_WIDTH} contentHeight={DESKTOP_CANVAS_HEIGHT}>
-          <BracketCanvasDesktop matches={matches} />
-        </ZoomPanView>
-      </div>
-      <div className="md:hidden">
-        <ZoomPanView contentWidth={MOBILE_CANVAS_WIDTH} contentHeight={MOBILE_CANVAS_HEIGHT}>
-          <BracketCanvasMobile matches={matches} />
-        </ZoomPanView>
-      </div>
+      <BracketCanvas matches={matches} />
     </div>
   )
 }
