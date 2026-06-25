@@ -14,7 +14,7 @@ export const dailyChallengePreview = {
   title: 'Daily Challenge',
   subtitle: 'Codzienne mini-gry pilkarskie inspirowane Wordle i LoLdle, bez wplywu na obecny ranking typerow.',
   todayLabel: 'Dzisiaj',
-  status: 'Etap 3: FootWordle + Piłkarzdle + Quotedle',
+  status: 'Etap 4: FootWordle + Piłkarzdle + Quotedle + Clubdle',
   rules: [
     'Jedno wyzwanie dziennie',
     'Punkty Daily pozostaja osobnym modulem',
@@ -72,10 +72,10 @@ export const dailyChallengeCategories: DailyChallengeCategory[] = [
     title: 'Clubdle',
     icon: '🏟️',
     description: 'Zgadnij klub po stadionie, kraju, lidze i pilkarskich tropach.',
-    status: 'Placeholder',
+    status: 'Nie rozpoczęto',
     maxPoints: 100,
-    href: '/daily-challenge',
-    enabled: false,
+    href: '/daily-challenge/clubdle',
+    enabled: true,
     accentClass: 'from-cyan-500/20 to-cyan-900/10 border-cyan-800/60',
   },
   {

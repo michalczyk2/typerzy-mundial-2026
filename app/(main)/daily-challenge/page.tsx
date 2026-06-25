@@ -42,23 +42,25 @@ function DailyProgress() {
   const [footwordle, setFootwordle] = useState<GameDayPoints>({ earned: 0, max: 100 })
   const [pilkarzdle, setPilkarzdle] = useState<GameDayPoints>({ earned: 0, max: 100 })
   const [quotedle, setQuotedle] = useState<GameDayPoints>({ earned: 0, max: 100 })
+  const [clubdle, setClubdle] = useState<GameDayPoints>({ earned: 0, max: 100 })
 
   useEffect(() => {
     const dayKey = getWarsawDayKey()
     setFootwordle(readGameDayPoints('footwordle', dayKey, 100))
     setPilkarzdle(readGameDayPoints('pilkarzdle', dayKey, 100))
     setQuotedle(readGameDayPoints('quotedle', dayKey, 100))
+    setClubdle(readGameDayPoints('clubdle', dayKey, 100))
   }, [])
 
-  const total = footwordle.earned + pilkarzdle.earned + quotedle.earned
-  const maxTotal = footwordle.max + pilkarzdle.max + quotedle.max
+  const total = footwordle.earned + pilkarzdle.earned + quotedle.earned + clubdle.earned
+  const maxTotal = footwordle.max + pilkarzdle.max + quotedle.max + clubdle.max
 
   return (
     <section className="mt-6 rounded-2xl border border-gray-800 bg-gray-900 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-500">
         Dzisiejszy postep
       </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-5">
         <div className="rounded-xl border border-gray-800 bg-gray-950 p-3 text-center">
           <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">FootWordle</p>
           <p className={cn('mt-1 text-xl font-black', footwordle.earned > 0 ? 'text-emerald-300' : 'text-gray-500')}>
@@ -77,6 +79,13 @@ function DailyProgress() {
           <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Quotedle</p>
           <p className={cn('mt-1 text-xl font-black', quotedle.earned > 0 ? 'text-fuchsia-300' : 'text-gray-500')}>
             {quotedle.earned}/{quotedle.max}
+            <span className="ml-1 text-xs font-bold text-gray-600">pkt</span>
+          </p>
+        </div>
+        <div className="rounded-xl border border-gray-800 bg-gray-950 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Clubdle</p>
+          <p className={cn('mt-1 text-xl font-black', clubdle.earned > 0 ? 'text-cyan-300' : 'text-gray-500')}>
+            {clubdle.earned}/{clubdle.max}
             <span className="ml-1 text-xs font-bold text-gray-600">pkt</span>
           </p>
         </div>
