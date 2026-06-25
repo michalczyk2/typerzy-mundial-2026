@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateTransferdleGuess } from '@/app/(main)/daily-challenge/transferdle/actions'
 import { cn } from '@/lib/utils'
+import { saveDailyResult } from '@/lib/save-daily-result'
 import type {
   TransferdleGameStatus,
   TransferdlePublicPuzzle,
@@ -305,6 +306,7 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
         })
 
         if (nextStatus !== 'playing') recordTransferdleStats(puzzle.dayKey, nextStatus)
+        if (nextStatus !== 'playing') void saveDailyResult('transferdle', puzzle.dayKey, result.earnedPoints ?? 0)
         setQuery('')
 
         if (nextStatus === 'won') setMessage(`Brawo! +${result.earnedPoints ?? 0} pkt.`)

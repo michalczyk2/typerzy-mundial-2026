@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateFootWordleGuess } from '@/app/(main)/daily-challenge/footwordle/actions'
 import { cn } from '@/lib/utils'
+import { saveDailyResult } from '@/lib/save-daily-result'
 import type {
   FootWordleGameStatus,
   FootWordleGuessResult,
@@ -538,6 +539,9 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
           earnedPoints: nextStatus === 'playing' ? undefined : points,
           hintUsed: hintUsed || undefined,
         })
+        if (nextStatus !== 'playing') {
+          void saveDailyResult('footwordle', puzzle.dayKey, points)
+        }
         setCurrentGuess('')
 
         if (nextStatus === 'won') {
