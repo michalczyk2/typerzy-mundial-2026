@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/lib/store'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { formatMatchDate, formatMatchTime } from '@/lib/utils'
+import { AdminCorrectionHistory } from '@/components/admin/AdminCorrectionHistory'
 
 type ScoringSetting = { key: string; label: string; value: number; description: string | null; updated_at: string | null }
 
@@ -850,6 +851,8 @@ export function AdminPanel() {
           )}
         </div>
       </Card>
+
+      <AdminCorrectionHistory />
 
       <Card>
         <div className="mb-4 flex items-start justify-between gap-3">
