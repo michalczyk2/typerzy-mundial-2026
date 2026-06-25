@@ -650,15 +650,20 @@ export function AdminPanel() {
   }
 
   const handleSeedKoBrackets = async () => {
+    if (!IS_PRODUCTION_MODE) { setSeedKoMsg('[MOCK] Tryb lokalny — brak efektu.'); return }
     setSeedKoLoading(true)
-    setSeedKoMsg('')
+    setSeedKoMsg('Pobieram mecze KO z API...')
     try {
       const res = await fetch('/api/admin/seed-ko-brackets', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) setSeedKoMsg(`Błąd: ${json.error ?? res.statusText}`)
-      else setSeedKoMsg(json.message + (json.errors?.length ? ` Błędy: ${json.errors.join('; ')}` : ''))
-    } catch (err) {
-      setSeedKoMsg(`Błąd sieci: ${String(err)}`)
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        const detail = json.errors?.length > 0 ? ` ⚠️ Błędy: ${json.errors.slice(0, 2).join('; ')}` : ''
+        setSeedKoMsg(`${json.message ?? 'Gotowe'}${detail}`)
+      } else {
+        setSeedKoMsg(`Błąd: ${json.error ?? 'Nieznany'}`)
+      }
+    } catch {
+      setSeedKoMsg('Błąd sieci')
     } finally {
       setSeedKoLoading(false)
     }
@@ -1188,31 +1193,34 @@ export function AdminPanel() {
       </Card>
 
       <Card>
-        <h2 className="text-white font-bold text-lg mb-3">Auto-wypełnianie drabinki KO</h2>
-        <p className="text-gray-400 text-sm mb-4">
-          Uzupełnia drużyny w meczach <code className="text-emerald-400">round_of_32</code> na podstawie tabeli grup oraz awansuje zwycięzców przez kolejne rundy KO. Działa też automatycznie po każdym syncu.
+        <h2 className="text-white font-bold text-lg mb-1">🏆 Auto-wypełnianie drabinki KO</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Krok 1: pobierz mecze KO z API. Krok 2: drużyny z ukończonych grup wypełniają się automatycznie. Awans zwycięzców przez drabinkę też jest automatyczny po każdym syncu.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleSeedKoBrackets}
-            disabled={seedKoLoading}
-            className="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-          >
-            {seedKoLoading ? 'Pobieranie…' : 'Seed mecze KO z API'}
-          </button>
-          <button
-            onClick={handlePopulateBracket}
-            disabled={bracketLoading}
-            className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-          >
-            {bracketLoading ? 'Uzupełnianie…' : 'Uzupełnij drabinkę KO'}
-          </button>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleSeedKoBrackets} disabled={seedKoLoading} variant="secondary">
+              📥 {seedKoLoading ? 'Pobieram...' : 'Pobierz mecze KO z API'}
+            </Button>
+            {seedKoMsg && (
+              <p className={`text-sm break-words ${seedKoMsg.startsWith('Błąd') ? 'text-red-400' : seedKoMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {seedKoMsg}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handlePopulateBracket} disabled={bracketLoading}>
+              🏆 {bracketLoading ? 'Uzupełniam...' : 'Uzupełnij drużyny + awansuj zwycięzców'}
+            </Button>
+            {bracketMsg && (
+              <p className={`text-sm break-words ${bracketMsg.startsWith('Błąd') ? 'text-red-400' : bracketMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {bracketMsg}
+              </p>
+            )}
+          </div>
         </div>
-        {seedKoMsg && (
-          <p className="mt-3 text-sm text-gray-300">{seedKoMsg}</p>
-        )}
-        {bracketMsg && (
-          <p className="mt-2 text-sm text-gray-300">{bracketMsg}</p>
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — brak efektu.</p>
         )}
       </Card>
 
