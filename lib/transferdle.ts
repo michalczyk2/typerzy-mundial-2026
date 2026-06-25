@@ -59,11 +59,13 @@ function normalizeName(name: string): string {
 
 export function getTransferdlePublicPuzzle(): TransferdlePublicPuzzle {
   const player = getPlayerForDay()
+  const candidates = [...players].map(p => p.name).sort((a, b) => a.localeCompare(b, 'pl'))
   return {
     dayKey: getWarsawDayKey(),
     maxAttempts: MAX_ATTEMPTS,
     maxPoints: POINTS_BY_ATTEMPT[0],
     transfersCount: player.transfers.length,
+    candidates,
   }
 }
 

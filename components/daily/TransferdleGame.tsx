@@ -243,7 +243,13 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
   // Actually let's just show all slots as "?" until first server response.
 
   const [query, setQuery] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const suggestions = showSuggestions && query.trim().length >= 2
+    ? puzzle.candidates
+        .filter(name => name.toLocaleLowerCase('pl-PL').includes(query.trim().toLocaleLowerCase('pl-PL')))
+        .slice(0, 6)
+    : []
   const [isChecking, setIsChecking] = useState(false)
   const [isPending, startTransition] = useTransition()
   const isLocked = isPending || isChecking || status !== 'playing'
@@ -358,7 +364,9 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
                 id="transferdle-search"
                 type="text"
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={e => { setQuery(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setShowSuggestions(false)}
                 disabled={isLocked}
                 placeholder="np. Cristiano Ronaldo"
                 autoComplete="off"
@@ -374,6 +382,20 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
                 Sprawdź
               </button>
             </div>
+            {suggestions.length > 0 && (
+              <div className="mt-1 overflow-hidden rounded-2xl border border-gray-700 bg-gray-900">
+                {suggestions.map(name => (
+                  <button
+                    key={name}
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); setQuery(name); setShowSuggestions(false) }}
+                    className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-gray-800"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="mt-3 min-h-6 text-sm font-semibold text-gray-300">{visibleMessage}</p>
           </form>
 

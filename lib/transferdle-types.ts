@@ -5,6 +5,7 @@ export type TransferdlePublicPuzzle = {
   maxAttempts: number
   maxPoints: number
   transfersCount: number
+  candidates: string[]
 }
 
 export type TransferdleGuessResult = {

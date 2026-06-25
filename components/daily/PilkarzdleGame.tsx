@@ -118,6 +118,12 @@ function formatElapsed(ms: number): string {
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
 }
 
+function filterOptions(options: PilkarzdlePlayerOption[], input: string): PilkarzdlePlayerOption[] {
+  if (input.trim().length < 2) return []
+  const normalized = normalizeText(input)
+  return options.filter(opt => normalizeText(opt.name).includes(normalized)).slice(0, 6)
+}
+
 function findOptionByInput(options: PilkarzdlePlayerOption[], input: string) {
   const normalizedInput = normalizeText(input)
   return options.find(option => normalizeText(option.name) === normalizedInput)
@@ -227,10 +233,17 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
   const { guesses, status } = game
   const guessedIds = new Set(guesses.map(guess => guess.playerId))
   const [query, setQuery] = useState('')
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [isPending, startTransition] = useTransition()
   const isLocked = isPending || isChecking || status !== 'playing'
+  const suggestions = !selectedPlayerId && query.length >= 2 ? filterOptions(puzzle.candidates, query) : []
+
+  function selectPlayer(option: PilkarzdlePlayerOption) {
+    setQuery(option.name)
+    setSelectedPlayerId(option.id)
+  }
   const terminalAnswer =
     game.revealedAnswer ??
     guesses.find(guess => guess.isCorrect)?.name ??
@@ -246,7 +259,9 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
     event?.preventDefault()
     if (isLocked) return
 
-    const selectedOption = findOptionByInput(puzzle.candidates, query)
+    const selectedOption = selectedPlayerId
+      ? (puzzle.candidates.find(c => c.id === selectedPlayerId) ?? findOptionByInput(puzzle.candidates, query))
+      : findOptionByInput(puzzle.candidates, query)
     if (!selectedOption) {
       setMessage('Nie znaleziono pilkarza. Wpisz pelne imie i nazwisko.')
       return
@@ -322,7 +337,7 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
               id="pilkarzdle-search"
               type="text"
               value={query}
-              onChange={event => setQuery(event.target.value)}
+              onChange={event => { setQuery(event.target.value); setSelectedPlayerId(null) }}
               disabled={isLocked}
               placeholder="np. Cristiano Ronaldo"
               autoComplete="off"
@@ -338,6 +353,20 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
               Sprawdź
             </button>
           </div>
+          {suggestions.length > 0 && !selectedPlayerId && (
+            <div className="mt-1 overflow-hidden rounded-2xl border border-gray-700 bg-gray-900">
+              {suggestions.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => selectPlayer(opt)}
+                  className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-gray-800"
+                >
+                  {opt.name}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="mt-3 min-h-6 text-sm font-semibold text-gray-300">{visibleMessage}</p>
         </form>
 
