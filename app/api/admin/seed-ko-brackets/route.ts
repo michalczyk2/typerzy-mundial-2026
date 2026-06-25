@@ -13,9 +13,12 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
   return data?.role === 'admin'
 }
 
-// Parse placeholder strings from worldcup26.ir API into Polish format
-// "Winner Group A" → "Lider Gr. A", "Runner-up Group B" → "2. miejsce Gr. B"
-// "1A", "2B" shorthand also supported
+// Parse placeholder strings from worldcup26.ir API into Polish format stored in home_placeholder/away_placeholder.
+// Handles multiple formats the API may return:
+//   "Winner Group A"   → "Lider Gr. A"
+//   "Runner-up Group B"→ "2. miejsce Gr. B"
+//   "F2", "G1"         → "2. miejsce Gr. F", "Lider Gr. G"  (group-letter-first shorthand)
+//   "1A", "2B"         → "Lider Gr. A", "2. miejsce Gr. B"  (position-first shorthand)
 function parseApiPlaceholder(name: string): string | null {
   const n = name.trim()
 
@@ -31,22 +34,30 @@ function parseApiPlaceholder(name: string): string | null {
   const fourthMatch = n.match(/^(?:4th|Fourth)(?:\s+of)?\s+Group\s+([A-Z])\b/i)
   if (fourthMatch) return `4. miejsce Gr. ${fourthMatch[1].toUpperCase()}`
 
-  // Shorthand "1A", "2B", "3C"
-  const shortMatch = n.match(/^([1-4])([A-Z])$/i)
-  if (shortMatch) {
-    const pos = parseInt(shortMatch[1])
-    const grp = shortMatch[2].toUpperCase()
+  // Group-letter-first shorthand: "F2" → "2. miejsce Gr. F", "G1" → "Lider Gr. G"
+  const groupFirstMatch = n.match(/^([A-Z])([1-4])$/i)
+  if (groupFirstMatch) {
+    const grp = groupFirstMatch[1].toUpperCase()
+    const pos = parseInt(groupFirstMatch[2])
+    return pos === 1 ? `Lider Gr. ${grp}` : `${pos}. miejsce Gr. ${grp}`
+  }
+
+  // Position-first shorthand: "1A" → "Lider Gr. A", "2B" → "2. miejsce Gr. B"
+  const posFirstMatch = n.match(/^([1-4])([A-Z])$/i)
+  if (posFirstMatch) {
+    const pos = parseInt(posFirstMatch[1])
+    const grp = posFirstMatch[2].toUpperCase()
     return pos === 1 ? `Lider Gr. ${grp}` : `${pos}. miejsce Gr. ${grp}`
   }
 
   return null
 }
 
-// Detect API placeholder strings that represent unknown teams ("W73", "1A", "Runner-up…")
+// Detect API strings that represent unknown/placeholder teams
 function isPlaceholderName(name: string): boolean {
   if (parseApiPlaceholder(name) !== null) return true
   const n = name.trim()
-  if (/^[Ww]\d+$/.test(n)) return true  // "W73"
+  if (/^[Ww]\d+$/.test(n)) return true  // "W73" — match-number winner format
   if (n.length < 3) return true
   return false
 }
