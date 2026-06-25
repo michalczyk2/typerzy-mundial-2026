@@ -19,6 +19,10 @@
     {
       "path": "/api/match-of-day/daily-refresh",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/push/remind",
+      "schedule": "0 * * * *"
     }
   ]
 }

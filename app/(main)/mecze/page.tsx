@@ -7,6 +7,7 @@ import { FlagImg } from '@/components/ui/FlagImg'
 import { MatchOfDayBanner } from '@/components/match-of-day/MatchOfDayBanner'
 import { cn } from '@/lib/utils'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
+import { PushNotificationButton } from '@/components/PushNotificationButton'
 
 type Filter = 'all' | 'upcoming' | 'live' | 'finished'
 
@@ -109,7 +110,10 @@ export default function MeczePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-4">Mecze</h1>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-black text-white">Mecze</h1>
+        <PushNotificationButton />
+      </div>
 
       {modData && (canVote || modData.event.status === 'settled' || !modData.isVotingOpen) && (
         <MatchOfDayBanner
