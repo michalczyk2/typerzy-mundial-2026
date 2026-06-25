@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/lib/store'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { formatMatchDate, formatMatchTime } from '@/lib/utils'
+import { cn, formatMatchDate, formatMatchTime } from '@/lib/utils'
 import { AdminCorrectionHistory } from '@/components/admin/AdminCorrectionHistory'
 
 type ScoringSetting = { key: string; label: string; value: number; description: string | null; updated_at: string | null }
@@ -178,6 +178,11 @@ export function AdminPanel() {
   const [overrideScoreB, setOverrideScoreB] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
   const [overrideStatus, setOverrideStatus] = useState<{ type: 'idle' | 'saving' | 'ok' | 'error'; message: string }>({ type: 'idle', message: '' })
+  const selectedOverrideMatch = matches.find(m => m.id === overrideMatchId) ?? null
+  const overrideOutcome = overrideScoreA !== '' && overrideScoreB !== ''
+    ? Number(overrideScoreA) > Number(overrideScoreB) ? 'home'
+      : Number(overrideScoreA) < Number(overrideScoreB) ? 'away' : 'draw'
+    : null
 
   const loadPendingUsers = () => {
     fetch('/api/admin/users')
@@ -800,26 +805,76 @@ export function AdminPanel() {
             </select>
           </label>
 
-          <div className="flex items-end gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-400">Typ gospodarzy</span>
-              <input
-                type="number" min="0" max="20"
-                value={overrideScoreA}
-                onChange={e => setOverrideScoreA(e.target.value)}
-                className="w-16 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
-              />
-            </label>
-            <span className="text-gray-600 pb-2">:</span>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-400">Typ gości</span>
-              <input
-                type="number" min="0" max="20"
-                value={overrideScoreB}
-                onChange={e => setOverrideScoreB(e.target.value)}
-                className="w-16 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
-              />
-            </label>
+          <div>
+            <span className="mb-2 block text-xs font-medium text-gray-400">Typ</span>
+
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { setOverrideScoreA(overrideOutcome !== 'home' ? '1' : overrideScoreA); setOverrideScoreB(overrideOutcome !== 'home' ? '0' : overrideScoreB) }}
+                className={cn(
+                  'rounded-lg border py-2 text-xs font-bold transition',
+                  overrideOutcome === 'home'
+                    ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300'
+                    : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                )}
+              >
+                <span className="block truncate px-1">{selectedOverrideMatch?.team_a ?? 'Gospodarz'}</span>
+                <span className="block text-[10px] font-normal opacity-60">wygrywa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOverrideScoreA(overrideOutcome !== 'draw' ? '1' : overrideScoreA); setOverrideScoreB(overrideOutcome !== 'draw' ? '1' : overrideScoreB) }}
+                className={cn(
+                  'rounded-lg border py-2 text-xs font-bold transition',
+                  overrideOutcome === 'draw'
+                    ? 'border-amber-500 bg-amber-950/40 text-amber-300'
+                    : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                )}
+              >
+                <span className="block">Remis</span>
+                <span className="block text-[10px] font-normal opacity-60">x</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOverrideScoreA(overrideOutcome !== 'away' ? '0' : overrideScoreA); setOverrideScoreB(overrideOutcome !== 'away' ? '1' : overrideScoreB) }}
+                className={cn(
+                  'rounded-lg border py-2 text-xs font-bold transition',
+                  overrideOutcome === 'away'
+                    ? 'border-blue-500 bg-blue-950/40 text-blue-300'
+                    : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                )}
+              >
+                <span className="block truncate px-1">{selectedOverrideMatch?.team_b ?? 'Gość'}</span>
+                <span className="block text-[10px] font-normal opacity-60">wygrywa</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 text-center">
+                <p className="mb-1 truncate text-[11px] font-medium text-gray-500">
+                  {selectedOverrideMatch?.team_a ?? 'Gospodarz'}
+                </p>
+                <input
+                  type="number" min="0" max="20"
+                  value={overrideScoreA}
+                  onChange={e => setOverrideScoreA(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-gray-700 bg-gray-900 text-center text-2xl font-black text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+              <span className="text-xl font-black text-gray-600">:</span>
+              <div className="flex-1 text-center">
+                <p className="mb-1 truncate text-[11px] font-medium text-gray-500">
+                  {selectedOverrideMatch?.team_b ?? 'Gość'}
+                </p>
+                <input
+                  type="number" min="0" max="20"
+                  value={overrideScoreB}
+                  onChange={e => setOverrideScoreB(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-gray-700 bg-gray-900 text-center text-2xl font-black text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
           </div>
 
           <label className="block">
