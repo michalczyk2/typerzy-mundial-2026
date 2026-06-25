@@ -15,7 +15,7 @@ import type {
   PilkarzdleStoredGame,
 } from '@/lib/pilkarzdle-types'
 
-const FIELD_ORDER = ['Narodowosc', 'Pozycja', 'Liga', 'Klub', 'Wiek', 'Wzrost', 'Numer']
+const FIELD_ORDER = ['Kraj', 'Poz.', 'Liga', 'Klub', 'Wiek', 'Wzrost', 'Numer']
 const STATS_KEY = 'daily-challenge:pilkarzdle:stats'
 
 const storedGameSnapshotCache = new Map<string, { raw: string | null; value: PilkarzdleStoredGame | null }>()
@@ -186,28 +186,28 @@ function FieldCell({ field, fieldIndex }: { field: PilkarzdleGuessField; fieldIn
     ? (() => {
         if (field.id === 'age') return field.hint === 'wyzej' ? 'Starszy' : 'Mlodszy'
         if (field.id === 'height') return field.hint === 'wyzej' ? 'Wyzszy' : 'Nizszy'
-        return field.hint === 'wyzej' ? 'Wyzszy nr' : 'Nizszy nr'
+        return field.hint === 'wyzej' ? 'Wyz. nr' : 'Niz. nr'
       })()
     : getStatusLabel(field.status)
   return (
     <div
-      className={cn('animate-footwordle-reveal rounded-2xl border p-3 text-center', getComparisonClass(field.status))}
+      className={cn('animate-footwordle-reveal rounded-xl border p-2 text-center', getComparisonClass(field.status))}
       style={{ animationDelay: `${fieldIndex * 70}ms` }}
     >
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">{field.label}</p>
-      <p className="mt-2 min-h-10 text-sm font-black leading-5">{field.value}{arrow}</p>
-      <p className="mt-2 text-[10px] font-black uppercase tracking-wide opacity-70">{hintLabel}</p>
+      <p className="text-[9px] font-black uppercase tracking-[0.15em] opacity-70">{field.label}</p>
+      <p className="mt-1 min-h-8 text-xs font-black leading-4">{field.value}{arrow}</p>
+      <p className="mt-1 text-[9px] font-black uppercase tracking-wide opacity-70">{hintLabel}</p>
     </div>
   )
 }
 
 function GuessRow({ guess, index }: { guess: PilkarzdleGuessResult; index: number }) {
   return (
-    <article className="animate-footwordle-result overflow-hidden rounded-3xl border border-gray-800 bg-gray-950/60 p-3">
-      <div className="grid gap-2 lg:grid-cols-[190px_repeat(7,minmax(80px,1fr))]">
-        <div className="rounded-2xl border border-white/10 bg-gray-900 p-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-600">Proba {index + 1}</p>
-          <h3 className="mt-2 text-base font-black text-white">{guess.name}</h3>
+    <article className="animate-footwordle-result overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/60 p-2">
+      <div className="grid gap-1.5 lg:grid-cols-[150px_repeat(7,minmax(0,1fr))]">
+        <div className="rounded-xl border border-white/10 bg-gray-900 p-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-600">Proba {index + 1}</p>
+          <h3 className="mt-1 text-sm font-black text-white">{guess.name}</h3>
         </div>
         {guess.fields.map((field, fieldIndex) => (
           <FieldCell key={field.id} field={field} fieldIndex={fieldIndex} />
@@ -341,7 +341,7 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
           <p className="mt-3 min-h-6 text-sm font-semibold text-gray-300">{visibleMessage}</p>
         </form>
 
-        <div className="mt-4 hidden grid-cols-[190px_repeat(7,minmax(80px,1fr))] gap-2 px-3 lg:grid">
+        <div className="mt-4 hidden grid-cols-[150px_repeat(7,minmax(0,1fr))] gap-1.5 px-2 lg:grid">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-600">Pilkarz</span>
           {FIELD_ORDER.map(f => (
             <span key={f} className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-600">{f}</span>

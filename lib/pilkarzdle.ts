@@ -123,8 +123,8 @@ function field(
 
 function buildComparisonFields(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleGuessField[] {
   return [
-    field('nationality', 'Narodowosc', guess.nationality, compareNationality(guess, answer)),
-    field('position', 'Pozycja', guess.position, comparePosition(guess, answer)),
+    field('nationality', 'Kraj', guess.nationality, compareNationality(guess, answer)),
+    field('position', 'Poz.', guess.position, comparePosition(guess, answer)),
     field('league', 'Liga', guess.league, compareLeague(guess, answer)),
     field('club', 'Klub', guess.club, compareClub(guess, answer)),
     field('age', 'Wiek', String(guess.age), compareAge(guess.age, answer.age), ageHint(guess.age, answer.age)),
