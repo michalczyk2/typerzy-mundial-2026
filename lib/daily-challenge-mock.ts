@@ -14,7 +14,7 @@ export const dailyChallengePreview = {
   title: 'Daily Challenge',
   subtitle: 'Codzienne mini-gry pilkarskie inspirowane Wordle i LoLdle, bez wplywu na obecny ranking typerow.',
   todayLabel: 'Dzisiaj',
-  status: 'Etap 2: FootWordle + Piłkarzdle',
+  status: 'Etap 3: FootWordle + Piłkarzdle + Quotedle',
   rules: [
     'Jedno wyzwanie dziennie',
     'Punkty Daily pozostaja osobnym modulem',
@@ -83,10 +83,10 @@ export const dailyChallengeCategories: DailyChallengeCategory[] = [
     title: 'Quotedle',
     icon: '💬',
     description: 'Rozpoznaj autora kultowego pilkarskiego cytatu.',
-    status: 'Placeholder',
+    status: 'Nie rozpoczęto',
     maxPoints: 100,
-    href: '/daily-challenge',
-    enabled: false,
+    href: '/daily-challenge/quotedle',
+    enabled: true,
     accentClass: 'from-fuchsia-500/20 to-fuchsia-900/10 border-fuchsia-800/60',
   },
 ]

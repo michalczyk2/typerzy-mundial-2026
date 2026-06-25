@@ -1,0 +1,182 @@
+[
+  {
+    "id": "q01",
+    "quote": "Gra w piłkę jest bardzo prosta, ale grać w prostą piłkę jest najtrudniejszą rzeczą na świecie.",
+    "author": "Johan Cruyff",
+    "hints": ["Holender", "Ajax, Barcelona, Feyenoord", "Piłkarz i trener", "Trójka Cruyff'a", "Trzy razy Ballon d'Or (1971, 1973, 1974)"]
+  },
+  {
+    "id": "q02",
+    "quote": "Niektórzy uważają, że piłka nożna to kwestia życia i śmierci. Zapewniam was, że jest o wiele ważniejsza.",
+    "author": "Bill Shankly",
+    "hints": ["Szkot", "Trener", "Liverpool FC", "Legenda Anfield", "Zbudował dynastię Liverpoolu w latach 60. i 70."]
+  },
+  {
+    "id": "q03",
+    "quote": "Nie lubię mówić, że jestem najlepszy. Jestem po prostu kimś wyjątkowym.",
+    "author": "José Mourinho",
+    "hints": ["Portugalia", "Trener", "Chelsea, Inter, Real Madryt, MU, Roma", "The Special One", "Mistrz w pięciu różnych krajach"]
+  },
+  {
+    "id": "q04",
+    "quote": "Piłka nożna to najpiękniejsza rzecz, jaka mi się przydarzyła w życiu.",
+    "author": "Diego Maradona",
+    "hints": ["Argentyna", "Pomocnik / Napastnik", "Napoli, Barcelona, Boca Juniors", "Ręka Boga", "Złoty But i najlepszy gracz MŚ 1986"]
+  },
+  {
+    "id": "q05",
+    "quote": "Sukces nie jest przypadkiem. To ciężka praca, wytrwałość i miłość do tego, co robisz.",
+    "author": "Pelé",
+    "hints": ["Brazylia", "Napastnik", "Santos, New York Cosmos", "Trzykrotny mistrz świata", "Jedyny gracz z tytułami MŚ w 1958, 1962 i 1970"]
+  },
+  {
+    "id": "q06",
+    "quote": "Nie potrzebuję najlepszego ciała. Daj mi piłkę pod nogi, a pokażę ci, co potrafię.",
+    "author": "Lionel Messi",
+    "hints": ["Argentyna", "Skrzydłowy / Napastnik", "FC Barcelona, PSG, Inter Miami", "8 razy Ballon d'Or", "Mistrz świata 2022"]
+  },
+  {
+    "id": "q07",
+    "quote": "Talent bez pracy to nic. Praca bez talentu to coś. Talent plus praca to wszystko.",
+    "author": "Cristiano Ronaldo",
+    "hints": ["Portugalia", "Skrzydłowy / Napastnik", "Manchester United, Real Madryt, Juventus, Al-Nassr", "5 razy Ballon d'Or", "Rekordzista strzelców w historii piłki"]
+  },
+  {
+    "id": "q08",
+    "quote": "Atak wygrywa mecze. Obrona wygrywa mistrzostwa.",
+    "author": "Alex Ferguson",
+    "hints": ["Szkot", "Trener", "Manchester United", "26 lat na Old Trafford", "13 mistrzostw Premier League"]
+  },
+  {
+    "id": "q09",
+    "quote": "Presja to przywilej. Bez presji nie ma wielkich chwil.",
+    "author": "Jürgen Klopp",
+    "hints": ["Niemcy", "Trener", "Mainz, Borussia Dortmund, Liverpool", "Heavy Metal Football", "Wygrał Ligę Mistrzów z Liverpoolem w 2019"]
+  },
+  {
+    "id": "q10",
+    "quote": "Kiedy masz piłkę, przeciwnik nie może strzelić.",
+    "author": "Pep Guardiola",
+    "hints": ["Katalonia / Hiszpania", "Trener (wcześniej pomocnik)", "FC Barcelona, Bayern Monachium, Manchester City", "Ojciec tiki-taki", "Jako trener wygrał Ligę Mistrzów z Barceloną i Man City"]
+  },
+  {
+    "id": "q11",
+    "quote": "Nie przychodzisz na trening nauczyć się czegoś nowego. Przychodzisz, by być lepszym w tym, co już umiesz.",
+    "author": "Zinedine Zidane",
+    "hints": ["Francja", "Pomocnik / Playmaker", "Juventus, Real Madryt", "Złoty But MŚ 1998", "Ballon d'Or 1998"]
+  },
+  {
+    "id": "q12",
+    "quote": "Zawsze grałem tak, jakby każdy mecz był ostatni.",
+    "author": "Franz Beckenbauer",
+    "hints": ["Niemcy", "Obrońca / Libero", "Bayern Monachium, New York Cosmos, Hamburg", "Der Kaiser", "Jedyny człowiek, który wygrał MŚ jako kapitan i jako selekcjoner"]
+  },
+  {
+    "id": "q13",
+    "quote": "W dniu meczu budzę się ze specjalnym uczuciem. Wiem, że mogę zrobić coś wielkiego.",
+    "author": "Ronaldo Nazário",
+    "hints": ["Brazylia", "Napastnik", "Barcelona, Inter Mediolan, Real Madryt", "Dwa razy mistrz świata (1994, 2002)", "Złoty But na MŚ 2002"]
+  },
+  {
+    "id": "q14",
+    "quote": "Kiedy grasz w piłkę, musisz mieć głowę do gry, nie tylko nogi.",
+    "author": "Marco van Basten",
+    "hints": ["Holandia", "Napastnik", "Ajax, AC Milan", "Trzy razy Ballon d'Or (1988, 1989, 1992)", "Mistrz Europy 1988"]
+  },
+  {
+    "id": "q15",
+    "quote": "Mogę grać wszędzie — z lewej, z prawej, na środku. Ale najbardziej lubię grać.",
+    "author": "Thierry Henry",
+    "hints": ["Francja", "Napastnik / Skrzydłowy", "Monaco, Juventus, Arsenal, Barcelona", "Rekord strzelców Arsenalu", "Mistrz świata 1998, mistrz Europy 2000"]
+  },
+  {
+    "id": "q16",
+    "quote": "Kiedy mewy podążają za trawlerem, to dlatego, że myślą, że morze wyrzuci sardynki.",
+    "author": "Eric Cantona",
+    "hints": ["Francja", "Napastnik", "Leeds United, Manchester United", "Kołnierz do góry", "4 razy mistrz Anglii z Man United"]
+  },
+  {
+    "id": "q17",
+    "quote": "Wakacje są dla ludzi, którzy nie lubią tego, co robią.",
+    "author": "Roy Keane",
+    "hints": ["Irlandia", "Pomocnik (środkowy)", "Nottingham Forest, Manchester United, Celtic", "Kapitan Man United za Fergusona", "Wygrał Ligę Mistrzów w 1999"]
+  },
+  {
+    "id": "q18",
+    "quote": "Nie kupujesz mnie. Wynajmujesz mnie.",
+    "author": "Zlatan Ibrahimović",
+    "hints": ["Szwecja", "Napastnik", "Juventus, Inter, Barcelona, PSG, AC Milan", "Tylko Ibra może cytować Ibrę", "Strzelił gola z 30 metrów nożycami z Anglią"]
+  },
+  {
+    "id": "q19",
+    "quote": "Spudłowany karny to część gry — tak jak każdy spudłowany strzał z pola.",
+    "author": "Roberto Baggio",
+    "hints": ["Włochy", "Napastnik / Playmaker", "Fiorentina, Juventus, AC Milan", "Il Divino Codino", "Najlepszy piłkarz świata wg FIFA w 1993"]
+  },
+  {
+    "id": "q20",
+    "quote": "Kiedy masz piłkę, jesteś królem. Ale musisz ją oddać we właściwym momencie.",
+    "author": "Luka Modrić",
+    "hints": ["Chorwacja", "Pomocnik (środkowy)", "Dynamo Zagrzeb, Tottenham, Real Madryt", "Kapitan reprezentacji Chorwacji", "Ballon d'Or 2018"]
+  },
+  {
+    "id": "q21",
+    "quote": "Jestem szczęśliwy, kiedy gram. To jedyna rzecz, która naprawdę się liczy.",
+    "author": "Ronaldinho",
+    "hints": ["Brazylia", "Pomocnik / Skrzydłowy", "PSG, Barcelona, AC Milan, Flamengo", "Ballon d'Or 2005", "Mistrz świata 2002"]
+  },
+  {
+    "id": "q22",
+    "quote": "Bramkarz to ostatni obrońca. I ostatnia nadzieja.",
+    "author": "Gianluigi Buffon",
+    "hints": ["Włochy", "Bramkarz", "Parma, Juventus, PSG", "Rekordzista meczów w reprezentacji Włoch (176)", "Mistrz świata 2006"]
+  },
+  {
+    "id": "q23",
+    "quote": "Widzę boisko jak pianista widzi klawisze — każde podanie to nuta.",
+    "author": "Andrea Pirlo",
+    "hints": ["Włochy", "Pomocnik (defensywny / playmaker)", "Brescia, Inter, AC Milan, Juventus, New York City", "L'Architetto", "Mistrz świata 2006"]
+  },
+  {
+    "id": "q24",
+    "quote": "Piłka nożna to gra przestrzeni. Musisz znaleźć ją zanim się pojawi.",
+    "author": "Xavi Hernández",
+    "hints": ["Hiszpania", "Pomocnik (środkowy)", "FC Barcelona (cała kariera), Qatar SC", "Trzy razy mistrz Europy", "Trener FC Barcelony 2021–2024"]
+  },
+  {
+    "id": "q25",
+    "quote": "Dla mnie piłka nożna to coś więcej niż sport — to sposób na życie.",
+    "author": "Andrés Iniesta",
+    "hints": ["Hiszpania", "Pomocnik", "FC Barcelona, Vissel Kobe", "Gol w finale MŚ 2010", "4 razy wygrał Ligę Mistrzów"]
+  },
+  {
+    "id": "q26",
+    "quote": "Kopię tak mocno z dystansu, że bramkarz nie wie, co go uderzyło.",
+    "author": "Roberto Carlos",
+    "hints": ["Brazylia", "Lewy obrońca", "Palmeiras, Inter Mediolan, Real Madryt", "Obrońca z uderzeniem napastnika", "Mistrz świata 2002"]
+  },
+  {
+    "id": "q27",
+    "quote": "Gdy zbyt dużo myślisz o wygranej, zaczynasz grać na remis.",
+    "author": "Arsène Wenger",
+    "hints": ["Francja (Alzacja)", "Trener", "Monaco, Arsenal", "Le Professeur", "Trzy razy mistrz Anglii z Arsenalem, w tym Invincibles 2003/04"]
+  },
+  {
+    "id": "q28",
+    "quote": "Na boisku mówię piłką. Poza boiskiem wolę milczeć.",
+    "author": "Paul Scholes",
+    "hints": ["Anglia", "Pomocnik (środkowy)", "Manchester United (cała kariera)", "Rzadko udzielał wywiadów", "11 tytułów mistrza Anglii z Man United"]
+  },
+  {
+    "id": "q29",
+    "quote": "Piłka nożna zmienia życie. Moje zmieniła na zawsze.",
+    "author": "Didier Drogba",
+    "hints": ["Wybrzeże Kości Słoniowej", "Napastnik", "Marsylia, Chelsea, Galatasaray, Montreal", "4 razy najlepszy strzelec Chelsea w historii", "Dwa razy najlepszy strzelec Premier League"]
+  },
+  {
+    "id": "q30",
+    "quote": "Piłkarz, który twierdzi, że nigdy się nie boi, albo kłamie, albo nigdy nie grał prawdziwego meczu.",
+    "author": "Johan Cruyff",
+    "hints": ["Holender", "Ajax, Barcelona, Feyenoord", "Piłkarz i trener", "Twórca filozofii Barcelony", "Trzy razy Ballon d'Or (1971, 1973, 1974)"]
+  }
+]
