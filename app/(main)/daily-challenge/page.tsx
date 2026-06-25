@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
+import { CombinedLeaderboard } from '@/components/leaderboard/CombinedLeaderboard'
 import { cn } from '@/lib/utils'
 import {
   dailyChallengeCategories,
@@ -268,6 +269,10 @@ export default function DailyChallengePage() {
             <CategoryCard key={category.id} category={category} index={index} />
           ))}
         </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border border-violet-900/30 bg-gray-950/60 p-4 lg:p-6">
+        <CombinedLeaderboard />
       </section>
     </div>
   )

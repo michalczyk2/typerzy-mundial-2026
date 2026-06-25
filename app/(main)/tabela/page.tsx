@@ -3,7 +3,6 @@ import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
 import { PointsHistory } from '@/components/leaderboard/PointsHistory'
-import { CombinedLeaderboard } from '@/components/leaderboard/CombinedLeaderboard'
 import { Accordion } from '@/components/ui/Accordion'
 import { DEFAULT_FORM_VISUAL_SETTINGS } from '@/lib/form-visual-settings'
 import type { FormEffect, FormVisualSettings, LeaderboardEntry } from '@/types'
@@ -322,10 +321,6 @@ export default function TabelaPage() {
         outcomePoints={pointsMap['outcome_points'] ?? FALLBACK_POINTS['outcome_points']}
         exactScorePoints={pointsMap['exact_score_points'] ?? FALLBACK_POINTS['exact_score_points']}
       />
-
-      <section className="mt-8 rounded-3xl border border-violet-900/40 bg-gray-950/60 p-4 lg:p-6">
-        <CombinedLeaderboard />
-      </section>
     </div>
   )
 }
