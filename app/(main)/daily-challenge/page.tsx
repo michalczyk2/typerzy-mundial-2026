@@ -242,7 +242,9 @@ export default function DailyChallengePage() {
         </div>
       </section>
 
-      <DailyProgress />
+      <section className="mt-6 rounded-3xl border border-violet-900/30 bg-gray-950/60 p-4 lg:p-6">
+        <CombinedLeaderboard />
+      </section>
 
       <section className="mt-6 grid gap-3 md:grid-cols-3">
         {dailyChallengePreview.rules.map(rule => (
@@ -271,9 +273,6 @@ export default function DailyChallengePage() {
         </div>
       </section>
 
-      <section className="mt-8 rounded-3xl border border-violet-900/30 bg-gray-950/60 p-4 lg:p-6">
-        <CombinedLeaderboard />
-      </section>
     </div>
   )
 }
