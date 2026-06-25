@@ -2,7 +2,7 @@ export type PilkarzdleComparisonStatus = 'correct' | 'close' | 'wrong'
 
 export type PilkarzdleGameStatus = 'playing' | 'won' | 'lost'
 
-export type PilkarzdleFieldId = 'nationality' | 'position' | 'league' | 'club' | 'age'
+export type PilkarzdleFieldId = 'nationality' | 'position' | 'league' | 'club' | 'age' | 'height' | 'shirtNumber'
 
 export type PilkarzdlePlayerOption = {
   id: string

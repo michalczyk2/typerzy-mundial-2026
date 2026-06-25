@@ -25,6 +25,8 @@ type PilkarzdlePlayer = {
   leagueCountry: string
   club: string
   age: number
+  height: number
+  shirtNumber: number
 }
 
 const players = pilkarzdlePlayers as PilkarzdlePlayer[]
@@ -45,10 +47,7 @@ function getWarsawDayKey(date = new Date()): string {
 }
 
 function normalizeDayKey(dayKey: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
-    return dayKey
-  }
-
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return dayKey
   return getWarsawDayKey()
 }
 
@@ -59,65 +58,57 @@ function hashDayKey(dayKey: string): number {
 function getPlayerForDay(dayKey = getWarsawDayKey()): PilkarzdlePlayer {
   const normalizedDayKey = normalizeDayKey(dayKey)
   const index = hashDayKey(normalizedDayKey) % players.length
-
   return players[index]
 }
 
-function compareNationality(
-  guess: PilkarzdlePlayer,
-  answer: PilkarzdlePlayer
-): PilkarzdleComparisonStatus {
-  if (guess.nationality === answer.nationality) {
-    return 'correct'
-  }
-
+function compareNationality(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleComparisonStatus {
+  if (guess.nationality === answer.nationality) return 'correct'
   return guess.continent === answer.continent ? 'close' : 'wrong'
 }
 
-function comparePosition(
-  guess: PilkarzdlePlayer,
-  answer: PilkarzdlePlayer
-): PilkarzdleComparisonStatus {
-  if (guess.position === answer.position) {
-    return 'correct'
-  }
-
+function comparePosition(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleComparisonStatus {
+  if (guess.position === answer.position) return 'correct'
   return guess.positionGroup === answer.positionGroup ? 'close' : 'wrong'
 }
 
-function compareLeague(
-  guess: PilkarzdlePlayer,
-  answer: PilkarzdlePlayer
-): PilkarzdleComparisonStatus {
-  if (guess.league === answer.league) {
-    return 'correct'
-  }
-
+function compareLeague(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleComparisonStatus {
+  if (guess.league === answer.league) return 'correct'
   return guess.leagueCountry === answer.leagueCountry ? 'close' : 'wrong'
 }
 
 function compareClub(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleComparisonStatus {
-  if (guess.club === answer.club) {
-    return 'correct'
-  }
-
+  if (guess.club === answer.club) return 'correct'
   return guess.league === answer.league ? 'close' : 'wrong'
 }
 
 function compareAge(guessAge: number, answerAge: number): PilkarzdleComparisonStatus {
-  if (guessAge === answerAge) {
-    return 'correct'
-  }
-
+  if (guessAge === answerAge) return 'correct'
   return Math.abs(guessAge - answerAge) <= 3 ? 'close' : 'wrong'
 }
 
 function ageHint(guessAge: number, answerAge: number): string | undefined {
-  if (guessAge === answerAge) {
-    return undefined
-  }
-
+  if (guessAge === answerAge) return undefined
   return guessAge < answerAge ? 'wyzej' : 'nizej'
+}
+
+function compareHeight(guessH: number, answerH: number): PilkarzdleComparisonStatus {
+  if (guessH === answerH) return 'correct'
+  return Math.abs(guessH - answerH) <= 3 ? 'close' : 'wrong'
+}
+
+function heightHint(guessH: number, answerH: number): string | undefined {
+  if (guessH === answerH) return undefined
+  return guessH < answerH ? 'wyzej' : 'nizej'
+}
+
+function compareShirtNumber(guessN: number, answerN: number): PilkarzdleComparisonStatus {
+  if (guessN === answerN) return 'correct'
+  return Math.abs(guessN - answerN) <= 3 ? 'close' : 'wrong'
+}
+
+function shirtHint(guessN: number, answerN: number): string | undefined {
+  if (guessN === answerN) return undefined
+  return guessN < answerN ? 'wyzej' : 'nizej'
 }
 
 function field(
@@ -130,25 +121,21 @@ function field(
   return { id, label, value, status, hint }
 }
 
-function buildComparisonFields(
-  guess: PilkarzdlePlayer,
-  answer: PilkarzdlePlayer
-): PilkarzdleGuessField[] {
+function buildComparisonFields(guess: PilkarzdlePlayer, answer: PilkarzdlePlayer): PilkarzdleGuessField[] {
   return [
     field('nationality', 'Narodowosc', guess.nationality, compareNationality(guess, answer)),
     field('position', 'Pozycja', guess.position, comparePosition(guess, answer)),
     field('league', 'Liga', guess.league, compareLeague(guess, answer)),
     field('club', 'Klub', guess.club, compareClub(guess, answer)),
     field('age', 'Wiek', String(guess.age), compareAge(guess.age, answer.age), ageHint(guess.age, answer.age)),
+    field('height', 'Wzrost', `${guess.height} cm`, compareHeight(guess.height, answer.height), heightHint(guess.height, answer.height)),
+    field('shirtNumber', 'Numer', String(guess.shirtNumber), compareShirtNumber(guess.shirtNumber, answer.shirtNumber), shirtHint(guess.shirtNumber, answer.shirtNumber)),
   ]
 }
 
 function getPlayerOptions(): PilkarzdlePlayerOption[] {
   return players
-    .map(player => ({
-      id: player.id,
-      name: player.name,
-    }))
+    .map(player => ({ id: player.id, name: player.name }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pl'))
 }
 
@@ -171,7 +158,7 @@ export async function evaluatePilkarzdleGuessOnServer(
   const guess = players.find(player => player.id === playerId)
 
   if (!guess) {
-    return { ok: false, error: 'Wybierz pilkarza z listy podpowiedzi.' }
+    return { ok: false, error: 'Wybierz pilkarza z listy.' }
   }
 
   const isCorrect = guess.id === answer.id
