@@ -117,42 +117,66 @@ function TransferPath({
   totalCount: number
 }) {
   const hiddenCount = totalCount - revealedTransfers.length
-  // Display oldest→newest: hidden slots first, then revealed clubs (reversed from newest-first)
+  // slots ordered oldest → newest for display
   const revealedForDisplay = [...revealedTransfers].reverse()
+  const slots: Array<{ type: 'hidden'; index: number } | { type: 'revealed'; club: string; displayIndex: number }> = [
+    ...Array.from({ length: hiddenCount }, (_, i) => ({ type: 'hidden' as const, index: i })),
+    ...revealedForDisplay.map((club, displayIndex) => ({ type: 'revealed' as const, club, displayIndex })),
+  ]
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {Array.from({ length: hiddenCount }).map((_, i) => (
-        <div key={`hidden-${i}`} className="flex items-center gap-2">
-          {(i > 0 || revealedForDisplay.length === 0) && (
-            <span className="text-gray-700 text-xs font-bold">→</span>
-          )}
-          {i === 0 && revealedForDisplay.length > 0 && (
-            <span className="text-gray-700 text-xs font-bold">→</span>
-          )}
-          <div className="flex h-14 w-24 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-700 bg-gray-900">
-            <span className="text-2xl font-black text-gray-700">?</span>
+    <div className="flex flex-col gap-0">
+      {slots.map((slot, slotIndex) => {
+        const isLast = slotIndex === slots.length - 1
+        const isFirst = slotIndex === 0
+        return (
+          <div key={slotIndex} className="flex items-stretch gap-3">
+            {/* vertical line + dot */}
+            <div className="flex flex-col items-center">
+              <div className={cn(
+                'mt-1 h-3 w-3 rounded-full border-2 flex-shrink-0',
+                slot.type === 'revealed' && slot.displayIndex === revealedForDisplay.length - 1
+                  ? 'border-violet-400 bg-violet-400'
+                  : slot.type === 'revealed'
+                    ? 'border-violet-700 bg-violet-900'
+                    : 'border-gray-700 bg-gray-800'
+              )} />
+              {!isLast && (
+                <div className={cn(
+                  'w-0.5 flex-1 my-0.5',
+                  slot.type === 'revealed' ? 'bg-violet-800/60' : 'bg-gray-800'
+                )} style={{ minHeight: '24px' }} />
+              )}
+            </div>
+
+            {/* card */}
+            <div className="pb-3 flex-1">
+              {slot.type === 'hidden' ? (
+                <div className="flex h-12 items-center rounded-xl border border-dashed border-gray-700 bg-gray-900 px-4">
+                  <span className="text-sm font-black text-gray-700">?</span>
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                    {isFirst ? 'Najstarszy klub' : 'Nieznany'}
+                  </span>
+                </div>
+              ) : (
+                <div className={cn(
+                  'flex h-12 items-center rounded-xl border px-4 animate-footwordle-reveal',
+                  slot.displayIndex === revealedForDisplay.length - 1
+                    ? 'border-violet-500/70 bg-violet-500/15 text-violet-100'
+                    : 'border-violet-800/50 bg-violet-950/30 text-violet-300'
+                )} style={{ animationDelay: `${slot.displayIndex * 80}ms` }}>
+                  <div className="flex flex-1 items-center justify-between gap-2">
+                    <span className="text-sm font-black">{slot.club}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-50">
+                      {slot.displayIndex === revealedForDisplay.length - 1 ? 'Aktualny' : `${revealedForDisplay.length - 1 - slot.displayIndex} wcześniej`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
-      {revealedForDisplay.map((club, i) => (
-        <div key={`revealed-${i}`} className="flex items-center gap-2">
-          {(hiddenCount > 0 || i > 0) && (
-            <span className="text-violet-500 text-xs font-bold">→</span>
-          )}
-          <div className={cn(
-            'flex h-14 min-w-24 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-center animate-footwordle-reveal',
-            i === revealedForDisplay.length - 1
-              ? 'border-violet-500 bg-violet-500/20 text-violet-100'
-              : 'border-violet-800/60 bg-violet-950/40 text-violet-200'
-          )} style={{ animationDelay: `${i * 80}ms` }}>
-            <span className="text-[10px] font-bold uppercase tracking-wide opacity-60">
-              {i === revealedForDisplay.length - 1 ? 'Aktualny' : `${revealedForDisplay.length - 1 - i} wstecz`}
-            </span>
-            <span className="mt-0.5 text-xs font-black leading-4">{club}</span>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -312,12 +336,10 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
             <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-violet-400/70">
               Kariera (najstarszy → aktualny) · odkryto {revealedTransfers.length}/{puzzle.transfersCount}
             </p>
-            <div className="overflow-x-auto pb-2">
-              <TransferPath
-                revealedTransfers={revealedTransfers}
-                totalCount={puzzle.transfersCount}
-              />
-            </div>
+            <TransferPath
+              revealedTransfers={revealedTransfers}
+              totalCount={puzzle.transfersCount}
+            />
             {revealedTransfers.length === 0 && (
               <p className="mt-3 text-xs text-gray-600">
                 Po pierwszej probie zobaczysz aktualny klub piłkarza.
