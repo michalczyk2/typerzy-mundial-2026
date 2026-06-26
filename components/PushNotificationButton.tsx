@@ -26,7 +26,14 @@ export function PushNotificationButton() {
     setPermission(Notification.permission as PermissionState)
   }, [])
 
-  if (!IS_PRODUCTION_MODE || permission === 'unsupported' || permission === 'loading') return null
+  if (!IS_PRODUCTION_MODE || permission === 'loading') return null
+  if (permission === 'unsupported') {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-gray-800 px-3 py-2 text-xs text-gray-500">
+        🔔 <span>Dodaj apkę do ekranu głównego, aby włączyć powiadomienia</span>
+      </div>
+    )
+  }
 
   const handleSubscribe = async () => {
     if (busy) return

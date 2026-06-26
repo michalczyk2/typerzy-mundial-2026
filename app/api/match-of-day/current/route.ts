@@ -13,27 +13,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = createAdminClient()
-    const todayUtc = new Date().toISOString().slice(0, 10)
+    const threeDaysAgoUtc = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    // Look for today's event first, then nearest future event
+    // Fetch events from last 3 days + future; prioritize newest unsettled, fallback to newest
     const { data: events } = await db
       .from('match_of_day_events')
       .select('id, official_match_day, match_id, vote_deadline, selected_bonus_points, status')
-      .gte('official_match_day', todayUtc)
-      .order('official_match_day', { ascending: true })
-      .limit(1)
+      .gte('official_match_day', threeDaysAgoUtc)
+      .order('official_match_day', { ascending: false })
+      .limit(10)
 
-    let event = events?.[0] ?? null
-
-    // Fallback: if today has no future event, return today's settled event
-    if (!event) {
-      const { data: todayEvent } = await db
-        .from('match_of_day_events')
-        .select('id, official_match_day, match_id, vote_deadline, selected_bonus_points, status')
-        .eq('official_match_day', todayUtc)
-        .maybeSingle()
-      event = todayEvent ?? null
-    }
+    const unsettled = (events ?? []).find(e => e.status !== 'settled')
+    const event = unsettled ?? events?.[0] ?? null
 
     if (!event) {
       return NextResponse.json({ event: null })
