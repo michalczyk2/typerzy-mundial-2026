@@ -29,9 +29,12 @@ export function PushNotificationButton() {
   if (!IS_PRODUCTION_MODE || permission === 'loading') return null
   if (permission === 'unsupported') {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-gray-800 px-3 py-2 text-xs text-gray-500">
-        🔔 <span>Dodaj apkę do ekranu głównego, aby włączyć powiadomienia</span>
-      </div>
+      <button
+        onClick={() => alert('Aby włączyć powiadomienia na iPhone:\n\n1. Kliknij □↑ (Udostępnij) na dole Safari\n2. Wybierz „Dodaj do ekranu głównego"\n3. Otwórz apkę z ekranu głównego\n4. Wróć tutaj i kliknij Włącz powiadomienia')}
+        className="flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-400 hover:border-gray-500 transition"
+      >
+        🔔 Włącz powiadomienia — jak?
+      </button>
     )
   }
 
