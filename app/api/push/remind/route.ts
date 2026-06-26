@@ -3,8 +3,6 @@ import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 
-const REMIND_MINUTES_BEFORE = 60
-
 function isAuthorized(req: NextRequest): boolean {
   const authHeader = req.headers.get('authorization')
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) return true
@@ -42,10 +40,13 @@ export async function POST(req: NextRequest) {
 
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey)
 
-  const db = createAdminClient()
+  const body = await req.json().catch(() => ({}))
+  const hoursAhead = Number(body.hoursAhead ?? 24)
   const now = new Date()
   const windowStart = new Date(now.getTime())
-  const windowEnd = new Date(now.getTime() + REMIND_MINUTES_BEFORE * 60 * 1000)
+  const windowEnd = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000)
+
+  const db = createAdminClient()
 
   const { data: upcomingMatches } = await db
     .from('matches')

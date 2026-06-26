@@ -178,6 +178,8 @@ export function AdminPanel() {
   const [overrideScoreB, setOverrideScoreB] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
   const [overrideStatus, setOverrideStatus] = useState<{ type: 'idle' | 'saving' | 'ok' | 'error'; message: string }>({ type: 'idle', message: '' })
+  const [pushLoading, setPushLoading] = useState(false)
+  const [pushMsg, setPushMsg] = useState('')
   const selectedOverrideMatch = matches.find(m => m.id === overrideMatchId) ?? null
   const overrideOutcome = overrideScoreA !== '' && overrideScoreB !== ''
     ? Number(overrideScoreA) > Number(overrideScoreB) ? 'home'
@@ -598,6 +600,25 @@ export function AdminPanel() {
     }
   }
 
+  const handleSendPush = async (hoursAhead: number) => {
+    if (pushLoading) return
+    setPushLoading(true)
+    setPushMsg('Wysyłam...')
+    try {
+      const res = await fetch('/api/push/remind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hoursAhead }),
+      })
+      const json = await res.json().catch(() => ({}))
+      setPushMsg(res.ok ? `OK: ${json.message ?? 'Wysłano'}` : `Błąd: ${json.error ?? 'Nieznany'}`)
+    } catch {
+      setPushMsg('Błąd sieci')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
   const handleAdminOverrideSubmit = async () => {
     if (!overrideMatchId || !overrideUserId || overrideScoreA === '' || overrideScoreB === '') {
       setOverrideStatus({ type: 'error', message: 'Wybierz mecz, gracza i podaj wynik typu.' })
@@ -908,6 +929,37 @@ export function AdminPanel() {
       </Card>
 
       <AdminCorrectionHistory />
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🔔 Wyślij powiadomienia push</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Ręcznie wyślij przypomnienia do subskrybentów, którzy mają typy na nadchodzące mecze.
+        </p>
+        <div className="flex gap-3 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => handleSendPush(3)}
+            disabled={pushLoading}
+          >
+            ⚡ Mecze w ciągu 3h
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => handleSendPush(24)}
+            disabled={pushLoading}
+          >
+            📅 Mecze dziś (24h)
+          </Button>
+        </div>
+        {pushMsg && (
+          <p className={`mt-3 text-xs ${pushMsg.startsWith('OK') ? 'text-emerald-400' : pushMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
+            {pushMsg}
+          </p>
+        )}
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — push nie ma efektu.</p>
+        )}
+      </Card>
 
       <Card>
         <div className="mb-4 flex items-start justify-between gap-3">
