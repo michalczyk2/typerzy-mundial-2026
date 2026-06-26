@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
+import { PullToRefresh } from '@/components/PullToRefresh'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pl">
       <body>
         <Providers>{children}</Providers>
+        <PullToRefresh />
         <ServiceWorkerRegistrar />
         <Toaster
           theme="dark"
