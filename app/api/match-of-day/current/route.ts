@@ -24,18 +24,22 @@ export async function GET(req: NextRequest) {
       .order('official_match_day', { ascending: false })
       .limit(10)
 
-    const nowIso = new Date().toISOString()
+    // Priority 1: today's event (always wins — active voting or settled)
+    const todayEvent = (allEvents ?? []).find(e => e.official_match_day === todayUtc) ?? null
+
+    // Priority 2: oldest past unsettled (admin forgot to settle — show so it can be resolved)
     const pastUnsettled = (allEvents ?? [])
-      .filter(e => e.status !== 'settled' && e.vote_deadline < nowIso)
+      .filter(e => e.status !== 'settled' && e.official_match_day < todayUtc)
       .sort((a, b) => a.official_match_day.localeCompare(b.official_match_day))
       .at(0) ?? null
 
+    // Priority 3: nearest future event
     const upcoming = (allEvents ?? [])
-      .filter(e => e.official_match_day >= todayUtc)
+      .filter(e => e.official_match_day > todayUtc)
       .sort((a, b) => a.official_match_day.localeCompare(b.official_match_day))
       .at(0) ?? null
 
-    let event = pastUnsettled ?? upcoming ?? null
+    let event = todayEvent ?? pastUnsettled ?? upcoming ?? null
 
     if (!event) {
       return NextResponse.json({ event: null })
