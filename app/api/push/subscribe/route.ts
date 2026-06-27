@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(req: NextRequest) {
+  console.log('[push/subscribe] body:', JSON.stringify(await req.clone().json().catch(() => 'parse error')))
+  console.log('[push/subscribe] session:', req.cookies.get('typerzy_session')?.value ? 'OK' : 'BRAK')
   const sessionId = req.cookies.get('typerzy_session')?.value
   if (!sessionId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
