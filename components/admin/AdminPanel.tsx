@@ -180,6 +180,10 @@ export function AdminPanel() {
   const [overrideStatus, setOverrideStatus] = useState<{ type: 'idle' | 'saving' | 'ok' | 'error'; message: string }>({ type: 'idle', message: '' })
   const [pushLoading, setPushLoading] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
+  const [broadcastTitle, setBroadcastTitle] = useState('')
+  const [broadcastText, setBroadcastText] = useState('')
+  const [broadcastLoading, setBroadcastLoading] = useState(false)
+  const [broadcastMsg, setBroadcastMsg] = useState('')
   const selectedOverrideMatch = matches.find(m => m.id === overrideMatchId) ?? null
   const overrideOutcome = overrideScoreA !== '' && overrideScoreB !== ''
     ? Number(overrideScoreA) > Number(overrideScoreB) ? 'home'
@@ -600,6 +604,29 @@ export function AdminPanel() {
     }
   }
 
+  const handleBroadcast = async () => {
+    const title = broadcastTitle.trim()
+    const text = broadcastText.trim()
+    if (!title || !text) { setBroadcastMsg('Wypełnij tytuł i treść.'); return }
+    if (broadcastLoading) return
+    setBroadcastLoading(true)
+    setBroadcastMsg('Wysyłam...')
+    try {
+      const res = await fetch('/api/push/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, text }),
+      })
+      const json = await res.json().catch(() => ({}))
+      setBroadcastMsg(res.ok ? `OK: ${json.message ?? 'Wysłano'}` : `Błąd: ${json.error ?? 'Nieznany'}`)
+      if (res.ok) { setBroadcastTitle(''); setBroadcastText('') }
+    } catch {
+      setBroadcastMsg('Błąd sieci')
+    } finally {
+      setBroadcastLoading(false)
+    }
+  }
+
   const handleSendPush = async (hoursAhead: number) => {
     if (pushLoading) return
     setPushLoading(true)
@@ -959,6 +986,43 @@ export function AdminPanel() {
         {!IS_PRODUCTION_MODE && (
           <p className="text-gray-600 text-xs mt-3">Tryb lokalny — push nie ma efektu.</p>
         )}
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">📢 Wyślij własne powiadomienie</h2>
+        <p className="text-gray-600 text-xs mb-4">Wyślij dowolną wiadomość push do wszystkich subskrybentów.</p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Tytuł</span>
+            <input
+              value={broadcastTitle}
+              onChange={e => setBroadcastTitle(e.target.value)}
+              placeholder="np. ⚽ Wieczór meczowy!"
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Treść</span>
+            <textarea
+              value={broadcastText}
+              onChange={e => setBroadcastText(e.target.value)}
+              rows={3}
+              placeholder="np. Sprawdź swoje typy na dziś wieczór!"
+              className="w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+            />
+          </label>
+          <Button onClick={handleBroadcast} disabled={broadcastLoading}>
+            📢 Wyślij do wszystkich
+          </Button>
+          {broadcastMsg && (
+            <p className={`text-xs ${broadcastMsg.startsWith('OK') ? 'text-emerald-400' : broadcastMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {broadcastMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — broadcast nie ma efektu.</p>
+          )}
+        </div>
       </Card>
 
       <Card>
