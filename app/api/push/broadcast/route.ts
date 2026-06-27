@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Brak tytułu lub treści' }, { status: 400 })
   }
 
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
   const vapidEmail = process.env.VAPID_EMAIL
   if (!vapidPublicKey || !vapidPrivateKey || !vapidEmail) {
