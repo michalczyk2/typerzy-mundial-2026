@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
 
   let sent = 0
   const expired: string[] = []
+  const errors: { endpoint: string; status?: number; message?: string }[] = []
 
   await Promise.allSettled(
     subscriptions.map(async sub => {
@@ -57,7 +58,9 @@ export async function POST(req: NextRequest) {
         )
         sent++
       } catch (err: unknown) {
-        const status = (err as { statusCode?: number }).statusCode
+        const e = err as { statusCode?: number; message?: string }
+        const status = e.statusCode
+        errors.push({ endpoint: sub.endpoint.slice(-40), status, message: e.message })
         if (status === 410 || status === 404) expired.push(sub.endpoint)
       }
     })
@@ -67,5 +70,12 @@ export async function POST(req: NextRequest) {
     await db.from('push_subscriptions').delete().in('endpoint', expired)
   }
 
-  return NextResponse.json({ message: `Wysłano do ${sent} subskrybentów`, sent, expired: expired.length })
+  return NextResponse.json({
+    ok: sent > 0,
+    sent,
+    total: subscriptions.length,
+    message: `Wysłano do ${sent}/${subscriptions.length} subskrybentów.`,
+    errors: errors.length > 0 ? errors : undefined,
+    debug: errors,
+  })
 }
