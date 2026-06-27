@@ -26,7 +26,14 @@ export async function POST(req: NextRequest) {
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
   const vapidEmail = process.env.VAPID_EMAIL
   if (!vapidPublicKey || !vapidPrivateKey || !vapidEmail) {
-    return NextResponse.json({ error: 'VAPID keys not configured' }, { status: 500 })
+    return NextResponse.json({
+      error: 'VAPID keys not configured',
+      missing: [
+        !vapidPublicKey && 'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
+        !vapidPrivateKey && 'VAPID_PRIVATE_KEY',
+        !vapidEmail && 'VAPID_EMAIL',
+      ].filter(Boolean),
+    }, { status: 500 })
   }
 
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey)
