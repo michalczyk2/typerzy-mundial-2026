@@ -46,6 +46,8 @@ export async function GET() {
         points_earned: p.points_earned ?? 0,
         is_correct_outcome: p.is_correct_outcome,
         is_correct_score: p.is_correct_score,
+        is_admin_override: false,
+        admin_override_reason: null,
       }))
 
     const bonuses: PointsHistoryBonus[] = MOCK_BONUS_POINTS.map(b => ({
@@ -99,7 +101,7 @@ export async function GET() {
       await Promise.all([
         db
           .from('predictions')
-          .select('user_id, match_id, predicted_a, predicted_b, predicted_result, points_earned, is_correct_outcome, is_correct_score')
+          .select('user_id, match_id, predicted_a, predicted_b, predicted_result, points_earned, is_correct_outcome, is_correct_score, is_admin_override, admin_override_reason')
           .in('match_id', matchIds)
           .eq('is_locked', true),
         db
@@ -125,6 +127,8 @@ export async function GET() {
       points_earned: p.points_earned ?? 0,
       is_correct_outcome: p.is_correct_outcome,
       is_correct_score: p.is_correct_score,
+      is_admin_override: p.is_admin_override ?? false,
+      admin_override_reason: p.admin_override_reason ?? null,
     }))
 
     const bonuses: PointsHistoryBonus[] = (bonusRows ?? []).map(b => ({

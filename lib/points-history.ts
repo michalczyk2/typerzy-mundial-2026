@@ -38,6 +38,8 @@ export type PointsHistoryPred = {
   points_earned: number
   is_correct_outcome: boolean
   is_correct_score: boolean
+  is_admin_override?: boolean
+  admin_override_reason?: string | null
 }
 
 export type PointsHistoryBonus = {
@@ -71,6 +73,8 @@ export type PlayerMatchLine = {
   components: PointsHistoryComponent[]
   total: number
   hasModBonus: boolean
+  isAdminOverride: boolean
+  adminOverrideReason: string | null
 }
 
 export type MatchGroupEntry = {
@@ -188,6 +192,8 @@ export function buildPointsHistory(
         components,
         total: components.reduce((s, c) => s + c.points, 0),
         hasModBonus,
+        isAdminOverride: pred.is_admin_override ?? false,
+        adminOverrideReason: pred.admin_override_reason ?? null,
       }
     })
 

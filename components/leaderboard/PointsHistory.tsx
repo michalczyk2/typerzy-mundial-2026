@@ -180,7 +180,17 @@ function MatchGroupCard({ entry, usersById, totalUsers }: { entry: MatchGroupEnt
 function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string }) {
   return (
     <div className="px-3 py-2.5">
-      <p className="text-gray-200 text-sm font-semibold truncate">{nick}</p>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <p className="text-gray-200 text-sm font-semibold truncate">{nick}</p>
+        {player.isAdminOverride && (
+          <span
+            className="rounded border border-amber-700/60 bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+            title={player.adminOverrideReason ?? 'Korekta admina'}
+          >
+            ✏️ korekta
+          </span>
+        )}
+      </div>
       <p className="text-gray-400 text-xs mt-0.5">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
       <p className={`text-sm font-bold mt-1 ${player.total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
         {player.total > 0 ? `+${player.total} pkt` : '0 pkt'}
