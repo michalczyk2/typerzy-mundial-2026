@@ -1,5 +1,5 @@
 'use client'
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore } from '@/lib/store'
 import { FlagImg } from '@/components/ui/FlagImg'
@@ -26,6 +26,11 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
   const [scoreA, setScoreA] = useState(myPrediction ? String(myPrediction.predicted_a) : '')
   const [scoreB, setScoreB] = useState(myPrediction ? String(myPrediction.predicted_b) : '')
   const [predictedWinner, setPredictedWinner] = useState<string | null>(myPrediction?.predicted_winner ?? null)
+  useEffect(() => {
+    if (myPrediction?.predicted_winner !== undefined) {
+      setPredictedWinner(myPrediction.predicted_winner ?? null)
+    }
+  }, [myPrediction?.predicted_winner])
   const [saved, setSaved] = useState(false)
 
   if (!match) return (
