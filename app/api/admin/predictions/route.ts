@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { match_id, user_id, predicted_a, predicted_b, reason } = body
+    const { match_id, user_id, predicted_a, predicted_b, reason, predicted_winner } = body
 
     if (!match_id || typeof match_id !== 'string') {
       return NextResponse.json({ error: 'Brak match_id' }, { status: 400 })
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
           predicted_a,
           predicted_b,
           predicted_result,
+          predicted_winner: typeof predicted_winner === 'string' ? predicted_winner : null,
           is_admin_override: true,
           admin_override_reason: reasonTrimmed,
           admin_override_by: adminId,

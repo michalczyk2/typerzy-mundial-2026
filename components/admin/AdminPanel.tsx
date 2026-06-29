@@ -177,6 +177,7 @@ export function AdminPanel() {
   const [overrideScoreA, setOverrideScoreA] = useState('')
   const [overrideScoreB, setOverrideScoreB] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
+  const [overridePredictedWinner, setOverridePredictedWinner] = useState<string | null>(null)
   const [overrideStatus, setOverrideStatus] = useState<{ type: 'idle' | 'saving' | 'ok' | 'error'; message: string }>({ type: 'idle', message: '' })
   const [pushLoading, setPushLoading] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
@@ -693,6 +694,7 @@ export function AdminPanel() {
           predicted_a: Number(overrideScoreA),
           predicted_b: Number(overrideScoreB),
           reason: reasonTrimmed,
+          predicted_winner: overridePredictedWinner ?? null,
         }),
       })
       const json = await res.json().catch(() => ({}))
@@ -705,6 +707,7 @@ export function AdminPanel() {
         message: `Zapisano typ i przeliczono punkty.${json.recalcMessage ? ` (${json.recalcMessage})` : ''}`,
       })
       setOverrideReason('')
+      setOverridePredictedWinner(null)
     } catch {
       setOverrideStatus({ type: 'error', message: 'Błąd sieci' })
     }
@@ -950,6 +953,32 @@ export function AdminPanel() {
               </div>
             </div>
           </div>
+
+          {selectedOverrideMatch && selectedOverrideMatch.phase !== 'group' && (
+            <div>
+              <span className="mb-2 block text-xs font-medium text-gray-400">Trafiony awans (faza KO)</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[selectedOverrideMatch.team_a, selectedOverrideMatch.team_b].map(team => (
+                  <button
+                    key={team}
+                    type="button"
+                    onClick={() => setOverridePredictedWinner(overridePredictedWinner === team ? null : team)}
+                    className={cn(
+                      'rounded-lg border py-2 text-xs font-bold transition',
+                      overridePredictedWinner === team
+                        ? 'border-amber-500 bg-amber-950/40 text-amber-300'
+                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                    )}
+                  >
+                    {team}
+                  </button>
+                ))}
+              </div>
+              {overridePredictedWinner && (
+                <p className="mt-1 text-[11px] text-amber-400/70">Typ awansu: {overridePredictedWinner}</p>
+              )}
+            </div>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-gray-400">Powód korekty</span>
