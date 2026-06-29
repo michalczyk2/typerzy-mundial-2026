@@ -317,9 +317,15 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     <span>Bonus Idealny typ (jedyny z 8 pkt)</span>
                     <span className="text-gray-200 font-bold">+2 pkt</span>
                   </div>
+                  {isKoPhase && (
+                    <div className="flex justify-between items-center text-amber-400/80">
+                      <span>Trafiony awans (faza KO)</span>
+                      <span className="font-bold">+2 pkt</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-gray-300 font-bold border-t border-gray-800 pt-2.5">
                     <span>Maksymalnie za mecz</span>
-                    <span className="text-emerald-400 text-sm">8 pkt</span>
+                    <span className="text-emerald-400 text-sm">{isKoPhase ? '10 pkt' : '8 pkt'}</span>
                   </div>
                 </>
               )}

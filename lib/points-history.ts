@@ -27,6 +27,7 @@ export type PointsHistoryMatch = {
   round: number
   group_name: string | null
   phase: string
+  winner?: string | null
 }
 
 export type PointsHistoryPred = {
@@ -40,6 +41,7 @@ export type PointsHistoryPred = {
   is_correct_score: boolean
   is_admin_override?: boolean
   admin_override_reason?: string | null
+  predicted_winner?: string | null
 }
 
 export type PointsHistoryBonus = {
@@ -75,6 +77,7 @@ export type PlayerMatchLine = {
   hasModBonus: boolean
   isAdminOverride: boolean
   adminOverrideReason: string | null
+  predictedWinner: string | null
 }
 
 export type MatchGroupEntry = {
@@ -182,7 +185,14 @@ export function buildPointsHistory(
       }
 
       for (const b of matchBonuses.get(`${pred.user_id}:${pred.match_id}`) ?? []) {
-        components.push({ label: bonusLabel(b.bonus_type), points: b.points })
+        if (b.bonus_type !== 'ko_winner_pick') {
+          components.push({ label: bonusLabel(b.bonus_type), points: b.points })
+        }
+      }
+
+      // KO winner bonus: +2 if predicted_winner matches match.winner
+      if (match.winner && pred.predicted_winner && match.winner === pred.predicted_winner) {
+        components.push({ label: 'Trafiony awans', points: 2 })
       }
 
       return {
@@ -194,6 +204,7 @@ export function buildPointsHistory(
         hasModBonus,
         isAdminOverride: pred.is_admin_override ?? false,
         adminOverrideReason: pred.admin_override_reason ?? null,
+        predictedWinner: pred.predicted_winner ?? null,
       }
     })
 

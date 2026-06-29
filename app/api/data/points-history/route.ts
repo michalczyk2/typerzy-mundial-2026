@@ -33,6 +33,7 @@ export async function GET() {
       round: m.round,
       group_name: m.group_name,
       phase: m.phase,
+      winner: null,
     }))
 
     const predictions: PointsHistoryPred[] = MOCK_PREDICTIONS
@@ -48,6 +49,7 @@ export async function GET() {
         is_correct_score: p.is_correct_score,
         is_admin_override: false,
         admin_override_reason: null,
+        predicted_winner: null,
       }))
 
     const bonuses: PointsHistoryBonus[] = MOCK_BONUS_POINTS.map(b => ({
@@ -69,7 +71,7 @@ export async function GET() {
 
     const { data: matchRows, error: matchErr } = await db
       .from('matches')
-      .select('id, team_a, team_b, team_a_code, team_b_code, score_a, score_b, match_date, round, group_name, phase')
+      .select('id, team_a, team_b, team_a_code, team_b_code, score_a, score_b, match_date, round, group_name, phase, winner')
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
@@ -93,6 +95,7 @@ export async function GET() {
       round: m.round,
       group_name: m.group_name,
       phase: m.phase,
+      winner: m.winner ?? null,
     }))
 
     const matchIds = matches.map(m => m.id)
@@ -101,7 +104,7 @@ export async function GET() {
       await Promise.all([
         db
           .from('predictions')
-          .select('user_id, match_id, predicted_a, predicted_b, predicted_result, points_earned, is_correct_outcome, is_correct_score, is_admin_override, admin_override_reason')
+          .select('user_id, match_id, predicted_a, predicted_b, predicted_result, points_earned, is_correct_outcome, is_correct_score, is_admin_override, admin_override_reason, predicted_winner')
           .in('match_id', matchIds)
           .eq('is_locked', true),
         db
@@ -129,6 +132,7 @@ export async function GET() {
       is_correct_score: p.is_correct_score,
       is_admin_override: p.is_admin_override ?? false,
       admin_override_reason: p.admin_override_reason ?? null,
+      predicted_winner: p.predicted_winner ?? null,
     }))
 
     const bonuses: PointsHistoryBonus[] = (bonusRows ?? []).map(b => ({

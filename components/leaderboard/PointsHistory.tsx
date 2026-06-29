@@ -191,7 +191,12 @@ function PlayerLine({ player, nick }: { player: PlayerMatchLine; nick: string })
           </span>
         )}
       </div>
-      <p className="text-gray-400 text-xs mt-0.5">Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span></p>
+      <p className="text-gray-400 text-xs mt-0.5">
+        Typ: <span className="text-gray-200 font-medium">{player.predictedA}:{player.predictedB}</span>
+        {player.predictedWinner && (
+          <span className="ml-2 text-amber-400/80">Awans: {player.predictedWinner}</span>
+        )}
+      </p>
       <p className={`text-sm font-bold mt-1 ${player.total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
         {player.total > 0 ? `+${player.total} pkt` : '0 pkt'}
       </p>
