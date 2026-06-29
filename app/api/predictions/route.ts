@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { match_id, predicted_a, predicted_b, predicted_result: rawResult } = await req.json()
+    const { match_id, predicted_a, predicted_b, predicted_result: rawResult, predicted_winner } = await req.json()
     if (!match_id || predicted_a == null || predicted_b == null) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
           predicted_a,
           predicted_b,
           predicted_result,
+          predicted_winner: predicted_winner ?? null,
           is_locked: false,
           updated_at: new Date().toISOString(),
         },

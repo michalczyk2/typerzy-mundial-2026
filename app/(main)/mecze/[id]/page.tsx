@@ -25,6 +25,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
   )
   const [scoreA, setScoreA] = useState(myPrediction ? String(myPrediction.predicted_a) : '')
   const [scoreB, setScoreB] = useState(myPrediction ? String(myPrediction.predicted_b) : '')
+  const [predictedWinner, setPredictedWinner] = useState<string | null>(myPrediction?.predicted_winner ?? null)
   const [saved, setSaved] = useState(false)
 
   if (!match) return (
@@ -80,13 +81,15 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     setSaved(false)
   }
 
+  const isKoPhase = match.phase !== 'group'
+
   const handleSave = () => {
     if (!currentUser || locked || scoreA === '' || scoreB === '' || selectedResult === null || scoreMismatch) return
     const a = Number(scoreA), b = Number(scoreB)
     if (myPrediction) {
-      updatePrediction(myPrediction.id, a, b, selectedResult)
+      updatePrediction(myPrediction.id, a, b, selectedResult, predictedWinner)
     } else {
-      addPrediction(match.id, a, b, selectedResult)
+      addPrediction(match.id, a, b, selectedResult, predictedWinner)
     }
     setSaved(true)
   }
@@ -248,6 +251,30 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               </div>
             </div>
+
+            {isKoPhase && (
+              <div>
+                <p className="text-gray-500 text-xs mb-3 uppercase tracking-wide font-medium">Kto awansuje? <span className="text-amber-400 normal-case">+2 pkt</span></p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[{ name: teamA, code: match.team_a_code }, { name: teamB, code: match.team_b_code }].map(team => (
+                    <button
+                      key={team.name}
+                      onClick={() => { setPredictedWinner(predictedWinner === team.name ? null : team.name); setSaved(false) }}
+                      className={`py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all text-center leading-tight ${
+                        predictedWinner === team.name
+                          ? 'bg-amber-700/40 border-amber-500 text-amber-300 shadow-lg shadow-amber-900/30 scale-[1.02]'
+                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                      }`}
+                    >
+                      {team.name}
+                    </button>
+                  ))}
+                </div>
+                {!predictedWinner && (
+                  <p className="text-gray-600 text-xs mt-2 text-center">Brak wyboru — możesz pominąć</p>
+                )}
+              </div>
+            )}
 
             {scoreMismatch && (
               <div className="bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2.5 text-amber-400 text-xs">

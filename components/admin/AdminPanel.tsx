@@ -184,6 +184,10 @@ export function AdminPanel() {
   const [broadcastText, setBroadcastText] = useState('')
   const [broadcastLoading, setBroadcastLoading] = useState(false)
   const [broadcastMsg, setBroadcastMsg] = useState('')
+  const [winnerMatchId, setWinnerMatchId] = useState('')
+  const [winnerTeam, setWinnerTeam] = useState('')
+  const [winnerLoading, setWinnerLoading] = useState(false)
+  const [winnerMsg, setWinnerMsg] = useState('')
   const selectedOverrideMatch = matches.find(m => m.id === overrideMatchId) ?? null
   const overrideOutcome = overrideScoreA !== '' && overrideScoreB !== ''
     ? Number(overrideScoreA) > Number(overrideScoreB) ? 'home'
@@ -604,6 +608,28 @@ export function AdminPanel() {
     }
   }
 
+  const handleWinnerSave = async () => {
+    if (!winnerMatchId || !winnerTeam) { setWinnerMsg('Wybierz mecz i drużynę.'); return }
+    if (winnerLoading) return
+    setWinnerLoading(true)
+    setWinnerMsg('Zapisuję...')
+    try {
+      const res = await fetch('/api/admin/matches/set-winner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_id: winnerMatchId, winner: winnerTeam }),
+      })
+      const json = await res.json().catch(() => ({}))
+      setWinnerMsg(res.ok
+        ? `OK: ${json.awarded} graczy otrzymało +2 pkt za trafiony awans`
+        : `Błąd: ${json.error ?? 'Nieznany'}`)
+    } catch {
+      setWinnerMsg('Błąd sieci')
+    } finally {
+      setWinnerLoading(false)
+    }
+  }
+
   const handleBroadcast = async () => {
     const title = broadcastTitle.trim()
     const text = broadcastText.trim()
@@ -1021,6 +1047,63 @@ export function AdminPanel() {
           )}
           {!IS_PRODUCTION_MODE && (
             <p className="text-gray-600 text-xs">Tryb lokalny — broadcast nie ma efektu.</p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🏆 Ustaw zwycięzcę meczu KO</h2>
+        <p className="text-gray-600 text-xs mb-4">Przyznaje +2 pkt graczom którzy trafili awansującą drużynę.</p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
+            <select
+              value={winnerMatchId}
+              onChange={e => { setWinnerMatchId(e.target.value); setWinnerTeam(''); setWinnerMsg('') }}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz mecz —</option>
+              {matches.filter(m => m.phase !== 'group').map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
+                  {m.winner ? ` ✓ ${m.winner}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {winnerMatchId && (() => {
+            const m = matches.find(x => x.id === winnerMatchId)
+            if (!m) return null
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                {[{ name: m.team_a }, { name: m.team_b }].map(team => (
+                  <button
+                    key={team.name}
+                    type="button"
+                    onClick={() => setWinnerTeam(winnerTeam === team.name ? '' : team.name)}
+                    className={cn(
+                      'rounded-lg border py-2.5 text-sm font-bold transition',
+                      winnerTeam === team.name
+                        ? 'border-amber-500 bg-amber-950/40 text-amber-300'
+                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                    )}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+          <Button onClick={handleWinnerSave} disabled={winnerLoading || !winnerMatchId || !winnerTeam}>
+            🏆 Zatwierdź i przyznaj punkty
+          </Button>
+          {winnerMsg && (
+            <p className={`text-xs ${winnerMsg.startsWith('OK') ? 'text-emerald-400' : winnerMsg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {winnerMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
           )}
         </div>
       </Card>

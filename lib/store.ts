@@ -36,8 +36,8 @@ interface AppState {
   // Async login for production mode (calls /api/auth/login)
   loginAsync: (nick: string, code: string) => Promise<LoginResult>
   logout: () => void
-  addPrediction: (matchId: string, predictedA: number, predictedB: number, predictedResult?: PredictionResult) => void
-  updatePrediction: (id: string, a: number, b: number, predictedResult?: PredictionResult) => void
+  addPrediction: (matchId: string, predictedA: number, predictedB: number, predictedResult?: PredictionResult, predictedWinner?: string | null) => void
+  updatePrediction: (id: string, a: number, b: number, predictedResult?: PredictionResult, predictedWinner?: string | null) => void
   updateUserStatus: (id: string, status: User['status']) => void
   updateMatchScore: (id: string, scoreA: number, scoreB: number) => void
   updateMatchFull: (id: string, data: Partial<Match>) => void
@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPrediction: (matchId, predictedA, predictedB, predictedResult) => {
+  addPrediction: (matchId, predictedA, predictedB, predictedResult, predictedWinner) => {
     const user = get().currentUser
     if (!user) return
     const predicted_result: PredictionResult = predictedResult ?? (predictedA > predictedB ? 'home' : predictedA < predictedB ? 'away' : 'draw')
@@ -117,7 +117,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set(s => ({ predictions: [...s.predictions, pred] }))
     if (IS_PRODUCTION_MODE) {
-      const payload = { match_id: matchId, predicted_a: predictedA, predicted_b: predictedB, predicted_result }
+      const payload = { match_id: matchId, predicted_a: predictedA, predicted_b: predictedB, predicted_result, predicted_winner: predictedWinner ?? null }
       console.log('MATCH OF DAY ID', matchId)
       console.log('PAYLOAD', payload)
       console.log('USER', user.id)
@@ -134,7 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  updatePrediction: (id, a, b, predictedResult) => {
+  updatePrediction: (id, a, b, predictedResult, predictedWinner) => {
     const pred = get().predictions.find(p => p.id === id)
     const predicted_result: PredictionResult = predictedResult ?? (a > b ? 'home' : a < b ? 'away' : 'draw')
     console.log('MATCH OF DAY ID', pred?.match_id)
@@ -150,7 +150,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       fetch('/api/predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b, predicted_result }),
+        body: JSON.stringify({ match_id: pred.match_id, predicted_a: a, predicted_b: b, predicted_result, predicted_winner: predictedWinner ?? null }),
       }).then(res => {
         if (!res.ok) {
           res.json().then(body => console.error('updatePrediction API error', res.status, body)).catch(() => {})

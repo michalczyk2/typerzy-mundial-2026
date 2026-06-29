@@ -81,6 +81,7 @@ export interface Match {
   last_synced_at: string | null
   created_at: string
   is_archived?: boolean | null
+  winner?: string | null
   bracket_position?: string | null
   home_placeholder?: string | null
   away_placeholder?: string | null
@@ -108,6 +109,7 @@ export interface Prediction {
   admin_override_reason?: string | null
   admin_override_by?: string | null
   admin_override_at?: string | null
+  predicted_winner?: string | null
 }
 
 export interface TournamentWinnerPrediction {
