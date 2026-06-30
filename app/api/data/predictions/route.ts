@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
       predicted_a: row.predicted_a,
       predicted_b: row.predicted_b,
       predicted_result: row.predicted_result,
+      predicted_winner: row.predicted_winner ?? null,
       points_earned: row.points_earned ?? 0,
       is_correct_outcome: row.is_correct_outcome ?? false,
       is_correct_score: row.is_correct_score ?? false,
