@@ -120,7 +120,7 @@ export async function advanceBracketWinners(
 
   const { data: allMatches, error } = await db
     .from('matches')
-    .select('id, phase, match_date, team_a, team_b, team_a_code, team_b_code, score_a, score_b, status')
+    .select('id, phase, match_date, team_a, team_b, team_a_code, team_b_code, score_a, score_b, status, winner')
     .in('phase', allPhases)
     .or('is_archived.is.null,is_archived.eq.false')
   if (error) return { advanced: 0, errors: [error.message] }
@@ -142,10 +142,22 @@ export async function advanceBracketWinners(
       const m = phaseMatches[i]
       if (m.status !== 'finished') continue
       if (m.score_a == null || m.score_b == null) continue
-      if (m.score_a === m.score_b) continue
 
-      const winnerName = m.score_a > m.score_b ? m.team_a : m.team_b
-      const winnerCode = m.score_a > m.score_b ? m.team_a_code : m.team_b_code
+      // Regulation/extra-time draw: winner only known once admin records it
+      // (penalty shootout) via /api/admin/matches/set-winner — `winner` holds
+      // the advancing team's name. Without it the slot is genuinely undecided.
+      let winnerName: string | null = null
+      let winnerCode: string | null = null
+      if (m.score_a !== m.score_b) {
+        winnerName = m.score_a > m.score_b ? m.team_a : m.team_b
+        winnerCode = m.score_a > m.score_b ? m.team_a_code : m.team_b_code
+      } else if (m.winner && m.winner === m.team_a) {
+        winnerName = m.team_a
+        winnerCode = m.team_a_code
+      } else if (m.winner && m.winner === m.team_b) {
+        winnerName = m.team_b
+        winnerCode = m.team_b_code
+      }
       if (!winnerName || !winnerCode) continue
 
       const targetIndex = Math.floor(i / 2)
