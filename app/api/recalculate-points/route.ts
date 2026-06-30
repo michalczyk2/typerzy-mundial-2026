@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { calculateMatchPoints, SCORING_DEFAULTS } from '@/lib/scoring'
+import { calculateMatchPoints, effectiveScore, SCORING_DEFAULTS } from '@/lib/scoring'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import type { PredictionResult } from '@/types'
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     // 2. Get all finished matches with scores
     const { data: matches, error: matchErr } = await db
       .from('matches')
-      .select('id, score_a, score_b, phase, round')
+      .select('id, score_a, score_b, score_a_90, score_b_90, phase, round')
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
@@ -142,6 +142,7 @@ export async function POST(req: NextRequest) {
       const match = matchMap.get(pred.match_id)
       if (!match) continue
 
+      const [effA, effB] = effectiveScore(match.score_a, match.score_b, match.score_a_90, match.score_b_90)
       const { points, is_correct_outcome, is_correct_score } = calculateMatchPoints(
         pred.predicted_a,
         pred.predicted_b,
@@ -150,6 +151,8 @@ export async function POST(req: NextRequest) {
         outcomePoints,
         exactScorePoints,
         pred.predicted_result as PredictionResult | undefined,
+        effA,
+        effB,
       )
 
       // Add match-of-day bonus when player had any correct prediction for that match
@@ -241,9 +244,11 @@ export async function POST(req: NextRequest) {
       if (!byMatch.has(pred.match_id)) byMatch.set(pred.match_id, [])
       const match = matchMap.get(pred.match_id)
       if (!match) continue
+      const [effA, effB] = effectiveScore(match.score_a, match.score_b, match.score_a_90, match.score_b_90)
       const { points } = calculateMatchPoints(
         pred.predicted_a, pred.predicted_b, match.score_a, match.score_b,
         outcomePoints, exactScorePoints, pred.predicted_result as PredictionResult | undefined,
+        effA, effB,
       )
       byMatch.get(pred.match_id)!.push({ user_id: pred.user_id, points, predicted_result: pred.predicted_result })
     }
