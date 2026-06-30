@@ -106,17 +106,32 @@ function findGenealogyParents(child: Match, candidates: Match[]): [Match | null,
   return [parentA, parentB]
 }
 
-// Round 0 (round_of_32): no parent round exists to derive a position from, but
-// round_of_16 (when seeded) DOES reference round_of_32 matches as parents via
-// placeholder/team-name — use that genealogy to group true sibling pairs
-// together before assigning visual order. Without this, two round_of_32
+// Official WC26 round_of_32 schedule — which match feeds which round_of_16
+// slot is fixed by FIFA before kickoff (same kind of structural tournament
+// data as HALF_BASE/BRACKET_ROUNDS above, not a guessed outcome). Keyed by
+// the API's own match number (external_id `wc26_<N>`), the same number
+// round_of_16's "Zwycięzca meczu N" placeholders already reference — stable
+// across syncs, unlike team names which can vary in spelling/locale.
+// First 8 = left half (4 sibling pairs: indices 0-1, 2-3, 4-5, 6-7), next 8
+// = right half. Source: official WC26 bracket, cross-checked against real
+// round_of_32 rows on 2026-06-30 (South Africa-Canada/Netherlands-Morocco,
+// Germany-Paraguay/France-Sweden, Brazil-Japan/Ivory Coast-Norway,
+// Mexico-Ecuador/England-DR Congo, Portugal-Croatia/Spain-Austria,
+// USA-Bosnia and Herzegovina/Belgium-Senegal, Argentina-Cape Verde/
+// Australia-Egypt, Switzerland-Algeria/Colombia-Ghana).
+const CANONICAL_ROUND_OF_32_ORDER = [
+  73, 75, 74, 77, 76, 78, 79, 80,
+  83, 84, 81, 82, 86, 88, 85, 87,
+]
+
+// Orders matches the canonical list doesn't cover (not yet seeded with a
+// recognized external_id, or — should the list ever be wrong/incomplete —
+// any mismatch) by grouping into round_of_16-derived sibling pairs first,
+// falling back to kickoff order. Without the pairing step, two round_of_32
 // matches feeding the same round_of_16 match could land at non-adjacent
 // slots, which breaks BracketCanvas's connector geometry (it always draws
-// from slots 2m/2m+1 up to parent slot m). Pairs (and any match round_of_16
-// doesn't reference yet) fall back to kickoff order, same degraded behavior
-// as before, but applied per-group instead of per-match so resolved pairs
-// stay together.
-function positionRoundOf32(matches: Match[], nextRoundMatches: Match[]): Positioned[] {
+// from slots 2m/2m+1 up to parent slot m).
+function orderByGenealogyThenDate(matches: Match[], nextRoundMatches: Match[]): Match[] {
   const groupOf = new Map<string, number>()
   let nextGroupKey = 0
   for (const child of nextRoundMatches) {
@@ -135,7 +150,7 @@ function positionRoundOf32(matches: Match[], nextRoundMatches: Match[]): Positio
     groups.get(key)!.push(m)
   }
 
-  const orderedMatches = Array.from(groups.values())
+  return Array.from(groups.values())
     .map(sortMatches)
     .sort((g1, g2) => {
       const d = new Date(g1[0].match_date).getTime() - new Date(g2[0].match_date).getTime()
@@ -143,12 +158,49 @@ function positionRoundOf32(matches: Match[], nextRoundMatches: Match[]): Positio
       return g1[0].id.localeCompare(g2[0].id)
     })
     .flat()
+}
 
-  return orderedMatches.map((match, i) => ({
-    match,
-    half: (i < HALF_BASE ? 0 : 1) as 0 | 1,
-    indexInRound: i < HALF_BASE ? i : i - HALF_BASE,
-  }))
+// Round 0 (round_of_32): visual order comes from CANONICAL_ROUND_OF_32_ORDER
+// (the fixed tournament schedule), matched by external_id match number. Any
+// match not found there — logged, never silently guessed — falls back to
+// round_of_16 genealogy grouping (see orderByGenealogyThenDate) for
+// whatever slots the canonical matches didn't claim.
+function positionRoundOf32(matches: Match[], nextRoundMatches: Match[]): Positioned[] {
+  const canonicalSlot = new Map<number, number>()
+  CANONICAL_ROUND_OF_32_ORDER.forEach((num, i) => canonicalSlot.set(num, i))
+
+  const positioned: Positioned[] = []
+  const unrecognized: Match[] = []
+  const usedSlots = new Set<string>()
+
+  for (const match of matches) {
+    const num = externalMatchNumber(match.external_id)
+    const slot = num !== null ? canonicalSlot.get(num) : undefined
+    if (slot === undefined) { unrecognized.push(match); continue }
+    const half = (slot < HALF_BASE ? 0 : 1) as 0 | 1
+    const indexInRound = slot < HALF_BASE ? slot : slot - HALF_BASE
+    positioned.push({ match, half, indexInRound })
+    usedSlots.add(`${half}-${indexInRound}`)
+  }
+
+  if (unrecognized.length > 0) {
+    console.warn(
+      '[bracket] round_of_32 match(es) not in CANONICAL_ROUND_OF_32_ORDER, falling back to genealogy/date order:',
+      unrecognized.map(m => m.external_id ?? m.id).join(', ')
+    )
+    const openSlots: Array<{ half: 0 | 1; indexInRound: number }> = []
+    for (const half of [0, 1] as const) {
+      for (let i = 0; i < HALF_BASE; i++) {
+        if (!usedSlots.has(`${half}-${i}`)) openSlots.push({ half, indexInRound: i })
+      }
+    }
+    const ordered = orderByGenealogyThenDate(unrecognized, nextRoundMatches)
+    for (let i = 0; i < ordered.length && i < openSlots.length; i++) {
+      positioned.push({ match: ordered[i], ...openSlots[i] })
+    }
+  }
+
+  return positioned
 }
 
 // Round 1+: a match's slot is derived from its real parent in `prev`, found via the
