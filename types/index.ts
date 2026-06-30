@@ -61,6 +61,7 @@ export interface User {
 export interface Match {
   id: string
   api_id: string | null
+  external_id?: string | null
   phase: MatchPhase
   group_name: string | null
   round: number
