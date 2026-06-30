@@ -75,6 +75,8 @@ export interface Match {
   status: MatchStatus
   score_a: number | null
   score_b: number | null
+  score_a_90?: number | null
+  score_b_90?: number | null
   halftime_a: number | null
   halftime_b: number | null
   data_source: DataSource

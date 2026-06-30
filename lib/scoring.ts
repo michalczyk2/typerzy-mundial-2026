@@ -10,11 +10,27 @@ export const SCORING_DEFAULTS = {
   tournament_winner_bonus: { label: 'Zwycięzca turnieju',    value: 20, description: 'Bonus za trafienie mistrza turnieju przed startem' },
 } as const
 
+// KO matches store the post-extra-time score in score_a/score_b. score_a_90/score_b_90
+// (set manually by an admin) hold the regulation-time score when extra time was played —
+// "Dokładny wynik" must be judged against regulation time only. Outcome (W/D/L) keeps
+// using the real final score — only the exact-score comparison should use this.
+export function effectiveScore(
+  scoreA: number, scoreB: number,
+  scoreA90?: number | null, scoreB90?: number | null,
+): [number, number] {
+  return [scoreA90 ?? scoreA, scoreB90 ?? scoreB]
+}
+
 export function calculateMatchPoints(
   pA: number, pB: number, sA: number, sB: number,
   outcomePoints = SCORING_DEFAULTS.outcome_points.value,
   exactScorePoints = SCORING_DEFAULTS.exact_score_points.value,
   predictedResult?: PredictionResult,
+  // Score to judge "Dokładny wynik" against, when it differs from the real final
+  // score (sA/sB) — e.g. the 90-minute score for a KO match decided in extra time.
+  // Defaults to sA/sB, i.e. no behavior change unless explicitly passed.
+  exactScoreA: number = sA,
+  exactScoreB: number = sB,
 ) {
   const ar = sA > sB ? 'home' : sA < sB ? 'away' : 'draw'
   const pr: PredictionResult = predictedResult ?? (pA > pB ? 'home' : pA < pB ? 'away' : 'draw')
@@ -33,7 +49,7 @@ export function calculateMatchPoints(
   // Double chance: the exact-score bonus only counts when the typed score itself
   // falls within the selected range — otherwise predicted_result contradicts the typed score.
   const isConsistent = !isDoubleChance || scoreSide === 'draw' || scoreSide === (pr === 'home_or_draw' ? 'home' : 'away')
-  const is_correct_score = isConsistent && pA === sA && pB === sB
+  const is_correct_score = isConsistent && pA === exactScoreA && pB === exactScoreB
   let points = 0
   if (is_correct_outcome) points += isDoubleChance ? 1 : outcomePoints
   if (is_correct_score) points += exactScorePoints

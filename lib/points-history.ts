@@ -1,4 +1,4 @@
-import { calculateMatchPoints, SCORING_DEFAULTS } from './scoring'
+import { calculateMatchPoints, effectiveScore, SCORING_DEFAULTS } from './scoring'
 import type { PredictionResult } from '@/types'
 
 // Pure, read-only reconstruction of "what points were given for", grouped by match.
@@ -13,6 +13,7 @@ const calcMatchPoints = calculateMatchPoints as (
   pA: number, pB: number, sA: number, sB: number,
   outcomePoints?: number, exactScorePoints?: number,
   predictedResult?: PredictionResult,
+  exactScoreA?: number, exactScoreB?: number,
 ) => { points: number; is_correct_outcome: boolean; is_correct_score: boolean }
 
 export type PointsHistoryMatch = {
@@ -23,6 +24,8 @@ export type PointsHistoryMatch = {
   team_b_code: string
   score_a: number
   score_b: number
+  score_a_90?: number | null
+  score_b_90?: number | null
   match_date: string
   round: number
   group_name: string | null
@@ -157,11 +160,14 @@ export function buildPointsHistory(
     const preds = predsByMatch.get(match.id)
     if (!preds || preds.length === 0) continue
 
+    const [effA, effB] = effectiveScore(match.score_a, match.score_b, match.score_a_90, match.score_b_90)
+
     const players: PlayerMatchLine[] = preds.map(pred => {
       const { points: basePoints } = calcMatchPoints(
         pred.predicted_a, pred.predicted_b, match.score_a, match.score_b,
         outcomePoints, exactScorePoints,
         pred.predicted_result as PredictionResult | undefined,
+        effA, effB,
       )
 
       const isDoubleChance = pred.predicted_result === 'home_or_draw' || pred.predicted_result === 'away_or_draw'

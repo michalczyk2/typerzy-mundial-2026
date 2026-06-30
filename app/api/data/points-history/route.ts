@@ -71,7 +71,7 @@ export async function GET() {
 
     const { data: matchRows, error: matchErr } = await db
       .from('matches')
-      .select('id, team_a, team_b, team_a_code, team_b_code, score_a, score_b, match_date, round, group_name, phase, winner')
+      .select('id, team_a, team_b, team_a_code, team_b_code, score_a, score_b, score_a_90, score_b_90, match_date, round, group_name, phase, winner')
       .eq('status', 'finished')
       .not('score_a', 'is', null)
       .not('score_b', 'is', null)
@@ -91,6 +91,8 @@ export async function GET() {
       team_b_code: m.team_b_code,
       score_a: m.score_a as number,
       score_b: m.score_b as number,
+      score_a_90: m.score_a_90 ?? null,
+      score_b_90: m.score_b_90 ?? null,
       match_date: m.match_date,
       round: m.round,
       group_name: m.group_name,
