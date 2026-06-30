@@ -119,6 +119,10 @@ export interface FootballFixture {
   team_b: string
   team_a_code: string
   team_b_code: string
+  // Raw API placeholder text when the side isn't resolved yet (e.g. "Winner Match 73",
+  // "3rd Group A/B/C/D/F") — set only when team_a/team_b is empty.
+  team_a_label?: string | null
+  team_b_label?: string | null
   match_date: string
   official_match_day: string  // raw FIFA schedule date YYYY-MM-DD (not UTC-converted)
   status: MatchStatus
@@ -185,6 +189,10 @@ interface WC26Game {
   id: number | string
   home_team_name_en: string
   away_team_name_en: string
+  // Present instead of *_team_name_en while a KO slot is still undecided,
+  // e.g. "Winner Match 73", "Loser Match 101", "3rd Group A/B/C/D/F".
+  home_team_label?: string | null
+  away_team_label?: string | null
   home_score: number | string | null
   away_score: number | string | null
   home_halftime_score?: number | string | null
@@ -343,13 +351,18 @@ export async function fetchWC26Fixtures(options: WC26FetchOptions = {}): Promise
         : []
     if (games.length === 0) return null
     return games
-      .filter(g => g.home_team_name_en && g.away_team_name_en)
+      // A KO slot with one or both sides still undecided carries a *_team_label
+      // instead of a resolved name — keep the fixture (team_a/team_b empty) so it
+      // can be seeded with a placeholder, only drop rows with neither name nor label.
+      .filter(g => (g.home_team_name_en || g.home_team_label) && (g.away_team_name_en || g.away_team_label))
       .map(g => ({
         external_id: `wc26_${g.id}`,
-        team_a: g.home_team_name_en,
-        team_b: g.away_team_name_en,
-        team_a_code: wc26TeamCode(g.home_team_name_en, g.home_team_code),
-        team_b_code: wc26TeamCode(g.away_team_name_en, g.away_team_code),
+        team_a: g.home_team_name_en || '',
+        team_b: g.away_team_name_en || '',
+        team_a_code: g.home_team_name_en ? wc26TeamCode(g.home_team_name_en, g.home_team_code) : '',
+        team_b_code: g.away_team_name_en ? wc26TeamCode(g.away_team_name_en, g.away_team_code) : '',
+        team_a_label: g.home_team_label ?? null,
+        team_b_label: g.away_team_label ?? null,
         match_date: wc26ParseDate(g.local_date, g.stadium_id),
         official_match_day: wc26LocalDay(g.local_date),
         status: wc26Status(g),

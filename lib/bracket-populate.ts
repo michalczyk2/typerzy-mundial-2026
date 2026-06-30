@@ -29,13 +29,6 @@ function parsePlaceholder(placeholder: string): { position: number; group: strin
   return null
 }
 
-function sortByDateAndId<T extends { match_date: string; id: string }>(arr: T[]): T[] {
-  return [...arr].sort((a, b) => {
-    const d = new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
-    return d !== 0 ? d : a.id.localeCompare(b.id)
-  })
-}
-
 export async function populateBracketFromStandings(
   db: DbClient
 ): Promise<{ updated: number; skipped: number; errors: string[] }> {
@@ -103,83 +96,4 @@ export async function populateBracketFromStandings(
   }
 
   return { updated, skipped, errors }
-}
-
-const KO_PHASES = ['round_of_32', 'round_of_16', 'quarterfinal', 'semifinal'] as const
-const NEXT_PHASE: Record<string, string> = {
-  round_of_32: 'round_of_16',
-  round_of_16: 'quarterfinal',
-  quarterfinal: 'semifinal',
-  semifinal: 'final',
-}
-
-export async function advanceBracketWinners(
-  db: DbClient
-): Promise<{ advanced: number; errors: string[] }> {
-  const allPhases = [...KO_PHASES, 'final']
-
-  const { data: allMatches, error } = await db
-    .from('matches')
-    .select('id, phase, match_date, team_a, team_b, team_a_code, team_b_code, score_a, score_b, status, winner')
-    .in('phase', allPhases)
-    .or('is_archived.is.null,is_archived.eq.false')
-  if (error) return { advanced: 0, errors: [error.message] }
-
-  const byPhase = new Map<string, NonNullable<typeof allMatches>>()
-  for (const phase of allPhases) {
-    byPhase.set(phase, sortByDateAndId((allMatches ?? []).filter(m => m.phase === phase)))
-  }
-
-  let advanced = 0
-  const errors: string[] = []
-
-  for (const phase of KO_PHASES) {
-    const phaseMatches = byPhase.get(phase) ?? []
-    const nextPhase = NEXT_PHASE[phase]
-    const nextMatches = byPhase.get(nextPhase) ?? []
-
-    for (let i = 0; i < phaseMatches.length; i++) {
-      const m = phaseMatches[i]
-      if (m.status !== 'finished') continue
-      if (m.score_a == null || m.score_b == null) continue
-
-      // Regulation/extra-time draw: winner only known once admin records it
-      // (penalty shootout) via /api/admin/matches/set-winner — `winner` holds
-      // the advancing team's name. Without it the slot is genuinely undecided.
-      let winnerName: string | null = null
-      let winnerCode: string | null = null
-      if (m.score_a !== m.score_b) {
-        winnerName = m.score_a > m.score_b ? m.team_a : m.team_b
-        winnerCode = m.score_a > m.score_b ? m.team_a_code : m.team_b_code
-      } else if (m.winner && m.winner === m.team_a) {
-        winnerName = m.team_a
-        winnerCode = m.team_a_code
-      } else if (m.winner && m.winner === m.team_b) {
-        winnerName = m.team_b
-        winnerCode = m.team_b_code
-      }
-      if (!winnerName || !winnerCode) continue
-
-      const targetIndex = Math.floor(i / 2)
-      const target = nextMatches[targetIndex]
-      if (!target) continue
-
-      const isHome = i % 2 === 0
-      if (isHome && target.team_a) continue
-      if (!isHome && target.team_b) continue
-
-      const update = isHome
-        ? { team_a: winnerName, team_a_code: winnerCode }
-        : { team_b: winnerName, team_b_code: winnerCode }
-
-      const { error: updateError } = await db
-        .from('matches')
-        .update(update)
-        .eq('id', target.id)
-      if (updateError) errors.push(`Błąd awansu do ${nextPhase}[${targetIndex}]: ${updateError.message}`)
-      else advanced++
-    }
-  }
-
-  return { advanced, errors }
 }

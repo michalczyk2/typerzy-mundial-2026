@@ -50,6 +50,15 @@ function parseApiPlaceholder(name: string): string | null {
     return pos === 1 ? `Lider Gr. ${grp}` : `${pos}. miejsce Gr. ${grp}`
   }
 
+  // Match-number-based placeholders (round_of_16 and later — API real format):
+  // "Winner Match 73" → "Zwycięzca meczu 73", "Loser Match 101" (mecz o 3. miejsce) → "Przegrany meczu 101".
+  // Shorthand "W73"/"L73" handled defensively in case of an API format variant.
+  const winnerMatchNum = n.match(/^(?:Winner(?:\s+of)?\s+Match\s+(\d+)|W(\d+))$/i)
+  if (winnerMatchNum) return `Zwycięzca meczu ${winnerMatchNum[1] ?? winnerMatchNum[2]}`
+
+  const loserMatchNum = n.match(/^(?:Loser(?:\s+of)?\s+Match\s+(\d+)|L(\d+))$/i)
+  if (loserMatchNum) return `Przegrany meczu ${loserMatchNum[1] ?? loserMatchNum[2]}`
+
   return null
 }
 
@@ -57,7 +66,6 @@ function parseApiPlaceholder(name: string): string | null {
 function isPlaceholderName(name: string): boolean {
   if (parseApiPlaceholder(name) !== null) return true
   const n = name.trim()
-  if (/^[Ww]\d+$/.test(n)) return true  // "W73" — match-number winner format
   if (n.length < 3) return true
   return false
 }
@@ -82,10 +90,14 @@ export async function POST(req: NextRequest) {
   const errors: string[] = []
 
   for (const f of koFixtures) {
-    const homePlaceholder = parseApiPlaceholder(f.team_a)
-    const awayPlaceholder = parseApiPlaceholder(f.team_b)
-    const homeIsPlaceholder = isPlaceholderName(f.team_a)
-    const awayIsPlaceholder = isPlaceholderName(f.team_b)
+    // When a side isn't resolved yet, team_a/team_b is empty and the placeholder
+    // text (e.g. "Winner Match 73") lives in team_a_label/team_b_label instead.
+    const homeSource = f.team_a || f.team_a_label || ''
+    const awaySource = f.team_b || f.team_b_label || ''
+    const homePlaceholder = parseApiPlaceholder(homeSource)
+    const awayPlaceholder = parseApiPlaceholder(awaySource)
+    const homeIsPlaceholder = isPlaceholderName(homeSource)
+    const awayIsPlaceholder = isPlaceholderName(awaySource)
 
     const matchRow: Record<string, unknown> = {
       external_id: f.external_id,

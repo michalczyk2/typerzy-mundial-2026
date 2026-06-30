@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { populateBracketFromStandings, advanceBracketWinners } from '@/lib/bracket-populate'
+import { populateBracketFromStandings } from '@/lib/bracket-populate'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
@@ -19,17 +19,13 @@ export async function POST(req: NextRequest) {
   }
   const db = createAdminClient()
 
-  const [populateResult, advanceResult] = await Promise.all([
-    populateBracketFromStandings(db),
-    advanceBracketWinners(db),
-  ])
+  const populateResult = await populateBracketFromStandings(db)
 
-  const errors = [...populateResult.errors, ...advanceResult.errors]
+  const errors = populateResult.errors
 
   const parts: string[] = []
   if (populateResult.updated > 0) parts.push(`uzupełniono ${populateResult.updated} meczów KO z grup`)
   if (populateResult.skipped > 0) parts.push(`pominięto ${populateResult.skipped} (grupy niegotowe lub już wypełnione)`)
-  if (advanceResult.advanced > 0) parts.push(`awansowano ${advanceResult.advanced} zwycięzców`)
 
   const message = parts.length > 0
     ? parts.join(', ') + '.'
@@ -39,7 +35,6 @@ export async function POST(req: NextRequest) {
     message,
     updated: populateResult.updated,
     skipped: populateResult.skipped,
-    advanced: advanceResult.advanced,
     errors,
   })
 }
