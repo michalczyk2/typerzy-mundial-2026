@@ -1563,7 +1563,9 @@ export function AdminPanel() {
       <Card>
         <h2 className="text-white font-bold text-lg mb-1">🏆 Auto-wypełnianie drabinki KO</h2>
         <p className="text-gray-600 text-xs mb-4">
-          Krok 1: pobierz mecze KO z API. Krok 2: drużyny z ukończonych grup wypełniają się automatycznie. Awans zwycięzców przez drabinkę też jest automatyczny po każdym syncu.
+          Krok 1: pobierz mecze KO z API. Krok 2: drużyny z ukończonych grup wypełniają się automatycznie w 1/16 finału.
+          Kolejne rundy (1/8 i wyżej) NIE są zgadywane — pojawią się dopiero, gdy worldcup26.ir samo opublikuje rozstrzygnięty
+          mecz z prawdziwymi nazwami drużyn (wtedy trafi do bazy przez zwykły sync).
         </p>
         <div className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
@@ -1578,7 +1580,7 @@ export function AdminPanel() {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={handlePopulateBracket} disabled={bracketLoading}>
-              🏆 {bracketLoading ? 'Uzupełniam...' : 'Uzupełnij drużyny + awansuj zwycięzców'}
+              🏆 {bracketLoading ? 'Uzupełniam...' : 'Uzupełnij drużyny 1/16 z grup'}
             </Button>
             {bracketMsg && (
               <p className={`text-sm break-words ${bracketMsg.startsWith('Błąd') ? 'text-red-400' : bracketMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>

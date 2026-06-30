@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { fetchWC26Fixtures, calculateStandings } from '@/lib/api/football-provider'
-import { populateBracketFromStandings, advanceBracketWinners } from '@/lib/bracket-populate'
+import { populateBracketFromStandings } from '@/lib/bracket-populate'
 
 export const maxDuration = 60
 
@@ -190,14 +190,9 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
         .catch(e => console.error('[sync-wc26] recalculate-points:', e))
     }
 
-    const [populateResult, advanceResult] = await Promise.all([
-      populateBracketFromStandings(db),
-      advanceBracketWinners(db),
-    ])
+    const populateResult = await populateBracketFromStandings(db)
     if (populateResult.updated > 0)
       console.log(`[sync-wc26] Bracket: uzupełniono ${populateResult.updated} meczów KO z grup`)
-    if (advanceResult.advanced > 0)
-      console.log(`[sync-wc26] Bracket: awansowano ${advanceResult.advanced} zwycięzców`)
 
     const msg = `Zsynchronizowano ${matchRows.length} istniejacych meczow${standings.length ? `, ${standings.length} wpisow tabeli` : ''} z worldcup26.ir${skippedNewFixtures ? `; pominieto ${skippedNewFixtures} nowych meczow z API` : ''}`
     await db.from('sync_logs').insert({
