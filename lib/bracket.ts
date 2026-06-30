@@ -112,16 +112,19 @@ function findGenealogyParents(child: Match, candidates: Match[]): [Match | null,
 // the API's own match number (external_id `wc26_<N>`), the same number
 // round_of_16's "Zwycięzca meczu N" placeholders already reference — stable
 // across syncs, unlike team names which can vary in spelling/locale.
-// First 8 = left half (4 sibling pairs: indices 0-1, 2-3, 4-5, 6-7), next 8
-// = right half. Source: official WC26 bracket, cross-checked against real
-// round_of_32 rows on 2026-06-30 (South Africa-Canada/Netherlands-Morocco,
-// Germany-Paraguay/France-Sweden, Brazil-Japan/Ivory Coast-Norway,
-// Mexico-Ecuador/England-DR Congo, Portugal-Croatia/Spain-Austria,
-// USA-Bosnia and Herzegovina/Belgium-Senegal, Argentina-Cape Verde/
-// Australia-Egypt, Switzerland-Algeria/Colombia-Ghana).
+// First 8 = left half, feeding one semifinal (sibling pairs: indices 0-1,
+// 2-3, 4-5, 6-7 = South Africa-Canada/Netherlands-Morocco,
+// Germany-Paraguay/France-Sweden, Portugal-Croatia/Spain-Austria,
+// USA-Bosnia and Herzegovina/Belgium-Senegal). Next 8 = right half, feeding
+// the other semifinal (Brazil-Japan/Ivory Coast-Norway,
+// Mexico-Ecuador/England-DR Congo, Argentina-Cape Verde/Australia-Egypt,
+// Switzerland-Algeria/Colombia-Ghana). Source: official WC26 bracket,
+// cross-checked against real round_of_32 rows on 2026-06-30 — corrected
+// 2026-06-30 after the original list grouped pairs 3/4 and 5/6 into the
+// wrong half.
 const CANONICAL_ROUND_OF_32_ORDER = [
-  73, 75, 74, 77, 76, 78, 79, 80,
-  83, 84, 81, 82, 86, 88, 85, 87,
+  73, 75, 74, 77, 83, 84, 81, 82,
+  76, 78, 79, 80, 86, 88, 85, 87,
 ]
 
 // Orders matches the canonical list doesn't cover (not yet seeded with a
