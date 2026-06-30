@@ -189,6 +189,11 @@ export function AdminPanel() {
   const [winnerTeam, setWinnerTeam] = useState('')
   const [winnerLoading, setWinnerLoading] = useState(false)
   const [winnerMsg, setWinnerMsg] = useState('')
+  const [score90MatchId, setScore90MatchId] = useState('')
+  const [score90A, setScore90A] = useState('')
+  const [score90B, setScore90B] = useState('')
+  const [score90Loading, setScore90Loading] = useState(false)
+  const [score90Msg, setScore90Msg] = useState('')
   const selectedOverrideMatch = matches.find(m => m.id === overrideMatchId) ?? null
   const overrideOutcome = overrideScoreA !== '' && overrideScoreB !== ''
     ? Number(overrideScoreA) > Number(overrideScoreB) ? 'home'
@@ -628,6 +633,30 @@ export function AdminPanel() {
       setWinnerMsg('Błąd sieci')
     } finally {
       setWinnerLoading(false)
+    }
+  }
+
+  const handleScore90Save = async () => {
+    if (!score90MatchId) { setScore90Msg('Wybierz mecz.'); return }
+    if (score90Loading) return
+    setScore90Loading(true)
+    setScore90Msg('Zapisuję...')
+    try {
+      const res = await fetch('/api/admin/matches', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: score90MatchId,
+          score_a_90: score90A === '' ? null : Number(score90A),
+          score_b_90: score90B === '' ? null : Number(score90B),
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      setScore90Msg(res.ok ? 'OK: zapisano wynik po 90 minutach' : `Błąd: ${json.error ?? 'Nieznany'}`)
+    } catch {
+      setScore90Msg('Błąd sieci')
+    } finally {
+      setScore90Loading(false)
     }
   }
 
@@ -1129,6 +1158,59 @@ export function AdminPanel() {
           {winnerMsg && (
             <p className={`text-xs ${winnerMsg.startsWith('OK') ? 'text-emerald-400' : winnerMsg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
               {winnerMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">⏱️ Wynik po 90 minutach (KO)</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Wypełnij tylko dla meczów KO, które zakończyły się po dogrywce/karnych — wpisz wynik z regulaminowych 90 minut.
+          Dla meczów zakończonych w 90 min zostaw puste. Używane wyłącznie do liczenia &quot;Dokładny wynik&quot;.
+        </p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
+            <select
+              value={score90MatchId}
+              onChange={e => {
+                const id = e.target.value
+                setScore90MatchId(id)
+                setScore90Msg('')
+                const m = matches.find(x => x.id === id)
+                setScore90A(m?.score_a_90 != null ? String(m.score_a_90) : '')
+                setScore90B(m?.score_b_90 != null ? String(m.score_b_90) : '')
+              }}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz mecz —</option>
+              {matches.filter(m => m.phase !== 'group').map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
+                  {m.score_a_90 != null && m.score_b_90 != null ? ` ✓ ${m.score_a_90}:${m.score_b_90}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {score90MatchId && (
+            <div className="flex items-center gap-2">
+              <input type="number" min="0" max="20" value={score90A} onChange={e => setScore90A(e.target.value)}
+                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
+              <span className="text-gray-600">:</span>
+              <input type="number" min="0" max="20" value={score90B} onChange={e => setScore90B(e.target.value)}
+                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
+            </div>
+          )}
+          <Button onClick={handleScore90Save} disabled={score90Loading || !score90MatchId}>
+            ⏱️ Zapisz wynik po 90 minutach
+          </Button>
+          {score90Msg && (
+            <p className={`text-xs ${score90Msg.startsWith('OK') ? 'text-emerald-400' : score90Msg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {score90Msg}
             </p>
           )}
           {!IS_PRODUCTION_MODE && (

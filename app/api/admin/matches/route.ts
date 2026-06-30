@@ -15,13 +15,17 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   try {
-    const { id, score_a, score_b, status } = await req.json()
+    const { id, score_a, score_b, status, score_a_90, score_b_90 } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     const update: Record<string, unknown> = {}
     if (score_a != null) update.score_a = score_a
     if (score_b != null) update.score_b = score_b
     if (status) update.status = status
+    // 90-minute regulation score for KO matches decided in extra time — null clears
+    // the override (falls back to score_a/score_b in scoring).
+    if (score_a_90 !== undefined) update.score_a_90 = score_a_90
+    if (score_b_90 !== undefined) update.score_b_90 = score_b_90
 
     const db = createAdminClient()
     const { error } = await db.from('matches').update(update).eq('id', id)
