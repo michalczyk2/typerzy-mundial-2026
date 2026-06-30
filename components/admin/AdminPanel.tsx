@@ -10,6 +10,7 @@ import { useAppStore } from '@/lib/store'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { cn, formatMatchDate, formatMatchTime } from '@/lib/utils'
 import { AdminCorrectionHistory } from '@/components/admin/AdminCorrectionHistory'
+import { Accordion } from '@/components/ui/Accordion'
 
 type ScoringSetting = { key: string; label: string; value: number; description: string | null; updated_at: string | null }
 
@@ -797,80 +798,557 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3 px-1">Synchronizacja i dane</h3>
+        <div className="space-y-6">
       <Card>
-        <h2 className="text-white font-bold text-lg mb-4">Oczekujący gracze</h2>
-        {pendingUsers.length === 0 ? (
-          <p className="text-gray-500 text-sm">Brak oczekujących graczy.</p>
-        ) : (
-          <div className="space-y-3">
-            {pendingUsers.map(user => (
-              <div key={user.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                <div>
-                  <span className="text-white font-medium">{user.nick}</span>
-                  <Badge variant="pending" className="ml-2">Oczekuje</Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleUserAction(user.id, 'active')}>Akceptuj</Button>
-                  <Button size="sm" variant="danger" onClick={() => handleUserAction(user.id, 'blocked')}>Zablokuj</Button>
-                </div>
-              </div>
-            ))}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-white font-bold text-lg">Synchronizacja worldcup26.ir</h2>
+            <p className="text-gray-600 text-xs mt-0.5">Mecze, wyniki, tabele grupowe (primary source)</p>
           </div>
+          {IS_PRODUCTION_MODE && (
+            <div className="text-right shrink-0 ml-4">
+              <p className="text-emerald-400 font-bold text-sm">{wc26ActiveCount} meczów</p>
+              <p className="text-gray-600 text-xs">aktywnych w bazie</p>
+              {wc26LastSync && (
+                <p className={`text-xs mt-0.5 ${wc26LastSync.status === 'success' ? 'text-gray-600' : 'text-red-400'}`}>
+                  sync {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
+                  {wc26LastSync.status === 'success' ? ` · ${wc26LastSync.records_updated} zaktualizowanych` : ' ⚠️'}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={handleWC26Sync} disabled={wc26Loading} className="flex items-center gap-2">
+            ⚡ {wc26Loading ? 'Synchronizuję...' : 'Synchronizuj dane'}
+          </Button>
+          {wc26Msg && (
+            <p className={`text-sm ${wc26Msg.startsWith('OK') ? 'text-emerald-400' : 'text-red-400'}`}>{wc26Msg}</p>
+          )}
+        </div>
+        {IS_PRODUCTION_MODE && wc26LastSync?.status === 'error' && !wc26Msg && (
+          <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded text-xs text-red-400">
+            <p>Ostatnia sync nie powiodła się: {wc26LastSync.message}</p>
+            <p className="mt-1 text-red-300">
+              Jesli API odpowiada za wolno, wpisz wynik recznie na liscie meczow i uruchom Przelicz punkty.
+            </p>
+          </div>
+        )}
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
         )}
       </Card>
 
       <Card>
-        <h2 className="text-white font-bold text-lg mb-1">Ustawienia punktacji</h2>
-        <p className="text-gray-600 text-xs mb-4">Zmiany obowiązują przy następnym przeliczeniu punktów.</p>
-        {settings.length === 0 ? (
-          <p className="text-gray-600 text-xs">Ładowanie...</p>
-        ) : (
-          <div className="space-y-4">
-            {settings.map(setting => (
-              <div key={setting.key} className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium">{setting.label}</p>
-                  {setting.description && <p className="text-gray-600 text-xs mt-0.5 truncate">{setting.description}</p>}
+        <h2 className="text-white font-bold text-lg mb-4">Synchronizacja danych</h2>
+        <p className="text-gray-600 text-xs mb-3">
+          Pojedyncze synchronizacje (starsza wersja) — &quot;Synchronizacja worldcup26.ir&quot; powyżej zwykle wystarczy, bo robi to samo w jednym wywołaniu.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Sync mecze', endpoint: '/api/sync-matches', icon: '⚽' },
+            { label: 'Sync wyniki', endpoint: '/api/sync-results', icon: '📊' },
+            { label: 'Przelicz punkty', endpoint: '/api/recalculate-points', icon: '🔢' },
+            { label: 'Sync grupy', endpoint: '/api/sync-standings', icon: '📋' },
+          ].map(({ label, endpoint, icon }) => (
+            <div key={endpoint} className="flex flex-col gap-1">
+              <Button variant="secondary" className="flex items-center gap-2 justify-center"
+                onClick={() => handleSync(endpoint)}
+                disabled={syncStatus[endpoint] === 'Ładowanie...'}>
+                <span>{icon}</span> {label}
+              </Button>
+              {syncStatus[endpoint] && (
+                <p className="text-xs text-gray-500 text-center truncate" title={syncStatus[endpoint]}>
+                  {syncStatus[endpoint]}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
+        )}
+      </Card>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3 px-1">Drabinka KO i rozstrzygnięcia</h3>
+        <div className="space-y-6">
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🏆 Auto-wypełnianie drabinki KO</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Krok 1: pobierz mecze KO z API. Krok 2: drużyny z ukończonych grup wypełniają się automatycznie w 1/16 finału.
+          Kolejne rundy (1/8 i wyżej) NIE są zgadywane — pojawią się dopiero, gdy worldcup26.ir samo opublikuje rozstrzygnięty
+          mecz z prawdziwymi nazwami drużyn (wtedy trafi do bazy przez zwykły sync).
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleSeedKoBrackets} disabled={seedKoLoading} variant="secondary">
+              📥 {seedKoLoading ? 'Pobieram...' : 'Pobierz mecze KO z API'}
+            </Button>
+            {seedKoMsg && (
+              <p className={`text-sm break-words ${seedKoMsg.startsWith('Błąd') ? 'text-red-400' : seedKoMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {seedKoMsg}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handlePopulateBracket} disabled={bracketLoading}>
+              🏆 {bracketLoading ? 'Uzupełniam...' : 'Uzupełnij drużyny 1/16 z grup'}
+            </Button>
+            {bracketMsg && (
+              <p className={`text-sm break-words ${bracketMsg.startsWith('Błąd') ? 'text-red-400' : bracketMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {bracketMsg}
+              </p>
+            )}
+          </div>
+        </div>
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — brak efektu.</p>
+        )}
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🏆 Ustaw zwycięzcę meczu KO</h2>
+        <p className="text-gray-600 text-xs mb-4">Przyznaje +2 pkt graczom którzy trafili awansującą drużynę.</p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
+            <select
+              value={winnerMatchId}
+              onChange={e => { setWinnerMatchId(e.target.value); setWinnerTeam(''); setWinnerMsg('') }}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz mecz —</option>
+              {matches.filter(m => m.phase !== 'group').map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
+                  {m.winner ? ` ✓ ${m.winner}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {winnerMatchId && (() => {
+            const m = matches.find(x => x.id === winnerMatchId)
+            if (!m) return null
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                {[{ name: m.team_a }, { name: m.team_b }].map(team => (
+                  <button
+                    key={team.name}
+                    type="button"
+                    onClick={() => setWinnerTeam(winnerTeam === team.name ? '' : team.name)}
+                    className={cn(
+                      'rounded-lg border py-2.5 text-sm font-bold transition',
+                      winnerTeam === team.name
+                        ? 'border-amber-500 bg-amber-950/40 text-amber-300'
+                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                    )}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+          <Button onClick={handleWinnerSave} disabled={winnerLoading || !winnerMatchId || !winnerTeam}>
+            🏆 Zatwierdź i przyznaj punkty
+          </Button>
+          {winnerMsg && (
+            <p className={`text-xs ${winnerMsg.startsWith('OK') ? 'text-emerald-400' : winnerMsg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {winnerMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">⏱️ Wynik po 90 minutach (KO)</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Wypełnij tylko dla meczów KO, które zakończyły się po dogrywce/karnych — wpisz wynik z regulaminowych 90 minut.
+          Dla meczów zakończonych w 90 min zostaw puste. Używane wyłącznie do liczenia &quot;Dokładny wynik&quot;.
+        </p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
+            <select
+              value={score90MatchId}
+              onChange={e => {
+                const id = e.target.value
+                setScore90MatchId(id)
+                setScore90Msg('')
+                const m = matches.find(x => x.id === id)
+                setScore90A(m?.score_a_90 != null ? String(m.score_a_90) : '')
+                setScore90B(m?.score_b_90 != null ? String(m.score_b_90) : '')
+              }}
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            >
+              <option value="">— wybierz mecz —</option>
+              {matches.filter(m => m.phase !== 'group').map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
+                  {m.score_a_90 != null && m.score_b_90 != null ? ` ✓ ${m.score_a_90}:${m.score_b_90}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {score90MatchId && (
+            <div className="flex items-center gap-2">
+              <input type="number" min="0" max="20" value={score90A} onChange={e => setScore90A(e.target.value)}
+                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
+              <span className="text-gray-600">:</span>
+              <input type="number" min="0" max="20" value={score90B} onChange={e => setScore90B(e.target.value)}
+                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
+            </div>
+          )}
+          <Button onClick={handleScore90Save} disabled={score90Loading || !score90MatchId}>
+            ⏱️ Zapisz wynik po 90 minutach
+          </Button>
+          {score90Msg && (
+            <p className={`text-xs ${score90Msg.startsWith('OK') ? 'text-emerald-400' : score90Msg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {score90Msg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-white font-bold text-lg">Typowanie zwycięzcy turnieju</h2>
+            <p className="text-gray-600 text-xs mt-0.5">Zarządzanie typowaniem mistrza</p>
+          </div>
+          <Button
+            size="sm"
+            variant={championEnabled ? 'danger' : 'secondary'}
+            onClick={handleToggleChampion}
+          >
+            {championEnabled ? 'Zablokuj' : 'Odblokuj'}
+          </Button>
+        </div>
+
+        {championPicks.length > 0 && (
+          <div className="mb-4">
+            <p className="text-gray-500 text-xs mb-2">Typy graczy ({championPicks.length})</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {championPicks.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-gray-800/50">
+                  <span className="text-white text-sm">{p.nick}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-xs font-mono">{p.team_code}</span>
+                    <span className="text-gray-500 text-xs truncate max-w-24">{p.team_name}</span>
+                    {p.is_correct === true && <span className="text-emerald-400 text-xs">✓</span>}
+                    {p.is_correct === false && <span className="text-red-500 text-xs">✗</span>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <input
-                    type="number" min="0" max="99"
-                    value={settingValues[setting.key] ?? setting.value}
-                    onChange={e => {
-                      const v = parseInt(e.target.value, 10)
-                      if (!isNaN(v)) setSettingValues(prev => ({ ...prev, [setting.key]: v }))
-                    }}
-                    className="w-16 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500"
-                  />
-                  <Button size="sm" onClick={() => handleSaveSetting(setting.key)}
-                    disabled={saveStatus[setting.key] === 'Zapisywanie...'}>
-                    Zapisz
-                  </Button>
-                  {saveStatus[setting.key] && (
-                    <span className={`text-xs ${saveStatus[setting.key] === 'Zapisano ✓' ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {saveStatus[setting.key]}
-                    </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-3 border-t border-gray-800">
+          <p className="text-gray-500 text-xs mb-2">Ustaw rzeczywistego mistrza (kod FIFA, np. BRA)</p>
+          <div className="flex items-center gap-2">
+            <input
+              value={setWinnerCode}
+              onChange={e => setSetWinnerCode(e.target.value.toUpperCase())}
+              placeholder="BRA"
+              maxLength={3}
+              className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500 font-mono uppercase"
+            />
+            <Button size="sm" onClick={handleSetWinner} disabled={!setWinnerCode.trim()}>
+              Zatwierdź i przyznaj punkty
+            </Button>
+          </div>
+          {championMsg && (
+            <p className={`text-xs mt-2 ${championMsg.startsWith('Zapisano') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {championMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs mt-2">Tryb lokalny — brak efektu.</p>
+          )}
+        </div>
+      </Card>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3 px-1">Mecz dnia i powiadomienia</h3>
+        <div className="space-y-6">
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-3">🔥 Mecz dnia</h2>
+
+        {!IS_PRODUCTION_MODE ? (
+          <p className="text-gray-600 text-xs mb-3">Tryb lokalny — mecz dnia dostępny tylko w produkcji.</p>
+        ) : modStatus?.event ? (
+          <div className="bg-gray-800/50 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Dzień:</span>
+              <span className="text-white font-medium">{modStatus.event.official_match_day}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-gray-400 shrink-0">Mecz:</span>
+              <span className="text-white font-medium text-right">
+                {modStatus.event.match ? `${modStatus.event.match.team_a} vs ${modStatus.event.match.team_b}` : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Deadline:</span>
+              <span className="text-white font-medium">
+                {formatMatchDate(modStatus.event.vote_deadline)} {formatMatchTime(modStatus.event.vote_deadline)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Status:</span>
+              <span className={
+                modStatus.event.status === 'settled' ? 'text-emerald-400 font-bold' :
+                modStatus.event.status === 'voting' ? 'text-amber-400 font-bold' : 'text-gray-400'
+              }>{modStatus.event.status}</span>
+            </div>
+            {modStatus.event.selected_bonus_points !== null && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Wybrany bonus:</span>
+                <span className="text-amber-400 font-bold">+{modStatus.event.selected_bonus_points} pkt</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-400">Głosów łącznie:</span>
+              <span className="text-white">{modStatus.totalVotes}</span>
+            </div>
+            <div className="mt-1 space-y-0.5 pl-1">
+              {([4, 3, 2, 1] as const).map(pts => (
+                <div key={pts} className="flex justify-between text-xs">
+                  <span className="text-amber-400">+{pts} pkt</span>
+                  <span className="text-gray-300">{modStatus.voteCounts?.[pts] ?? 0} głosów</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm mb-3">Brak aktywnego meczu dnia.</p>
+        )}
+
+        <div className="space-y-2">
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={() => handleModAction('/api/match-of-day/daily-refresh')}
+              disabled={modActionStatus['/api/match-of-day/daily-refresh'] === 'Ładowanie...'}>
+              ⚽ Odśwież mecze i wybierz mecz dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/daily-refresh'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/daily-refresh']}</p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={() => handleModAction('/api/match-of-day/finalize')}
+              disabled={modActionStatus['/api/match-of-day/finalize'] === 'Ładowanie...'}>
+              🔒 Finalizuj głosowanie meczu dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/finalize'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/finalize']}</p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="danger" className="w-full"
+              onClick={handleModReroll}
+              disabled={modActionStatus['/api/match-of-day/reroll'] === 'Ładowanie...'}>
+              ⚠️ Wymuś ponowne losowanie (usuwa głosy)
+            </Button>
+            <p className="text-xs text-gray-600 mt-1">Działa też po deadline. Czyści głosy i resetuje bonus.</p>
+            {modActionStatus['/api/match-of-day/reroll'] && (
+              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/reroll']}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-gray-700 space-y-2">
+          <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Awaryjne usuwanie</p>
+
+          <div>
+            <Button variant="secondary" className="w-full"
+              onClick={handleModDeleteAndReroll}
+              disabled={modActionStatus['delete-and-reroll'] === 'Ładowanie...'}>
+              🔄 Usuń i wylosuj nowy mecz dnia
+            </Button>
+            {modActionStatus['delete-and-reroll'] && (
+              <p className={`text-xs mt-1 break-words ${modActionStatus['delete-and-reroll'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
+                {modActionStatus['delete-and-reroll']}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Button variant="danger" className="w-full"
+              onClick={handleModDelete}
+              disabled={modActionStatus['/api/match-of-day/delete-current'] === 'Ładowanie...'}>
+              🗑️ Usuń aktualny mecz dnia
+            </Button>
+            {modActionStatus['/api/match-of-day/delete-current'] && (
+              <p className={`text-xs mt-1 break-words ${modActionStatus['/api/match-of-day/delete-current'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
+                {modActionStatus['/api/match-of-day/delete-current']}
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">🔔 Wyślij powiadomienia push</h2>
+        <p className="text-gray-600 text-xs mb-4">
+          Ręcznie wyślij przypomnienia do subskrybentów, którzy mają typy na nadchodzące mecze.
+        </p>
+        <div className="flex gap-3 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => handleSendPush(3)}
+            disabled={pushLoading}
+          >
+            ⚡ Mecze w ciągu 3h
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => handleSendPush(24)}
+            disabled={pushLoading}
+          >
+            📅 Mecze dziś (24h)
+          </Button>
+        </div>
+        {pushMsg && (
+          <p className={`mt-3 text-xs ${pushMsg.startsWith('OK') ? 'text-emerald-400' : pushMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
+            {pushMsg}
+          </p>
+        )}
+        {!IS_PRODUCTION_MODE && (
+          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — push nie ma efektu.</p>
+        )}
+      </Card>
+
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-1">📢 Wyślij własne powiadomienie</h2>
+        <p className="text-gray-600 text-xs mb-4">Wyślij dowolną wiadomość push do wszystkich subskrybentów.</p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Tytuł</span>
+            <input
+              value={broadcastTitle}
+              onChange={e => setBroadcastTitle(e.target.value)}
+              placeholder="np. ⚽ Wieczór meczowy!"
+              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-400">Treść</span>
+            <textarea
+              value={broadcastText}
+              onChange={e => setBroadcastText(e.target.value)}
+              rows={3}
+              placeholder="np. Sprawdź swoje typy na dziś wieczór!"
+              className="w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+            />
+          </label>
+          <Button onClick={handleBroadcast} disabled={broadcastLoading}>
+            📢 Wyślij do wszystkich
+          </Button>
+          {broadcastMsg && (
+            <p className={`text-xs ${broadcastMsg.startsWith('OK') ? 'text-emerald-400' : broadcastMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
+              {broadcastMsg}
+            </p>
+          )}
+          {!IS_PRODUCTION_MODE && (
+            <p className="text-gray-600 text-xs">Tryb lokalny — broadcast nie ma efektu.</p>
+          )}
+        </div>
+      </Card>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3 px-1">Ręczna edycja meczów i korekty punktów</h3>
+        <div className="space-y-6">
+      <Card>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-white font-bold text-lg">Wszystkie mecze</h2>
+          <button
+            onClick={() => setShowAllMatches(v => !v)}
+            className="text-xs text-gray-500 hover:text-gray-300 underline"
+          >
+            {showAllMatches ? 'Ukryj' : 'Pokaż'}
+          </button>
+        </div>
+        <p className="text-gray-600 text-xs mb-1">{matches.length} aktywnych meczów (zarchiwizowane ukryte — patrz Audyt duplikatów)</p>
+        <p className="text-gray-600 text-xs mb-4">
+          Recznie: kliknij przy meczu przycisk pilki, wpisz wynik i OK; zapisze status finished. Potem uruchom Przelicz punkty.
+        </p>
+        {showAllMatches && (
+          <div className="space-y-2">
+            {matches.map(match => (
+              <div key={match.id} className="border border-gray-800 rounded-lg py-3 px-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/mecze/${match.id}`} className="text-gray-200 text-sm font-medium hover:text-emerald-400 transition-colors">
+                      {match.team_a} vs {match.team_b} →
+                    </Link>
+                    <div className="text-gray-600 text-xs mt-0.5">
+                      {match.phase === 'group' ? `Gr. ${match.group_name} · R${match.round}` : match.phase}
+                      {' · '}{match.status}
+                    </div>
+                  </div>
+
+                  {editing === match.id && editMode === 'score' ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="number" min="0" max="20" value={scoreA} onChange={e => setScoreA(e.target.value)}
+                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
+                      <span className="text-gray-600">:</span>
+                      <input type="number" min="0" max="20" value={scoreB} onChange={e => setScoreB(e.target.value)}
+                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
+                      <Button size="sm" onClick={() => handleScoreSubmit(match.id)}>OK</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
+                    </div>
+                  ) : editing === match.id && editMode === 'meta' ? (
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <select value={editPhase} onChange={e => setEditPhase(e.target.value as MatchPhase)}
+                          className="bg-gray-800 border border-gray-700 rounded text-white text-xs px-2 h-8 focus:outline-none focus:border-emerald-500">
+                          {(['group','round_of_32','round_of_16','quarterfinal','semifinal','third_place','final'] as MatchPhase[]).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        <input value={editGroup} onChange={e => setEditGroup(e.target.value)} placeholder="Grupa (A-L)"
+                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500 px-2" />
+                        <input type="number" value={editRound} onChange={e => setEditRound(e.target.value)} placeholder="Kolejka"
+                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500" />
+                        <Button size="sm" onClick={() => handleMetaSubmit(match.id)}>Zapisz</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {match.score_a !== null && match.score_b !== null
+                        ? <span className="text-white font-bold tabular-nums text-sm">{match.score_a}:{match.score_b}</span>
+                        : <span className="text-gray-700 text-xs">–:–</span>}
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'score')}>⚽</Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'meta')}>✎</Button>
+                    </div>
                   )}
                 </div>
               </div>
             ))}
           </div>
         )}
-        <div className="mt-5 pt-4 border-t border-gray-800">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="secondary" onClick={() => handleSync('/api/recalculate-points')}
-              disabled={syncStatus['/api/recalculate-points'] === 'Ładowanie...'}>
-              Przelicz punkty od nowa
-            </Button>
-            {syncStatus['/api/recalculate-points'] && (
-              <p className="text-xs text-gray-500">{syncStatus['/api/recalculate-points']}</p>
-            )}
-          </div>
-          {!IS_PRODUCTION_MODE && (
-            <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
-          )}
-        </div>
       </Card>
 
       <Card>
@@ -1042,183 +1520,138 @@ export function AdminPanel() {
       <AdminCorrectionHistory />
 
       <Card>
-        <h2 className="text-white font-bold text-lg mb-1">🔔 Wyślij powiadomienia push</h2>
-        <p className="text-gray-600 text-xs mb-4">
-          Ręcznie wyślij przypomnienia do subskrybentów, którzy mają typy na nadchodzące mecze.
-        </p>
-        <div className="flex gap-3 flex-wrap">
-          <Button
-            variant="secondary"
-            onClick={() => handleSendPush(3)}
-            disabled={pushLoading}
-          >
-            ⚡ Mecze w ciągu 3h
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => handleSendPush(24)}
-            disabled={pushLoading}
-          >
-            📅 Mecze dziś (24h)
-          </Button>
-        </div>
-        {pushMsg && (
-          <p className={`mt-3 text-xs ${pushMsg.startsWith('OK') ? 'text-emerald-400' : pushMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
-            {pushMsg}
-          </p>
-        )}
-        {!IS_PRODUCTION_MODE && (
-          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — push nie ma efektu.</p>
-        )}
-      </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-1">📢 Wyślij własne powiadomienie</h2>
-        <p className="text-gray-600 text-xs mb-4">Wyślij dowolną wiadomość push do wszystkich subskrybentów.</p>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-400">Tytuł</span>
-            <input
-              value={broadcastTitle}
-              onChange={e => setBroadcastTitle(e.target.value)}
-              placeholder="np. ⚽ Wieczór meczowy!"
-              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-400">Treść</span>
-            <textarea
-              value={broadcastText}
-              onChange={e => setBroadcastText(e.target.value)}
-              rows={3}
-              placeholder="np. Sprawdź swoje typy na dziś wieczór!"
-              className="w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
-            />
-          </label>
-          <Button onClick={handleBroadcast} disabled={broadcastLoading}>
-            📢 Wyślij do wszystkich
-          </Button>
-          {broadcastMsg && (
-            <p className={`text-xs ${broadcastMsg.startsWith('OK') ? 'text-emerald-400' : broadcastMsg === 'Wysyłam...' ? 'text-gray-400' : 'text-red-400'}`}>
-              {broadcastMsg}
-            </p>
-          )}
-          {!IS_PRODUCTION_MODE && (
-            <p className="text-gray-600 text-xs">Tryb lokalny — broadcast nie ma efektu.</p>
-          )}
-        </div>
-      </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-1">🏆 Ustaw zwycięzcę meczu KO</h2>
-        <p className="text-gray-600 text-xs mb-4">Przyznaje +2 pkt graczom którzy trafili awansującą drużynę.</p>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
-            <select
-              value={winnerMatchId}
-              onChange={e => { setWinnerMatchId(e.target.value); setWinnerTeam(''); setWinnerMsg('') }}
-              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
-            >
-              <option value="">— wybierz mecz —</option>
-              {matches.filter(m => m.phase !== 'group').map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
-                  {m.winner ? ` ✓ ${m.winner}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          {winnerMatchId && (() => {
-            const m = matches.find(x => x.id === winnerMatchId)
-            if (!m) return null
-            return (
-              <div className="grid grid-cols-2 gap-2">
-                {[{ name: m.team_a }, { name: m.team_b }].map(team => (
-                  <button
-                    key={team.name}
-                    type="button"
-                    onClick={() => setWinnerTeam(winnerTeam === team.name ? '' : team.name)}
-                    className={cn(
-                      'rounded-lg border py-2.5 text-sm font-bold transition',
-                      winnerTeam === team.name
-                        ? 'border-amber-500 bg-amber-950/40 text-amber-300'
-                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-300'
-                    )}
-                  >
-                    {team.name}
-                  </button>
-                ))}
+        <h2 className="text-white font-bold text-lg mb-1">Ustawienia punktacji</h2>
+        <p className="text-gray-600 text-xs mb-4">Zmiany obowiązują przy następnym przeliczeniu punktów.</p>
+        {settings.length === 0 ? (
+          <p className="text-gray-600 text-xs">Ładowanie...</p>
+        ) : (
+          <div className="space-y-4">
+            {settings.map(setting => (
+              <div key={setting.key} className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium">{setting.label}</p>
+                  {setting.description && <p className="text-gray-600 text-xs mt-0.5 truncate">{setting.description}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    type="number" min="0" max="99"
+                    value={settingValues[setting.key] ?? setting.value}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10)
+                      if (!isNaN(v)) setSettingValues(prev => ({ ...prev, [setting.key]: v }))
+                    }}
+                    className="w-16 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                  <Button size="sm" onClick={() => handleSaveSetting(setting.key)}
+                    disabled={saveStatus[setting.key] === 'Zapisywanie...'}>
+                    Zapisz
+                  </Button>
+                  {saveStatus[setting.key] && (
+                    <span className={`text-xs ${saveStatus[setting.key] === 'Zapisano ✓' ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {saveStatus[setting.key]}
+                    </span>
+                  )}
+                </div>
               </div>
-            )
-          })()}
-          <Button onClick={handleWinnerSave} disabled={winnerLoading || !winnerMatchId || !winnerTeam}>
-            🏆 Zatwierdź i przyznaj punkty
-          </Button>
-          {winnerMsg && (
-            <p className={`text-xs ${winnerMsg.startsWith('OK') ? 'text-emerald-400' : winnerMsg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
-              {winnerMsg}
-            </p>
-          )}
+            ))}
+          </div>
+        )}
+        <div className="mt-5 pt-4 border-t border-gray-800">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button variant="secondary" onClick={() => handleSync('/api/recalculate-points')}
+              disabled={syncStatus['/api/recalculate-points'] === 'Ładowanie...'}>
+              Przelicz punkty od nowa
+            </Button>
+            {syncStatus['/api/recalculate-points'] && (
+              <p className="text-xs text-gray-500">{syncStatus['/api/recalculate-points']}</p>
+            )}
+          </div>
           {!IS_PRODUCTION_MODE && (
-            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
+            <p className="text-gray-600 text-xs mt-2">Tryb lokalny — zapis ustawień i przeliczanie nie mają efektu.</p>
           )}
         </div>
+      </Card>
+        </div>
+      </div>
+
+      <Accordion title="Zarządzanie graczami" defaultOpen={false}>
+        <div className="space-y-6">
+      <Card>
+        <h2 className="text-white font-bold text-lg mb-4">Oczekujący gracze</h2>
+        {pendingUsers.length === 0 ? (
+          <p className="text-gray-500 text-sm">Brak oczekujących graczy.</p>
+        ) : (
+          <div className="space-y-3">
+            {pendingUsers.map(user => (
+              <div key={user.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                <div>
+                  <span className="text-white font-medium">{user.nick}</span>
+                  <Badge variant="pending" className="ml-2">Oczekuje</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleUserAction(user.id, 'active')}>Akceptuj</Button>
+                  <Button size="sm" variant="danger" onClick={() => handleUserAction(user.id, 'blocked')}>Zablokuj</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card>
-        <h2 className="text-white font-bold text-lg mb-1">⏱️ Wynik po 90 minutach (KO)</h2>
-        <p className="text-gray-600 text-xs mb-4">
-          Wypełnij tylko dla meczów KO, które zakończyły się po dogrywce/karnych — wpisz wynik z regulaminowych 90 minut.
-          Dla meczów zakończonych w 90 min zostaw puste. Używane wyłącznie do liczenia &quot;Dokładny wynik&quot;.
-        </p>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-400">Mecz KO</span>
-            <select
-              value={score90MatchId}
-              onChange={e => {
-                const id = e.target.value
-                setScore90MatchId(id)
-                setScore90Msg('')
-                const m = matches.find(x => x.id === id)
-                setScore90A(m?.score_a_90 != null ? String(m.score_a_90) : '')
-                setScore90B(m?.score_b_90 != null ? String(m.score_b_90) : '')
-              }}
-              className="h-9 w-full rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-white outline-none focus:border-emerald-500"
-            >
-              <option value="">— wybierz mecz —</option>
-              {matches.filter(m => m.phase !== 'group').map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.team_a} vs {m.team_b} · {formatMatchDate(m.match_date)}
-                  {m.score_a_90 != null && m.score_b_90 != null ? ` ✓ ${m.score_a_90}:${m.score_b_90}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          {score90MatchId && (
-            <div className="flex items-center gap-2">
-              <input type="number" min="0" max="20" value={score90A} onChange={e => setScore90A(e.target.value)}
-                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
-              <span className="text-gray-600">:</span>
-              <input type="number" min="0" max="20" value={score90B} onChange={e => setScore90B(e.target.value)}
-                className="w-14 h-9 text-center bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500" />
+        <h2 className="text-white font-bold text-lg mb-2">Wszyscy gracze</h2>
+        <div className="overflow-hidden rounded-lg border border-gray-800">
+          {users.map(user => (
+            <div key={user.id} className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-800 px-3 py-2.5 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                {editingNickId === user.id ? (
+                  <input
+                    type="text"
+                    value={editNickValue}
+                    onChange={e => setEditNickValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleRenameUser(user.id, editNickValue)
+                      if (e.key === 'Escape') setEditingNickId(null)
+                    }}
+                    autoFocus
+                    className="h-8 w-32 bg-gray-800 border border-emerald-600 rounded text-white text-sm px-2 focus:outline-none"
+                  />
+                ) : (
+                  <span className="text-white text-sm">{user.nick}</span>
+                )}
+                {user.role === 'admin' && <Badge variant="admin">Admin</Badge>}
+                {user.status === 'pending' && <Badge variant="pending">Oczekuje</Badge>}
+                {user.status === 'blocked' && <Badge variant="default" className="text-red-400">Zablokowany</Badge>}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                  <span>{user.form_effect_override === 'auto' ? 'Efekt: auto' : `Efekt: ${user.form_effect_override}`}</span>
+                  {user.custom_form_title && <span className="truncate">• {user.custom_form_title}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
+                <Button size="sm" variant="secondary" onClick={() => openUserEditor(user)}>Edytuj</Button>
+                {editingNickId === user.id ? (
+                  <>
+                    <Button size="sm" onClick={() => handleRenameUser(user.id, editNickValue)}>Zapisz</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingNickId(null)}>✕</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => { setEditingNickId(user.id); setEditNickValue(user.nick) }}>✎</Button>
+                )}
+                {user.id !== currentUser?.id && editingNickId !== user.id && (
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id, user.nick)}>Usuń</Button>
+                )}
+              </div>
             </div>
-          )}
-          <Button onClick={handleScore90Save} disabled={score90Loading || !score90MatchId}>
-            ⏱️ Zapisz wynik po 90 minutach
-          </Button>
-          {score90Msg && (
-            <p className={`text-xs ${score90Msg.startsWith('OK') ? 'text-emerald-400' : score90Msg === 'Zapisuję...' ? 'text-gray-400' : 'text-red-400'}`}>
-              {score90Msg}
-            </p>
-          )}
-          {!IS_PRODUCTION_MODE && (
-            <p className="text-gray-600 text-xs">Tryb lokalny — brak efektu.</p>
-          )}
+          ))}
         </div>
       </Card>
+        </div>
+      </Accordion>
 
+      <Accordion title="Wygląd i ustawienia kosmetyczne" defaultOpen={false}>
       <Card>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -1275,48 +1708,10 @@ export function AdminPanel() {
 
         {formVisualStatus && <p className="mt-2 text-xs text-gray-500">{formVisualStatus}</p>}
       </Card>
+      </Accordion>
 
-      <Card>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-white font-bold text-lg">Synchronizacja worldcup26.ir</h2>
-            <p className="text-gray-600 text-xs mt-0.5">Mecze, wyniki, tabele grupowe (primary source)</p>
-          </div>
-          {IS_PRODUCTION_MODE && (
-            <div className="text-right shrink-0 ml-4">
-              <p className="text-emerald-400 font-bold text-sm">{wc26ActiveCount} meczów</p>
-              <p className="text-gray-600 text-xs">aktywnych w bazie</p>
-              {wc26LastSync && (
-                <p className={`text-xs mt-0.5 ${wc26LastSync.status === 'success' ? 'text-gray-600' : 'text-red-400'}`}>
-                  sync {new Date(wc26LastSync.created_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
-                  {wc26LastSync.status === 'success' ? ` · ${wc26LastSync.records_updated} zaktualizowanych` : ' ⚠️'}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Button onClick={handleWC26Sync} disabled={wc26Loading} className="flex items-center gap-2">
-            ⚡ {wc26Loading ? 'Synchronizuję...' : 'Synchronizuj dane'}
-          </Button>
-          {wc26Msg && (
-            <p className={`text-sm ${wc26Msg.startsWith('OK') ? 'text-emerald-400' : 'text-red-400'}`}>{wc26Msg}</p>
-          )}
-        </div>
-        {IS_PRODUCTION_MODE && wc26LastSync?.status === 'error' && !wc26Msg && (
-          <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded text-xs text-red-400">
-            <p>Ostatnia sync nie powiodła się: {wc26LastSync.message}</p>
-            <p className="mt-1 text-red-300">
-              Jesli API odpowiada za wolno, wpisz wynik recznie na liscie meczow i uruchom Przelicz punkty.
-            </p>
-          </div>
-        )}
-        {!IS_PRODUCTION_MODE && (
-          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
-        )}
-      </Card>
-
-      <Card>
+      <Accordion title={<span className="text-red-400">⚠️ Strefa awaryjna</span>} defaultOpen={false}>
+      <Card className="border-red-900/50">
         <h2 className="text-white font-bold text-lg mb-1">🔍 Naprawa danych — duplikaty meczów</h2>
         <p className="text-gray-600 text-xs mb-3">
           Wykrywa mecze z dwoma rekordami: stary (ręczny/ofb_*) + nowy z API worldcup26.ir.
@@ -1411,370 +1806,7 @@ export function AdminPanel() {
           </div>
         )}
       </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-3">🔥 Mecz dnia</h2>
-
-        {!IS_PRODUCTION_MODE ? (
-          <p className="text-gray-600 text-xs mb-3">Tryb lokalny — mecz dnia dostępny tylko w produkcji.</p>
-        ) : modStatus?.event ? (
-          <div className="bg-gray-800/50 rounded-lg p-3 mb-4 space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Dzień:</span>
-              <span className="text-white font-medium">{modStatus.event.official_match_day}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400 shrink-0">Mecz:</span>
-              <span className="text-white font-medium text-right">
-                {modStatus.event.match ? `${modStatus.event.match.team_a} vs ${modStatus.event.match.team_b}` : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Deadline:</span>
-              <span className="text-white font-medium">
-                {formatMatchDate(modStatus.event.vote_deadline)} {formatMatchTime(modStatus.event.vote_deadline)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Status:</span>
-              <span className={
-                modStatus.event.status === 'settled' ? 'text-emerald-400 font-bold' :
-                modStatus.event.status === 'voting' ? 'text-amber-400 font-bold' : 'text-gray-400'
-              }>{modStatus.event.status}</span>
-            </div>
-            {modStatus.event.selected_bonus_points !== null && (
-              <div className="flex justify-between">
-                <span className="text-gray-400">Wybrany bonus:</span>
-                <span className="text-amber-400 font-bold">+{modStatus.event.selected_bonus_points} pkt</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-400">Głosów łącznie:</span>
-              <span className="text-white">{modStatus.totalVotes}</span>
-            </div>
-            <div className="mt-1 space-y-0.5 pl-1">
-              {([4, 3, 2, 1] as const).map(pts => (
-                <div key={pts} className="flex justify-between text-xs">
-                  <span className="text-amber-400">+{pts} pkt</span>
-                  <span className="text-gray-300">{modStatus.voteCounts?.[pts] ?? 0} głosów</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm mb-3">Brak aktywnego meczu dnia.</p>
-        )}
-
-        <div className="space-y-2">
-          <div>
-            <Button variant="secondary" className="w-full"
-              onClick={() => handleModAction('/api/match-of-day/daily-refresh')}
-              disabled={modActionStatus['/api/match-of-day/daily-refresh'] === 'Ładowanie...'}>
-              ⚽ Odśwież mecze i wybierz mecz dnia
-            </Button>
-            {modActionStatus['/api/match-of-day/daily-refresh'] && (
-              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/daily-refresh']}</p>
-            )}
-          </div>
-
-          <div>
-            <Button variant="secondary" className="w-full"
-              onClick={() => handleModAction('/api/match-of-day/finalize')}
-              disabled={modActionStatus['/api/match-of-day/finalize'] === 'Ładowanie...'}>
-              🔒 Finalizuj głosowanie meczu dnia
-            </Button>
-            {modActionStatus['/api/match-of-day/finalize'] && (
-              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/finalize']}</p>
-            )}
-          </div>
-
-          <div>
-            <Button variant="danger" className="w-full"
-              onClick={handleModReroll}
-              disabled={modActionStatus['/api/match-of-day/reroll'] === 'Ładowanie...'}>
-              ⚠️ Wymuś ponowne losowanie (usuwa głosy)
-            </Button>
-            <p className="text-xs text-gray-600 mt-1">Działa też po deadline. Czyści głosy i resetuje bonus.</p>
-            {modActionStatus['/api/match-of-day/reroll'] && (
-              <p className="text-xs text-gray-500 mt-1 break-words">{modActionStatus['/api/match-of-day/reroll']}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-gray-700 space-y-2">
-          <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">Awaryjne usuwanie</p>
-
-          <div>
-            <Button variant="secondary" className="w-full"
-              onClick={handleModDeleteAndReroll}
-              disabled={modActionStatus['delete-and-reroll'] === 'Ładowanie...'}>
-              🔄 Usuń i wylosuj nowy mecz dnia
-            </Button>
-            {modActionStatus['delete-and-reroll'] && (
-              <p className={`text-xs mt-1 break-words ${modActionStatus['delete-and-reroll'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
-                {modActionStatus['delete-and-reroll']}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <Button variant="danger" className="w-full"
-              onClick={handleModDelete}
-              disabled={modActionStatus['/api/match-of-day/delete-current'] === 'Ładowanie...'}>
-              🗑️ Usuń aktualny mecz dnia
-            </Button>
-            {modActionStatus['/api/match-of-day/delete-current'] && (
-              <p className={`text-xs mt-1 break-words ${modActionStatus['/api/match-of-day/delete-current'].includes('⚠️') ? 'text-amber-400' : 'text-gray-500'}`}>
-                {modActionStatus['/api/match-of-day/delete-current']}
-              </p>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-4">Synchronizacja danych</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Sync mecze', endpoint: '/api/sync-matches', icon: '⚽' },
-            { label: 'Sync wyniki', endpoint: '/api/sync-results', icon: '📊' },
-            { label: 'Przelicz punkty', endpoint: '/api/recalculate-points', icon: '🔢' },
-            { label: 'Sync grupy', endpoint: '/api/sync-standings', icon: '📋' },
-          ].map(({ label, endpoint, icon }) => (
-            <div key={endpoint} className="flex flex-col gap-1">
-              <Button variant="secondary" className="flex items-center gap-2 justify-center"
-                onClick={() => handleSync(endpoint)}
-                disabled={syncStatus[endpoint] === 'Ładowanie...'}>
-                <span>{icon}</span> {label}
-              </Button>
-              {syncStatus[endpoint] && (
-                <p className="text-xs text-gray-500 text-center truncate" title={syncStatus[endpoint]}>
-                  {syncStatus[endpoint]}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-        {!IS_PRODUCTION_MODE && (
-          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
-        )}
-      </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-1">🏆 Auto-wypełnianie drabinki KO</h2>
-        <p className="text-gray-600 text-xs mb-4">
-          Krok 1: pobierz mecze KO z API. Krok 2: drużyny z ukończonych grup wypełniają się automatycznie w 1/16 finału.
-          Kolejne rundy (1/8 i wyżej) NIE są zgadywane — pojawią się dopiero, gdy worldcup26.ir samo opublikuje rozstrzygnięty
-          mecz z prawdziwymi nazwami drużyn (wtedy trafi do bazy przez zwykły sync).
-        </p>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={handleSeedKoBrackets} disabled={seedKoLoading} variant="secondary">
-              📥 {seedKoLoading ? 'Pobieram...' : 'Pobierz mecze KO z API'}
-            </Button>
-            {seedKoMsg && (
-              <p className={`text-sm break-words ${seedKoMsg.startsWith('Błąd') ? 'text-red-400' : seedKoMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {seedKoMsg}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={handlePopulateBracket} disabled={bracketLoading}>
-              🏆 {bracketLoading ? 'Uzupełniam...' : 'Uzupełnij drużyny 1/16 z grup'}
-            </Button>
-            {bracketMsg && (
-              <p className={`text-sm break-words ${bracketMsg.startsWith('Błąd') ? 'text-red-400' : bracketMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {bracketMsg}
-              </p>
-            )}
-          </div>
-        </div>
-        {!IS_PRODUCTION_MODE && (
-          <p className="text-gray-600 text-xs mt-3">Tryb lokalny — brak efektu.</p>
-        )}
-      </Card>
-
-      <Card>
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-white font-bold text-lg">Wszystkie mecze</h2>
-          <button
-            onClick={() => setShowAllMatches(v => !v)}
-            className="text-xs text-gray-500 hover:text-gray-300 underline"
-          >
-            {showAllMatches ? 'Ukryj' : 'Pokaż'}
-          </button>
-        </div>
-        <p className="text-gray-600 text-xs mb-1">{matches.length} aktywnych meczów (zarchiwizowane ukryte — patrz Audyt duplikatów)</p>
-        <p className="text-gray-600 text-xs mb-4">
-          Recznie: kliknij przy meczu przycisk pilki, wpisz wynik i OK; zapisze status finished. Potem uruchom Przelicz punkty.
-        </p>
-        {showAllMatches && (
-          <div className="space-y-2">
-            {matches.map(match => (
-              <div key={match.id} className="border border-gray-800 rounded-lg py-3 px-3">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/mecze/${match.id}`} className="text-gray-200 text-sm font-medium hover:text-emerald-400 transition-colors">
-                      {match.team_a} vs {match.team_b} →
-                    </Link>
-                    <div className="text-gray-600 text-xs mt-0.5">
-                      {match.phase === 'group' ? `Gr. ${match.group_name} · R${match.round}` : match.phase}
-                      {' · '}{match.status}
-                    </div>
-                  </div>
-
-                  {editing === match.id && editMode === 'score' ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input type="number" min="0" max="20" value={scoreA} onChange={e => setScoreA(e.target.value)}
-                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
-                      <span className="text-gray-600">:</span>
-                      <input type="number" min="0" max="20" value={scoreB} onChange={e => setScoreB(e.target.value)}
-                        className="w-10 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500" />
-                      <Button size="sm" onClick={() => handleScoreSubmit(match.id)}>OK</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
-                    </div>
-                  ) : editing === match.id && editMode === 'meta' ? (
-                    <div className="flex flex-col gap-2 w-full mt-2">
-                      <div className="flex gap-2 flex-wrap items-center">
-                        <select value={editPhase} onChange={e => setEditPhase(e.target.value as MatchPhase)}
-                          className="bg-gray-800 border border-gray-700 rounded text-white text-xs px-2 h-8 focus:outline-none focus:border-emerald-500">
-                          {(['group','round_of_32','round_of_16','quarterfinal','semifinal','third_place','final'] as MatchPhase[]).map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                        <input value={editGroup} onChange={e => setEditGroup(e.target.value)} placeholder="Grupa (A-L)"
-                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500 px-2" />
-                        <input type="number" value={editRound} onChange={e => setEditRound(e.target.value)} placeholder="Kolejka"
-                          className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:border-emerald-500" />
-                        <Button size="sm" onClick={() => handleMetaSubmit(match.id)}>Zapisz</Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setEditing(null); setEditMode(null) }}>✕</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 shrink-0">
-                      {match.score_a !== null && match.score_b !== null
-                        ? <span className="text-white font-bold tabular-nums text-sm">{match.score_a}:{match.score_b}</span>
-                        : <span className="text-gray-700 text-xs">–:–</span>}
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'score')}>⚽</Button>
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(match, 'meta')}>✎</Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-white font-bold text-lg">Typowanie zwycięzcy turnieju</h2>
-            <p className="text-gray-600 text-xs mt-0.5">Zarządzanie typowaniem mistrza</p>
-          </div>
-          <Button
-            size="sm"
-            variant={championEnabled ? 'danger' : 'secondary'}
-            onClick={handleToggleChampion}
-          >
-            {championEnabled ? 'Zablokuj' : 'Odblokuj'}
-          </Button>
-        </div>
-
-        {championPicks.length > 0 && (
-          <div className="mb-4">
-            <p className="text-gray-500 text-xs mb-2">Typy graczy ({championPicks.length})</p>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {championPicks.map(p => (
-                <div key={p.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-gray-800/50">
-                  <span className="text-white text-sm">{p.nick}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 text-xs font-mono">{p.team_code}</span>
-                    <span className="text-gray-500 text-xs truncate max-w-24">{p.team_name}</span>
-                    {p.is_correct === true && <span className="text-emerald-400 text-xs">✓</span>}
-                    {p.is_correct === false && <span className="text-red-500 text-xs">✗</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="pt-3 border-t border-gray-800">
-          <p className="text-gray-500 text-xs mb-2">Ustaw rzeczywistego mistrza (kod FIFA, np. BRA)</p>
-          <div className="flex items-center gap-2">
-            <input
-              value={setWinnerCode}
-              onChange={e => setSetWinnerCode(e.target.value.toUpperCase())}
-              placeholder="BRA"
-              maxLength={3}
-              className="w-20 h-8 text-center bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-emerald-500 font-mono uppercase"
-            />
-            <Button size="sm" onClick={handleSetWinner} disabled={!setWinnerCode.trim()}>
-              Zatwierdź i przyznaj punkty
-            </Button>
-          </div>
-          {championMsg && (
-            <p className={`text-xs mt-2 ${championMsg.startsWith('Zapisano') ? 'text-emerald-400' : 'text-red-400'}`}>
-              {championMsg}
-            </p>
-          )}
-          {!IS_PRODUCTION_MODE && (
-            <p className="text-gray-600 text-xs mt-2">Tryb lokalny — brak efektu.</p>
-          )}
-        </div>
-      </Card>
-
-      <Card>
-        <h2 className="text-white font-bold text-lg mb-2">Wszyscy gracze</h2>
-        <div className="overflow-hidden rounded-lg border border-gray-800">
-          {users.map(user => (
-            <div key={user.id} className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-gray-800 px-3 py-2.5 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                {editingNickId === user.id ? (
-                  <input
-                    type="text"
-                    value={editNickValue}
-                    onChange={e => setEditNickValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleRenameUser(user.id, editNickValue)
-                      if (e.key === 'Escape') setEditingNickId(null)
-                    }}
-                    autoFocus
-                    className="h-8 w-32 bg-gray-800 border border-emerald-600 rounded text-white text-sm px-2 focus:outline-none"
-                  />
-                ) : (
-                  <span className="text-white text-sm">{user.nick}</span>
-                )}
-                {user.role === 'admin' && <Badge variant="admin">Admin</Badge>}
-                {user.status === 'pending' && <Badge variant="pending">Oczekuje</Badge>}
-                {user.status === 'blocked' && <Badge variant="default" className="text-red-400">Zablokowany</Badge>}
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                  <span>{user.form_effect_override === 'auto' ? 'Efekt: auto' : `Efekt: ${user.form_effect_override}`}</span>
-                  {user.custom_form_title && <span className="truncate">• {user.custom_form_title}</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-emerald-400 font-bold text-sm">{user.total_points} pkt</span>
-                <Button size="sm" variant="secondary" onClick={() => openUserEditor(user)}>Edytuj</Button>
-                {editingNickId === user.id ? (
-                  <>
-                    <Button size="sm" onClick={() => handleRenameUser(user.id, editNickValue)}>Zapisz</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingNickId(null)}>✕</Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="ghost" onClick={() => { setEditingNickId(user.id); setEditNickValue(user.nick) }}>✎</Button>
-                )}
-                {user.id !== currentUser?.id && editingNickId !== user.id && (
-                  <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id, user.nick)}>Usuń</Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      </Accordion>
 
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center">
