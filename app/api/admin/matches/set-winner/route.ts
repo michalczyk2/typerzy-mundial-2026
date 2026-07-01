@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     const { error: bonusErr } = await db.from('bonus_points').insert({
       user_id: pred.user_id,
       match_id,
+      round: null,
       bonus_type: 'ko_winner_pick',
       points: 2,
       description: `Trafiony awansujący (${winner})`,
