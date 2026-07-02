@@ -113,7 +113,7 @@ export default function MeczePage() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-white">Mecze</h1>
-          <a href="/super-social" className="text-xs text-emerald-500 hover:text-emerald-400 font-medium">
+          <a href="/super-social" className="text-lg text-emerald-500 hover:text-emerald-400 font-bold">
             Super Social →
           </a>
         </div>
