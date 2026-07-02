@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { CombinedLeaderboard } from '@/components/leaderboard/CombinedLeaderboard'
+import { WheelOfFortune } from '@/components/daily/WheelOfFortune'
 import { cn } from '@/lib/utils'
 import {
   dailyChallengeCategories,
@@ -24,27 +25,28 @@ function getWarsawDayKey(): string {
   return `${year}-${month}-${day}`
 }
 
-type GameDayPoints = { earned: number; max: number }
+type GameDayPoints = { earned: number; max: number; completed: boolean }
 
 function readGameDayPoints(gameKey: string, dayKey: string, maxPoints: number): GameDayPoints {
-  if (typeof window === 'undefined') return { earned: 0, max: maxPoints }
+  if (typeof window === 'undefined') return { earned: 0, max: maxPoints, completed: false }
   try {
     const saved = window.localStorage.getItem(`daily-challenge:${gameKey}:${dayKey}`)
-    if (!saved) return { earned: 0, max: maxPoints }
+    if (!saved) return { earned: 0, max: maxPoints, completed: false }
     const parsed = JSON.parse(saved) as { status?: string; earnedPoints?: number }
+    const isFinished = parsed.status === 'won' || parsed.status === 'lost'
     const earned = parsed.status === 'won' ? (parsed.earnedPoints ?? maxPoints) : 0
-    return { earned, max: maxPoints }
+    return { earned, max: maxPoints, completed: isFinished }
   } catch {
-    return { earned: 0, max: maxPoints }
+    return { earned: 0, max: maxPoints, completed: false }
   }
 }
 
 function DailyProgress() {
-  const [footwordle, setFootwordle] = useState<GameDayPoints>({ earned: 0, max: 100 })
-  const [pilkarzdle, setPilkarzdle] = useState<GameDayPoints>({ earned: 0, max: 100 })
-  const [quotedle, setQuotedle] = useState<GameDayPoints>({ earned: 0, max: 100 })
-  const [clubdle, setClubdle] = useState<GameDayPoints>({ earned: 0, max: 100 })
-  const [transferdle, setTransferdle] = useState<GameDayPoints>({ earned: 0, max: 100 })
+  const [footwordle, setFootwordle] = useState<GameDayPoints>({ earned: 0, max: 100, completed: false })
+  const [pilkarzdle, setPilkarzdle] = useState<GameDayPoints>({ earned: 0, max: 100, completed: false })
+  const [quotedle, setQuotedle] = useState<GameDayPoints>({ earned: 0, max: 100, completed: false })
+  const [clubdle, setClubdle] = useState<GameDayPoints>({ earned: 0, max: 100, completed: false })
+  const [transferdle, setTransferdle] = useState<GameDayPoints>({ earned: 0, max: 100, completed: false })
 
   useEffect(() => {
     const dayKey = getWarsawDayKey()
@@ -128,7 +130,29 @@ function formatTimeLeft(target: Date): string {
     .join(':')
 }
 
-function CategoryCard({ category, index }: { category: DailyChallengeCategory; index: number }) {
+function CategoryCard({
+  category,
+  index,
+  completed,
+}: {
+  category: DailyChallengeCategory
+  index: number
+  completed: boolean
+}) {
+  const isLogodle = category.id === 'logodle'
+  const statusLabel = isLogodle
+    ? category.status
+    : completed
+      ? 'Zakończone ✅'
+      : 'Nie rozpoczęto'
+  const statusClass = isLogodle
+    ? 'bg-gray-950/70 text-gray-500'
+    : completed
+      ? 'bg-emerald-950/80 text-emerald-300'
+      : category.enabled
+        ? 'bg-gray-900/80 text-gray-400'
+        : 'bg-gray-950/70 text-gray-500'
+
   return (
     <article
       className={cn(
@@ -148,12 +172,10 @@ function CategoryCard({ category, index }: { category: DailyChallengeCategory; i
             <span
               className={cn(
                 'rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
-                category.enabled
-                  ? 'bg-emerald-950/80 text-emerald-300'
-                  : 'bg-gray-950/70 text-gray-500'
+                statusClass
               )}
             >
-              {category.status}
+              {statusLabel}
             </span>
           </div>
           <h2 className="text-lg font-black text-white">{category.title}</h2>
@@ -193,7 +215,9 @@ function CategoryCard({ category, index }: { category: DailyChallengeCategory; i
 
 export default function DailyChallengePage() {
   const nextMidnight = useMemo(() => getNextMidnight(), [])
+  const dayKey = useMemo(() => getWarsawDayKey(), [])
   const [timeLeft, setTimeLeft] = useState(() => formatTimeLeft(nextMidnight))
+  const [completions, setCompletions] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -202,6 +226,15 @@ export default function DailyChallengePage() {
 
     return () => window.clearInterval(timer)
   }, [nextMidnight])
+
+  useEffect(() => {
+    const map: Record<string, boolean> = {}
+    for (const cat of dailyChallengeCategories) {
+      if (cat.id === 'logodle') continue
+      map[cat.id] = readGameDayPoints(cat.id, dayKey, cat.maxPoints).completed
+    }
+    setCompletions(map)
+  }, [dayKey])
 
   return (
     <div className="pb-20 md:pb-8">
@@ -268,10 +301,17 @@ export default function DailyChallengePage() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {dailyChallengeCategories.map((category, index) => (
-            <CategoryCard key={category.id} category={category} index={index} />
+            <CategoryCard
+              key={category.id}
+              category={category}
+              index={index}
+              completed={completions[category.id] ?? false}
+            />
           ))}
         </div>
       </section>
+
+      <WheelOfFortune dayKey={dayKey} />
 
     </div>
   )

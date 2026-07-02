@@ -5,6 +5,7 @@ import { useEffect, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateFootWordleGuess } from '@/app/(main)/daily-challenge/footwordle/actions'
 import { cn } from '@/lib/utils'
 import { saveDailyResult } from '@/lib/save-daily-result'
+import { getMultiplierForDay } from '@/lib/daily-multiplier'
 import type {
   FootWordleGameStatus,
   FootWordleGuessResult,
@@ -528,7 +529,8 @@ export function FootWordleGame({ puzzle }: { puzzle: FootWordlePublicPuzzle }) {
           nextStatus === 'playing'
             ? undefined
             : response.result.revealedAnswer ?? response.result.guess
-        const points = nextStatus === 'won' ? effectiveMaxPoints : 0
+        const rawPoints = nextStatus === 'won' ? effectiveMaxPoints : 0
+        const points = Math.round(rawPoints * getMultiplierForDay(puzzle.dayKey))
 
         writeStoredGame({
           dayKey: puzzle.dayKey,
