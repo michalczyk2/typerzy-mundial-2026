@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateClubdleGuess } from '@/app/(main)/daily-challenge/clubdle/actions'
+import { saveDailyResult } from '@/lib/save-daily-result'
 import { cn } from '@/lib/utils'
 import type {
   ClubdleComparisonStatus,
@@ -288,6 +289,7 @@ export function ClubdleGame({ puzzle }: { puzzle: ClubdlePublicPuzzle }) {
         })
 
         if (nextStatus !== 'playing') recordClubdleStats(puzzle.dayKey, nextStatus)
+        if (nextStatus !== 'playing') void saveDailyResult('clubdle', puzzle.dayKey, points)
         setQuery('')
 
         if (nextStatus === 'won') setMessage(`Brawo! +${points} pkt.`)

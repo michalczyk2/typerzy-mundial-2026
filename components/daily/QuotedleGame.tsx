@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateQuotedleGuess } from '@/app/(main)/daily-challenge/quotedle/actions'
+import { saveDailyResult } from '@/lib/save-daily-result'
 import { cn } from '@/lib/utils'
 import type {
   QuotedleGameStatus,
@@ -219,6 +220,7 @@ export function QuotedleGame({ puzzle }: { puzzle: QuotedlePublicPuzzle }) {
         })
 
         if (nextStatus !== 'playing') recordQuotedleStats(puzzle.dayKey, nextStatus)
+        if (nextStatus !== 'playing') void saveDailyResult('quotedle', puzzle.dayKey, result.earnedPoints ?? 0)
         setQuery('')
 
         if (nextStatus === 'won') setMessage(`Brawo! +${result.earnedPoints ?? 0} pkt.`)
