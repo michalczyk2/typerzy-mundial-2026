@@ -5,6 +5,7 @@ import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateTransferdleGuess } from '@/app/(main)/daily-challenge/transferdle/actions'
 import { cn } from '@/lib/utils'
 import { saveDailyResult } from '@/lib/save-daily-result'
+import { getMultiplierForDay } from '@/lib/daily-multiplier'
 import type {
   TransferdleGameStatus,
   TransferdlePublicPuzzle,
@@ -293,6 +294,11 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
           : nextAttemptNumber >= puzzle.maxAttempts ? 'lost' : 'playing'
         const completedAt = nextStatus !== 'playing' ? new Date().toISOString() : undefined
 
+        const rawEarned = result.earnedPoints ?? 0
+        const multipliedEarned = nextStatus !== 'playing'
+          ? Math.round(rawEarned * getMultiplierForDay(puzzle.dayKey))
+          : rawEarned
+
         writeStoredGame({
           dayKey: puzzle.dayKey,
           attempts: nextAttemptNumber,
@@ -300,16 +306,16 @@ export function TransferdleGame({ puzzle }: { puzzle: TransferdlePublicPuzzle })
           revealedTransfers: result.revealedTransfers,
           status: nextStatus,
           revealedAnswer: result.revealedAnswer,
-          earnedPoints: result.earnedPoints,
+          earnedPoints: multipliedEarned,
           startedAt: startedAt ?? game.startedAt,
           completedAt: completedAt ?? game.completedAt,
         })
 
         if (nextStatus !== 'playing') recordTransferdleStats(puzzle.dayKey, nextStatus)
-        if (nextStatus !== 'playing') void saveDailyResult('transferdle', puzzle.dayKey, result.earnedPoints ?? 0)
+        if (nextStatus !== 'playing') void saveDailyResult('transferdle', puzzle.dayKey, multipliedEarned)
         setQuery('')
 
-        if (nextStatus === 'won') setMessage(`Brawo! +${result.earnedPoints ?? 0} pkt.`)
+        if (nextStatus === 'won') setMessage(`Brawo! +${multipliedEarned} pkt.`)
         else if (nextStatus === 'lost') setMessage('Koniec prob. Sprawdz odpowiedz w panelu.')
         else {
           const remaining = puzzle.maxAttempts - nextAttemptNumber

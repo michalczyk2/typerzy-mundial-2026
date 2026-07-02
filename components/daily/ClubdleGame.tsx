@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateClubdleGuess } from '@/app/(main)/daily-challenge/clubdle/actions'
 import { saveDailyResult } from '@/lib/save-daily-result'
+import { getMultiplierForDay } from '@/lib/daily-multiplier'
 import { cn } from '@/lib/utils'
 import type {
   ClubdleComparisonStatus,
@@ -273,7 +274,8 @@ export function ClubdleGame({ puzzle }: { puzzle: ClubdlePublicPuzzle }) {
         const nextStatus: ClubdleGameStatus = response.result.isCorrect
           ? 'won'
           : nextGuesses.length >= puzzle.maxAttempts ? 'lost' : 'playing'
-        const points = nextStatus === 'won' ? puzzle.maxPoints : 0
+        const rawPoints = nextStatus === 'won' ? puzzle.maxPoints : 0
+        const points = Math.round(rawPoints * getMultiplierForDay(puzzle.dayKey))
         const revealedAnswer = nextStatus === 'playing' ? undefined : response.result.revealedAnswer ?? response.result.name
         const completedAt = nextStatus !== 'playing' ? new Date().toISOString() : undefined
 

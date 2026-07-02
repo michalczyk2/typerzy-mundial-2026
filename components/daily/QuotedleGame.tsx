@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluateQuotedleGuess } from '@/app/(main)/daily-challenge/quotedle/actions'
 import { saveDailyResult } from '@/lib/save-daily-result'
+import { getMultiplierForDay } from '@/lib/daily-multiplier'
 import { cn } from '@/lib/utils'
 import type {
   QuotedleGameStatus,
@@ -207,6 +208,11 @@ export function QuotedleGame({ puzzle }: { puzzle: QuotedlePublicPuzzle }) {
           : nextAttemptNumber >= puzzle.maxAttempts ? 'lost' : 'playing'
         const completedAt = nextStatus !== 'playing' ? new Date().toISOString() : undefined
 
+        const rawEarned = result.earnedPoints ?? 0
+        const multipliedEarned = nextStatus !== 'playing'
+          ? Math.round(rawEarned * getMultiplierForDay(puzzle.dayKey))
+          : rawEarned
+
         writeStoredGame({
           dayKey: puzzle.dayKey,
           attempts: nextAttemptNumber,
@@ -214,16 +220,16 @@ export function QuotedleGame({ puzzle }: { puzzle: QuotedlePublicPuzzle }) {
           hintsRevealed: result.hintsRevealed.length > 0 ? result.hintsRevealed : hintsRevealed,
           status: nextStatus,
           revealedAnswer: result.revealedAnswer,
-          earnedPoints: result.earnedPoints,
+          earnedPoints: multipliedEarned,
           startedAt: startedAt ?? game.startedAt,
           completedAt: completedAt ?? game.completedAt,
         })
 
         if (nextStatus !== 'playing') recordQuotedleStats(puzzle.dayKey, nextStatus)
-        if (nextStatus !== 'playing') void saveDailyResult('quotedle', puzzle.dayKey, result.earnedPoints ?? 0)
+        if (nextStatus !== 'playing') void saveDailyResult('quotedle', puzzle.dayKey, multipliedEarned)
         setQuery('')
 
-        if (nextStatus === 'won') setMessage(`Brawo! +${result.earnedPoints ?? 0} pkt.`)
+        if (nextStatus === 'won') setMessage(`Brawo! +${multipliedEarned} pkt.`)
         else if (nextStatus === 'lost') setMessage('Koniec prob. Odpowiedz jest w panelu wyniku.')
         else setMessage(`Pudlo! Zostalo ${puzzle.maxAttempts - nextAttemptNumber} prob. Sprawdz wskazowki.`)
       } finally {

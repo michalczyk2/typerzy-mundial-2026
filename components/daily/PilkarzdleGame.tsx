@@ -5,6 +5,7 @@ import { FormEvent, useState, useSyncExternalStore, useTransition } from 'react'
 import { evaluatePilkarzdleGuess } from '@/app/(main)/daily-challenge/pilkarzdle/actions'
 import { cn } from '@/lib/utils'
 import { saveDailyResult } from '@/lib/save-daily-result'
+import { getMultiplierForDay } from '@/lib/daily-multiplier'
 import type {
   PilkarzdleComparisonStatus,
   PilkarzdleGameStatus,
@@ -285,7 +286,8 @@ export function PilkarzdleGame({ puzzle }: { puzzle: PilkarzdlePublicPuzzle }) {
         const nextStatus: PilkarzdleGameStatus = response.result.isCorrect
           ? 'won'
           : nextGuesses.length >= puzzle.maxAttempts ? 'lost' : 'playing'
-        const points = nextStatus === 'won' ? puzzle.maxPoints : 0
+        const rawPoints = nextStatus === 'won' ? puzzle.maxPoints : 0
+        const points = Math.round(rawPoints * getMultiplierForDay(puzzle.dayKey))
         const revealedAnswer = nextStatus === 'playing' ? undefined : response.result.revealedAnswer ?? response.result.name
         const completedAt = nextStatus !== 'playing' ? new Date().toISOString() : undefined
 
