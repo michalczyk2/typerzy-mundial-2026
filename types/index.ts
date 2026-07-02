@@ -252,3 +252,38 @@ export interface MatchOfDayVote {
   created_at: string
   updated_at: string
 }
+
+// --- Super Social ---
+export interface SuperSocialPlayerPrediction {
+  user_id: string
+  nick: string
+  predicted_a: number | null
+  predicted_b: number | null
+  predicted_result: string | null
+  predicted_winner: string | null
+  points_earned: number | null
+  is_correct_outcome: boolean | null
+  is_correct_score: boolean | null
+}
+
+export interface SuperSocialMatch {
+  id: string
+  team_a: string
+  team_b: string
+  team_a_code: string
+  team_b_code: string
+  match_date: string
+  status: MatchStatus
+  score_a: number | null
+  score_b: number | null
+  round: number
+  phase: MatchPhase
+  group_name: string | null
+  winner: string | null
+  predictions: SuperSocialPlayerPrediction[]
+}
+
+export interface SuperSocialResponse {
+  matches: SuperSocialMatch[]
+  players: { user_id: string; nick: string }[]
+}
