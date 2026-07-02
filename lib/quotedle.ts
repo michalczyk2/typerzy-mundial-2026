@@ -5,9 +5,9 @@ import type {
   QuotedleEvaluationResponse,
   QuotedlePublicPuzzle,
 } from '@/lib/quotedle-types'
+import { getWarsawDayKey, normalizeDayKey, pickForDay } from '@/lib/daily-puzzle-utils'
 
 const MAX_ATTEMPTS = 5
-const WARSAW_TIME_ZONE = 'Europe/Warsaw'
 const POINTS_BY_ATTEMPT = [100, 80, 60, 40, 20]
 
 type QuotedleQuote = {
@@ -19,34 +19,8 @@ type QuotedleQuote = {
 
 const quotes = quotedleQuotes as QuotedleQuote[]
 
-function getWarsawDayKey(date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: WARSAW_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
-
-  const year = parts.find(part => part.type === 'year')?.value ?? '2026'
-  const month = parts.find(part => part.type === 'month')?.value ?? '01'
-  const day = parts.find(part => part.type === 'day')?.value ?? '01'
-
-  return `${year}-${month}-${day}`
-}
-
-function normalizeDayKey(dayKey: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return dayKey
-  return getWarsawDayKey()
-}
-
-function hashDayKey(dayKey: string): number {
-  return [...dayKey].reduce((hash, char) => hash + char.charCodeAt(0), 0)
-}
-
 function getQuoteForDay(dayKey = getWarsawDayKey()): QuotedleQuote {
-  const normalizedDayKey = normalizeDayKey(dayKey)
-  const index = hashDayKey(normalizedDayKey) % quotes.length
-  return quotes[index]
+  return pickForDay(quotes, normalizeDayKey(dayKey))
 }
 
 function normalizeAuthor(name: string): string {

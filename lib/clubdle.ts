@@ -9,10 +9,10 @@ import type {
   ClubdleClubOption,
   ClubdlePublicPuzzle,
 } from '@/lib/clubdle-types'
+import { getWarsawDayKey, normalizeDayKey, pickForDay } from '@/lib/daily-puzzle-utils'
 
 const MAX_ATTEMPTS = 8
 const MAX_POINTS = 100
-const WARSAW_TIME_ZONE = 'Europe/Warsaw'
 
 type ClubdleClub = {
   id: string
@@ -30,34 +30,8 @@ type ClubdleClub = {
 
 const clubs = clubdleClubs as ClubdleClub[]
 
-function getWarsawDayKey(date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: WARSAW_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
-
-  const year = parts.find(part => part.type === 'year')?.value ?? '2026'
-  const month = parts.find(part => part.type === 'month')?.value ?? '01'
-  const day = parts.find(part => part.type === 'day')?.value ?? '01'
-
-  return `${year}-${month}-${day}`
-}
-
-function normalizeDayKey(dayKey: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return dayKey
-  return getWarsawDayKey()
-}
-
-function hashDayKey(dayKey: string): number {
-  return [...dayKey].reduce((hash, char) => hash + char.charCodeAt(0), 0)
-}
-
 function getClubForDay(dayKey = getWarsawDayKey()): ClubdleClub {
-  const normalizedDayKey = normalizeDayKey(dayKey)
-  const index = hashDayKey(normalizedDayKey) % clubs.length
-  return clubs[index]
+  return pickForDay(clubs, normalizeDayKey(dayKey))
 }
 
 function compareCountry(g: ClubdleClub, a: ClubdleClub): ClubdleComparisonStatus {

@@ -5,9 +5,9 @@ import type {
   TransferdleEvaluationResponse,
   TransferdlePublicPuzzle,
 } from '@/lib/transferdle-types'
+import { getWarsawDayKey, normalizeDayKey, pickForDay } from '@/lib/daily-puzzle-utils'
 
 const MAX_ATTEMPTS = 8
-const WARSAW_TIME_ZONE = 'Europe/Warsaw'
 const POINTS_BY_ATTEMPT = [100, 85, 70, 55, 40, 25, 15, 5]
 
 type TransferdlePlayer = {
@@ -18,34 +18,8 @@ type TransferdlePlayer = {
 
 const players = transferdlePlayers as TransferdlePlayer[]
 
-function getWarsawDayKey(date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: WARSAW_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date)
-
-  const year = parts.find(part => part.type === 'year')?.value ?? '2026'
-  const month = parts.find(part => part.type === 'month')?.value ?? '01'
-  const day = parts.find(part => part.type === 'day')?.value ?? '01'
-
-  return `${year}-${month}-${day}`
-}
-
-function normalizeDayKey(dayKey: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return dayKey
-  return getWarsawDayKey()
-}
-
-function hashDayKey(dayKey: string): number {
-  return [...dayKey].reduce((hash, char) => hash + char.charCodeAt(0), 0)
-}
-
 function getPlayerForDay(dayKey = getWarsawDayKey()): TransferdlePlayer {
-  const normalizedDayKey = normalizeDayKey(dayKey)
-  const index = hashDayKey(normalizedDayKey) % players.length
-  return players[index]
+  return pickForDay(players, normalizeDayKey(dayKey))
 }
 
 function normalizeName(name: string): string {
