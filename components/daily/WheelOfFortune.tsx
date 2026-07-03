@@ -41,11 +41,12 @@ function buildGradient(): string {
 // the rotation needed to bring that segment to the top (pointer at 270° = top in CSS)
 function restRotationFor(multiplier: DailyMultiplier, fullSpins: number): number {
   const idx = SEGMENTS.findIndex(s => s === multiplier)
-  // Centre of segment idx is at (idx * SEG_DEG + SEG_DEG / 2) degrees from 0
-  // We want that centre to align with the top pointer, which sits at 270° in a
-  // standard conic-gradient that starts at the right (0°=right, 270°=top)
+  // CSS conic-gradient(from 0deg) starts at top (12 o'clock); 0° = top, clockwise.
+  // After rotation R (clockwise), a point at segCentre° appears at (segCentre+R)%360.
+  // For it to reach the top (0°): R = (360 - segCentre) % 360
   const segCentre = idx * SEG_DEG + SEG_DEG / 2
-  const rest = (270 - segCentre + 360) % 360
+  const jitter = Math.random() * 20 - 10 // ±10° natural variation, safe within ±18° half-segment
+  const rest = (360 - segCentre) % 360 + jitter
   return fullSpins * 360 + rest
 }
 
