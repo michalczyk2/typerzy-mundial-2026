@@ -117,29 +117,33 @@ export function WheelOfFortune({ dayKey }: { dayKey: string }) {
               borderTop: '20px solid #10b981',
             }}
           />
-          {/* Wheel disc */}
+          {/* Wheel disc — ref wraps gradient + labels so both rotate together */}
           <div
             ref={wheelRef}
             style={{
               width: 220,
               height: 220,
               borderRadius: '50%',
-              background: gradient,
               willChange: 'transform',
+              position: 'relative',
             }}
-          />
-          {/* Centre cap */}
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gray-700 bg-gray-900"
-            style={{ width: 44, height: 44 }}
-          />
-          {/* Segment labels rendered on top */}
-          <svg
-            className="pointer-events-none absolute inset-0"
-            width={220}
-            height={220}
-            viewBox="0 0 220 220"
           >
+            {/* Gradient fill */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                background: gradient,
+              }}
+            />
+            {/* Labels inside the rotating element */}
+            <svg
+              className="pointer-events-none absolute inset-0"
+              width={220}
+              height={220}
+              viewBox="0 0 220 220"
+            >
             {SEGMENTS.map((val, i) => {
               const angleDeg = i * SEG_DEG + SEG_DEG / 2
               const angleRad = ((angleDeg - 90) * Math.PI) / 180
@@ -162,7 +166,13 @@ export function WheelOfFortune({ dayKey }: { dayKey: string }) {
                 </text>
               )
             })}
-          </svg>
+            </svg>
+          </div>
+          {/* Centre cap — outside rotating div, stays fixed */}
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gray-700 bg-gray-900"
+            style={{ width: 44, height: 44 }}
+          />
         </div>
 
         {/* Right panel */}
