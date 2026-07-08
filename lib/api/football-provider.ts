@@ -331,25 +331,44 @@ function wc26ParseDate(raw: string | null, stadiumId?: string | number | null): 
   return new Date(localMs - utcOffset * 3_600_000).toISOString()
 }
 
-export async function fetchWC26Fixtures(options: WC26FetchOptions = {}): Promise<FootballFixture[] | null> {
+export type WC26FetchError = { httpStatus: number | null; reason: string }
+
+export async function fetchWC26Fixtures(
+  options: WC26FetchOptions = {},
+  onError?: (err: WC26FetchError) => void,
+): Promise<FootballFixture[] | null> {
   try {
     const timeoutMs = options.timeoutMs ?? WC26_TIMEOUT_MS
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     let res: Response
     try {
-      res = await fetch(WC26_API_URL, { cache: 'no-store', signal: controller.signal })
+      res = await fetch(WC26_API_URL, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TyperzySync/1.0)' },
+      })
     } finally {
       clearTimeout(timer)
     }
-    if (!res.ok) return null
+    if (!res.ok) {
+      const reason = `HTTP ${res.status} ${res.statusText || ''}`.trim()
+      console.error(`[wc26-provider] worldcup26.ir: ${reason}`)
+      onError?.({ httpStatus: res.status, reason })
+      return null
+    }
     const raw: unknown = await res.json()
     const games: WC26Game[] = Array.isArray(raw)
       ? (raw as WC26Game[])
       : Array.isArray((raw as Record<string, unknown>)?.games)
         ? ((raw as Record<string, unknown>).games as WC26Game[])
         : []
-    if (games.length === 0) return null
+    if (games.length === 0) {
+      const reason = 'Pusty wynik (0 meczów w odpowiedzi)'
+      console.error(`[wc26-provider] worldcup26.ir: ${reason}`)
+      onError?.({ httpStatus: 200, reason })
+      return null
+    }
     return games
       // A KO slot with one or both sides still undecided carries a *_team_label
       // instead of a resolved name — keep the fixture (team_a/team_b empty) so it
@@ -376,7 +395,84 @@ export async function fetchWC26Fixtures(options: WC26FetchOptions = {}): Promise
         stadium: g.stadium ?? null,
         city: g.city ?? null,
       }))
-  } catch {
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    console.error(`[wc26-provider] fetchWC26Fixtures exception: ${reason}`)
+    onError?.({ httpStatus: null, reason })
+    return null
+  }
+}
+
+// --- Openfootball standalone fetch (includes ET + penalty scores, all KO phases) ---
+
+interface OFBScore {
+  ft?: [number, number]
+  ht?: [number, number]
+  et?: [number, number]
+  p?: [number, number]
+}
+
+// Separate from the main fetchFixtures fallback — used by sync-wc26 for enrichment only.
+// Returns ALL fixtures including KO with placeholder team names filtered out.
+// Includes penalty_winner ('home' | 'away' | null) for games decided on penalties.
+export interface OFBEnrichedFixture extends FootballFixture {
+  score_a_90: number | null
+  score_b_90: number | null
+  penalty_winner: 'home' | 'away' | null
+}
+
+export async function fetchOpenfootballFixtures(): Promise<OFBEnrichedFixture[] | null> {
+  try {
+    const [ofbRes, codeMap] = await Promise.all([
+      fetch(OPENFOOTBALL_URL, { cache: 'no-store' }),
+      fetchTeamCodeMap(),
+    ])
+    if (!ofbRes.ok) {
+      console.error(`[ofb-provider] openfootball HTTP ${ofbRes.status}`)
+      return null
+    }
+    const data: { matches: Array<OFBMatch & { score?: OFBScore }> } = await ofbRes.json()
+    return data.matches
+      .filter(m => isRealTeam(m.team1) && isRealTeam(m.team2))
+      .map(m => {
+        const { phase, roundNum } = mapPhase(m.round)
+        const score = m.score as OFBScore | undefined
+        const ft = score?.ft
+        const et = score?.et
+        const ht = score?.ht
+        const p = score?.p
+        // Use ET score as final score if extra time was played
+        const finalA = et?.[0] ?? ft?.[0] ?? null
+        const finalB = et?.[1] ?? ft?.[1] ?? null
+        const penalty_winner: 'home' | 'away' | null =
+          p && finalA !== null && finalB !== null && finalA === finalB
+            ? (p[0] > p[1] ? 'home' : 'away')
+            : null
+        return {
+          external_id: makeExternalId(m.date, m.team1, m.team2),
+          team_a: m.team1,
+          team_b: m.team2,
+          team_a_code: getCode(m.team1, codeMap),
+          team_b_code: getCode(m.team2, codeMap),
+          match_date: toISODate(m.date, m.time),
+          official_match_day: m.date,
+          status: (ft !== undefined ? 'finished' : 'scheduled') as MatchStatus,
+          score_a: finalA,
+          score_b: finalB,
+          score_a_90: ft?.[0] ?? null,
+          score_b_90: ft?.[1] ?? null,
+          halftime_a: ht?.[0] ?? null,
+          halftime_b: ht?.[1] ?? null,
+          penalty_winner,
+          phase,
+          group_name: m.group ?? null,
+          round: roundNum,
+          stadium: m.ground ?? null,
+          city: null,
+        }
+      })
+  } catch (e) {
+    console.error(`[ofb-provider] exception: ${e instanceof Error ? e.message : e}`)
     return null
   }
 }

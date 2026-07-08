@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
-import { fetchWC26Fixtures, calculateStandings } from '@/lib/api/football-provider'
+import {
+  fetchWC26Fixtures,
+  fetchOpenfootballFixtures,
+  calculateStandings,
+  type WC26FetchError,
+} from '@/lib/api/football-provider'
 import { populateBracketFromStandings } from '@/lib/bracket-populate'
 
 export const maxDuration = 60
-
-const WC26_SYNC_TIMEOUT_MS = 30_000
 
 // Part C — Vercel Cron architecture (ready to activate in vercel.json when needed):
 // { "path": "/api/sync-wc26", "schedule": "*/30 12-23 * * *" }  — co 30 min w godz. 12-23 UTC
@@ -66,38 +69,136 @@ async function checkLegacyConflicts(db: DbClient): Promise<string | null> {
   )
 }
 
+// Normalize a team name for fuzzy matching: lowercase, no accents, no punctuation, collapse spaces
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Enrich existing wc26_* KO matches from openfootball data (ET scores, penalty winner, status)
+async function enrichFromOpenfootball(db: DbClient): Promise<{ enriched: number; errors: string[] }> {
+  const ofbFixtures = await fetchOpenfootballFixtures()
+  if (!ofbFixtures || ofbFixtures.length === 0) return { enriched: 0, errors: [] }
+
+  const koOfb = ofbFixtures.filter(f => f.phase !== 'group' && f.status === 'finished')
+  if (koOfb.length === 0) return { enriched: 0, errors: [] }
+
+  // Build normalized name index for OFB fixtures: "normA|normB" → fixture
+  const ofbIndex = new Map<string, typeof koOfb[0]>()
+  for (const f of koOfb) {
+    const key = `${normalizeName(f.team_a)}|${normalizeName(f.team_b)}`
+    ofbIndex.set(key, f)
+  }
+
+  // Fetch existing wc26_* KO matches from DB
+  const { data: dbMatches, error } = await db
+    .from('matches')
+    .select('id, external_id, team_a, team_b, status, score_a, score_b')
+    .like('external_id', 'wc26_%')
+    .neq('phase', 'group')
+    .or('is_archived.is.null,is_archived.eq.false')
+
+  if (error) return { enriched: 0, errors: [error.message] }
+
+  let enriched = 0
+  const errors: string[] = []
+
+  for (const dbMatch of dbMatches ?? []) {
+    if (!dbMatch.team_a || !dbMatch.team_b) continue
+    const key = `${normalizeName(dbMatch.team_a)}|${normalizeName(dbMatch.team_b)}`
+    const ofb = ofbIndex.get(key)
+    if (!ofb) continue
+
+    // Only update if OFB has a finished result that the DB doesn't show yet
+    if (dbMatch.status === 'finished' && dbMatch.score_a !== null && dbMatch.score_b !== null) continue
+
+    const updates: Record<string, unknown> = {
+      status: 'finished',
+      score_a: ofb.score_a,
+      score_b: ofb.score_b,
+      halftime_a: ofb.halftime_a,
+      halftime_b: ofb.halftime_b,
+      score_a_90: ofb.score_a_90,
+      score_b_90: ofb.score_b_90,
+    }
+    if (ofb.penalty_winner) {
+      updates.winner = ofb.penalty_winner === 'home' ? dbMatch.team_a : dbMatch.team_b
+    }
+
+    const { error: upErr } = await db.from('matches').update(updates).eq('id', dbMatch.id)
+    if (upErr) errors.push(`${dbMatch.external_id}: ${upErr.message}`)
+    else enriched++
+  }
+
+  return { enriched, errors }
+}
+
 async function runSync(req: NextRequest): Promise<NextResponse> {
   if (!IS_PRODUCTION_MODE) {
     return NextResponse.json({ message: 'Tryb lokalny — brak synchronizacji' })
   }
 
-  const db = createAdminClient()
-
-  const conflictMsg = await checkLegacyConflicts(db)
-  if (conflictMsg) {
-    await db.from('sync_logs').insert({
-      sync_type: 'wc26',
-      status: 'error',
-      records_updated: 0,
-      message: conflictMsg,
-    })
-    return NextResponse.json({ error: conflictMsg }, { status: 409 })
-  }
-
-  const fixtures = await fetchWC26Fixtures({ timeoutMs: WC26_SYNC_TIMEOUT_MS })
-  if (!fixtures || fixtures.length === 0) {
-    const msg = 'worldcup26.ir odpowiada za wolno albo nie zwrocilo danych w limicie 30s. Sprobuj ponownie; nie wykonano zadnych zmian.'
-    console.error('[sync-wc26]', msg)
-    await db.from('sync_logs').insert({
-      sync_type: 'wc26',
-      status: 'error',
-      records_updated: 0,
-      message: msg,
-    })
-    return NextResponse.json({ error: msg }, { status: 503 })
-  }
-
   try {
+    const db = createAdminClient()
+
+    const conflictMsg = await checkLegacyConflicts(db)
+    if (conflictMsg) {
+      await db.from('sync_logs').insert({
+        sync_type: 'wc26',
+        status: 'error',
+        records_updated: 0,
+        message: conflictMsg,
+      })
+      return NextResponse.json({ error: conflictMsg }, { status: 409 })
+    }
+
+    let wc26Error: WC26FetchError | null = null as WC26FetchError | null
+    const fixtures = await fetchWC26Fixtures(
+      { timeoutMs: 30_000 },
+      (err) => { wc26Error = err },
+    )
+
+    // If WC26 returned nothing, try enriching existing KO matches from openfootball
+    if (!fixtures || fixtures.length === 0) {
+      const wc26ErrMsg = wc26Error
+        ? `worldcup26.ir: ${wc26Error.reason}${wc26Error.httpStatus ? ` (HTTP ${wc26Error.httpStatus})` : ''}`
+        : 'worldcup26.ir: brak danych'
+
+      console.error('[sync-wc26]', wc26ErrMsg, '— próbuję openfootball jako fallback')
+
+      const { enriched, errors: enrichErrors } = await enrichFromOpenfootball(db)
+
+      const msg = enriched > 0
+        ? `WC26 niedostępne (${wc26ErrMsg}). Uzupełniono ${enriched} meczów KO z openfootball.`
+        : `WC26 niedostępne (${wc26ErrMsg}). Openfootball: brak nowych wyników KO.`
+
+      await db.from('sync_logs').insert({
+        sync_type: 'wc26',
+        status: enriched > 0 ? 'success' : 'error',
+        records_updated: enriched,
+        message: msg.slice(0, 500),
+      })
+
+      if (enriched > 0) {
+        const populateResult = await populateBracketFromStandings(db)
+        if (populateResult.updated > 0)
+          console.log(`[sync-wc26] Bracket (OFB fallback): uzupełniono ${populateResult.updated} meczów KO`)
+      }
+
+      console.log('[sync-wc26]', msg)
+      return NextResponse.json({
+        message: msg,
+        wc26_error: wc26ErrMsg,
+        ofb_enriched: enriched,
+        errors: enrichErrors,
+      }, { status: enriched > 0 ? 200 : 503 })
+    }
+
     let fixturesToApply = fixtures
     let skippedNewFixtures = 0
     const { data: existingWc26, error: existingErr } = await db
@@ -176,6 +277,11 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       if (standErr) console.error('[sync-wc26] standings upsert:', standErr.message)
     }
 
+    // Also try openfootball to fill in ET/penalty details for KO matches
+    const { enriched: ofbEnriched } = await enrichFromOpenfootball(db)
+    if (ofbEnriched > 0)
+      console.log(`[sync-wc26] OFB enrichment: uzupełniono ET/penalties dla ${ofbEnriched} meczów KO`)
+
     if (fixturesToApply.some(f => f.status === 'finished')) {
       const baseUrl = new URL(req.url).origin
       const recalcHeaders: Record<string, string> = { 'content-type': 'application/json' }
@@ -194,7 +300,7 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
     if (populateResult.updated > 0)
       console.log(`[sync-wc26] Bracket: uzupełniono ${populateResult.updated} meczów KO z grup`)
 
-    const msg = `Zsynchronizowano ${matchRows.length} istniejacych meczow${standings.length ? `, ${standings.length} wpisow tabeli` : ''} z worldcup26.ir${skippedNewFixtures ? `; pominieto ${skippedNewFixtures} nowych meczow z API` : ''}`
+    const msg = `Zsynchronizowano ${matchRows.length} istniejacych meczow${standings.length ? `, ${standings.length} wpisow tabeli` : ''} z worldcup26.ir${skippedNewFixtures ? `; pominieto ${skippedNewFixtures} nowych meczow z API` : ''}${ofbEnriched ? `; ${ofbEnriched} meczow wzbogaconych z OFB` : ''}`
     await db.from('sync_logs').insert({
       sync_type: 'wc26',
       status: 'success',
@@ -208,10 +314,12 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       count: matchRows.length,
       standings_count: standings.length,
       skipped_new_fixtures: skippedNewFixtures,
+      ofb_enriched: ofbEnriched,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[sync-wc26]', msg)
+    const db = createAdminClient()
     await db.from('sync_logs').insert({
       sync_type: 'wc26',
       status: 'error',
