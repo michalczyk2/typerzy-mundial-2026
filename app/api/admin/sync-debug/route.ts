@@ -1,0 +1,122 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchOpenfootballFixtures } from '@/lib/api/football-provider'
+
+// TEMPORARY DIAGNOSTIC ENDPOINT — remove after the sync issue is diagnosed
+// Returns step-by-step results so the exact failure point is visible.
+
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  const auth = req.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && auth === `Bearer ${cronSecret}`) return true
+  const sessionId = req.cookies.get('typerzy_session')?.value
+  if (!sessionId) return false
+  try {
+    const db = createAdminClient()
+    const { data } = await db.from('profiles').select('role').eq('id', sessionId).single()
+    return data?.role === 'admin'
+  } catch {
+    return false
+  }
+}
+
+export async function GET(req: NextRequest) {
+  if (!await isAuthorized(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const results: Record<string, unknown> = {}
+
+  // 1. IS_PRODUCTION_MODE
+  results.is_production_mode = IS_PRODUCTION_MODE
+
+  // 2. Env vars present (values redacted)
+  results.env_vars = {
+    NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    CRON_SECRET: !!process.env.CRON_SECRET,
+    SUPABASE_URL_VALUE_PREFIX: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30) ?? 'NOT SET',
+  }
+
+  // 3. createAdminClient()
+  try {
+    const db = createAdminClient()
+    results.create_admin_client = 'OK'
+
+    // 4. Simple DB query
+    try {
+      const { count, error } = await db
+        .from('sync_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('sync_type', 'wc26')
+      if (error) throw error
+      results.db_query_sync_logs = { ok: true, count }
+    } catch (e) {
+      results.db_query_sync_logs = { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+
+    // 5. Last sync_log entry
+    try {
+      const { data, error } = await db
+        .from('sync_logs')
+        .select('created_at, status, message, records_updated')
+        .eq('sync_type', 'wc26')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      results.last_sync_log = data
+    } catch (e) {
+      results.last_sync_log = { error: e instanceof Error ? e.message : String(e) }
+    }
+
+    // 6. Active wc26 match count
+    try {
+      const { count, error } = await db
+        .from('matches')
+        .select('*', { count: 'exact', head: true })
+        .like('external_id', 'wc26_%')
+        .neq('is_archived', true)
+      if (error) throw error
+      results.active_wc26_matches = count
+    } catch (e) {
+      results.active_wc26_matches = { error: e instanceof Error ? e.message : String(e) }
+    }
+
+    // 7. KO matches with empty team names
+    try {
+      const { data, error } = await db
+        .from('matches')
+        .select('id, external_id, phase, team_a, team_b, home_placeholder, away_placeholder, status')
+        .like('external_id', 'wc26_%')
+        .neq('phase', 'group')
+        .or('team_a.eq.,team_b.eq.')
+        .or('is_archived.is.null,is_archived.eq.false')
+        .limit(10)
+      if (error) throw error
+      results.ko_empty_team_slots = data
+    } catch (e) {
+      results.ko_empty_team_slots = { error: e instanceof Error ? e.message : String(e) }
+    }
+
+  } catch (e) {
+    results.create_admin_client = { error: e instanceof Error ? e.message : String(e) }
+  }
+
+  // 8. Openfootball connectivity (no DB needed)
+  try {
+    const fixtures = await fetchOpenfootballFixtures()
+    const koFinished = (fixtures ?? []).filter(f => f.phase !== 'group' && f.status === 'finished')
+    results.openfootball = {
+      ok: fixtures !== null,
+      total: fixtures?.length ?? 0,
+      ko_finished: koFinished.length,
+      sample: koFinished.slice(0, 3).map(f => `${f.team_a} ${f.score_a}–${f.score_b} ${f.team_b} [${f.phase}]`),
+    }
+  } catch (e) {
+    results.openfootball = { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+
+  return NextResponse.json(results)
+}
