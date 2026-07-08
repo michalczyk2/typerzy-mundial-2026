@@ -98,7 +98,7 @@ async function enrichFromOpenfootball(db: DbClient): Promise<{ enriched: number;
   // Fetch existing wc26_* KO matches from DB
   const { data: dbMatches, error } = await db
     .from('matches')
-    .select('id, external_id, team_a, team_b, status, score_a, score_b')
+    .select('id, external_id, team_a, team_b, status, score_a, score_b, winner')
     .like('external_id', 'wc26_%')
     .neq('phase', 'group')
     .or('is_archived.is.null,is_archived.eq.false')
@@ -114,8 +114,11 @@ async function enrichFromOpenfootball(db: DbClient): Promise<{ enriched: number;
     const ofb = ofbIndex.get(key)
     if (!ofb) continue
 
-    // Only update if OFB has a finished result that the DB doesn't show yet
-    if (dbMatch.status === 'finished' && dbMatch.score_a !== null && dbMatch.score_b !== null) continue
+    // Skip if winner is already known
+    if (dbMatch.status === 'finished' && dbMatch.winner !== null) continue
+    // Skip if result is unambiguous from score (no penalty resolution needed)
+    if (dbMatch.status === 'finished' && dbMatch.score_a !== null && dbMatch.score_b !== null
+        && dbMatch.score_a !== dbMatch.score_b) continue
 
     const updates: Record<string, unknown> = {
       status: 'finished',
