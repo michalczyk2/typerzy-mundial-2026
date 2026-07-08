@@ -84,23 +84,31 @@ export async function GET(req: NextRequest) {
       results.active_wc26_matches = { error: e instanceof Error ? e.message : String(e) }
     }
 
-    // 7. ALL non-group KO matches — full picture of bracket state
+    // 7. ALL non-group KO matches — full picture of bracket state (team_a_code included)
     try {
       const { data, error } = await db
         .from('matches')
-        .select('id, external_id, phase, team_a, team_b, home_placeholder, away_placeholder, status, score_a, score_b, match_date, winner')
+        .select('id, external_id, phase, team_a, team_b, team_a_code, team_b_code, home_placeholder, away_placeholder, status, score_a, score_b, match_date, winner')
         .like('external_id', 'wc26_%')
         .neq('phase', 'group')
         .or('is_archived.is.null,is_archived.eq.false')
         .order('match_date', { ascending: true })
       if (error) throw error
       results.ko_all_matches = data
+
+      // Equivalent of: WHERE team_a IS NULL OR team_a = '' OR team_b IS NULL OR team_b = ''
+      type Row = Record<string, string | null>
       results.ko_empty_team_slots = (data ?? []).filter(
-        (m: Record<string, string | null>) => !m.team_a || !m.team_b
+        (m: Row) => !m.team_a || !m.team_b
+      )
+      // Separately: missing codes even when team name is set
+      results.ko_missing_codes = (data ?? []).filter(
+        (m: Row) => (m.team_a && !m.team_a_code) || (m.team_b && !m.team_b_code)
       )
     } catch (e) {
       results.ko_all_matches = { error: e instanceof Error ? e.message : String(e) }
       results.ko_empty_team_slots = []
+      results.ko_missing_codes = []
     }
 
   } catch (e) {
