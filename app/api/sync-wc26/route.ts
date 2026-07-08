@@ -163,7 +163,7 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
       (err) => { wc26Error = err },
     )
 
-    // If WC26 returned nothing, try enriching existing KO matches from openfootball
+    // If WC26 returned nothing, fall back to openfootball enrichment
     if (!fixtures || fixtures.length === 0) {
       const wc26ErrMsg = wc26Error
         ? `worldcup26.ir: ${wc26Error.reason}${wc26Error.httpStatus ? ` (HTTP ${wc26Error.httpStatus})` : ''}`
@@ -171,32 +171,44 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
 
       console.error('[sync-wc26]', wc26ErrMsg, '— próbuję openfootball jako fallback')
 
+      // Step 1: fill KO team slots from existing R32 results so OFB can match by team name
+      const pre = await populateBracketFromStandings(db)
+      if (pre.updated > 0)
+        console.log(`[sync-wc26] Pre-OFB bracket: uzupełniono ${pre.updated} slotów`)
+
+      // Step 2: enrich KO results from OFB (R16+ with now-known team names)
       const { enriched, errors: enrichErrors } = await enrichFromOpenfootball(db)
 
-      const msg = enriched > 0
-        ? `WC26 niedostępne (${wc26ErrMsg}). Uzupełniono ${enriched} meczów KO z openfootball.`
-        : `WC26 niedostępne (${wc26ErrMsg}). Openfootball: brak nowych wyników KO.`
+      // Step 3: cascade bracket again — OFB may have added R16 results → fills QF slots
+      let postUpdated = 0
+      if (enriched > 0 || pre.updated > 0) {
+        const post = await populateBracketFromStandings(db)
+        postUpdated = post.updated
+        if (postUpdated > 0)
+          console.log(`[sync-wc26] Post-OFB bracket: uzupełniono ${postUpdated} slotów`)
+      }
 
+      const totalFilled = pre.updated + postUpdated
+      const parts: string[] = []
+      if (enriched > 0) parts.push(`uzupełniono ${enriched} wyników KO z openfootball`)
+      if (totalFilled > 0) parts.push(`wypełniono ${totalFilled} slotów drabinki`)
+      const msg = `WC26 niedostępne (${wc26ErrMsg})${parts.length ? '. ' + parts.join(', ') + '.' : '. Brak nowych danych.'}`
+
+      const didSomething = enriched > 0 || totalFilled > 0
       await db.from('sync_logs').insert({
         sync_type: 'wc26',
-        status: enriched > 0 ? 'success' : 'error',
-        records_updated: enriched,
+        status: didSomething ? 'success' : 'error',
+        records_updated: enriched + totalFilled,
         message: msg.slice(0, 500),
       })
 
-      if (enriched > 0) {
-        const populateResult = await populateBracketFromStandings(db)
-        if (populateResult.updated > 0)
-          console.log(`[sync-wc26] Bracket (OFB fallback): uzupełniono ${populateResult.updated} meczów KO`)
-      }
-
       console.log('[sync-wc26]', msg)
-      return NextResponse.json({
-        message: msg,
-        wc26_error: wc26ErrMsg,
-        ofb_enriched: enriched,
-        errors: enrichErrors,
-      }, { status: enriched > 0 ? 200 : 503 })
+      return NextResponse.json(
+        didSomething
+          ? { message: msg, wc26_error: wc26ErrMsg, ofb_enriched: enriched, bracket_filled: totalFilled, errors: enrichErrors }
+          : { error: wc26ErrMsg, message: msg, wc26_error: wc26ErrMsg, ofb_enriched: 0, errors: enrichErrors },
+        { status: didSomething ? 200 : 503 },
+      )
     }
 
     let fixturesToApply = fixtures
