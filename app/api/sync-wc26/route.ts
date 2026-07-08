@@ -143,8 +143,11 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: 'Tryb lokalny — brak synchronizacji' })
   }
 
+  // Declare db outside try so catch block can attempt sync_log without calling createAdminClient() again
+  let db: DbClient | null = null
+
   try {
-    const db = createAdminClient()
+    db = createAdminClient()
 
     const conflictMsg = await checkLegacyConflicts(db)
     if (conflictMsg) {
@@ -330,14 +333,22 @@ async function runSync(req: NextRequest): Promise<NextResponse> {
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('[sync-wc26]', msg)
-    const db = createAdminClient()
-    await db.from('sync_logs').insert({
-      sync_type: 'wc26',
-      status: 'error',
-      records_updated: 0,
-      message: msg.slice(0, 500),
-    })
+    console.error('[sync-wc26] CAUGHT:', msg)
+    // Best-effort log — db may be null if createAdminClient() itself threw
+    if (db) {
+      try {
+        await db.from('sync_logs').insert({
+          sync_type: 'wc26',
+          status: 'error',
+          records_updated: 0,
+          message: msg.slice(0, 500),
+        })
+      } catch (logErr) {
+        console.error('[sync-wc26] sync_logs write failed:', logErr instanceof Error ? logErr.message : logErr)
+      }
+    } else {
+      console.error('[sync-wc26] db client was null — createAdminClient() likely threw. Check SUPABASE env vars.')
+    }
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
@@ -376,8 +387,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    if (!await isAuthorized(req)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return runSync(req)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[sync-wc26] POST handler error:', msg)
+    return NextResponse.json({ error: `Handler error: ${msg}` }, { status: 500 })
   }
-  return runSync(req)
 }
