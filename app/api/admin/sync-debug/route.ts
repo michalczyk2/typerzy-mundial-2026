@@ -84,20 +84,23 @@ export async function GET(req: NextRequest) {
       results.active_wc26_matches = { error: e instanceof Error ? e.message : String(e) }
     }
 
-    // 7. KO matches with empty team names
+    // 7. ALL non-group KO matches — full picture of bracket state
     try {
       const { data, error } = await db
         .from('matches')
-        .select('id, external_id, phase, team_a, team_b, home_placeholder, away_placeholder, status')
+        .select('id, external_id, phase, team_a, team_b, home_placeholder, away_placeholder, status, score_a, score_b, match_date, winner')
         .like('external_id', 'wc26_%')
         .neq('phase', 'group')
-        .or('team_a.eq.,team_b.eq.')
         .or('is_archived.is.null,is_archived.eq.false')
-        .limit(10)
+        .order('match_date', { ascending: true })
       if (error) throw error
-      results.ko_empty_team_slots = data
+      results.ko_all_matches = data
+      results.ko_empty_team_slots = (data ?? []).filter(
+        (m: Record<string, string | null>) => !m.team_a || !m.team_b
+      )
     } catch (e) {
-      results.ko_empty_team_slots = { error: e instanceof Error ? e.message : String(e) }
+      results.ko_all_matches = { error: e instanceof Error ? e.message : String(e) }
+      results.ko_empty_team_slots = []
     }
 
   } catch (e) {
