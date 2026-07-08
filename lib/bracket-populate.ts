@@ -238,5 +238,49 @@ export async function populateBracketFromStandings(
     }
   }
 
+  // --- Phase 3: INSERT missing QF/SF rows that were never seeded ---
+  // These rows don't exist because worldcup26.ir returned 403 before admin could seed them.
+  // Dates are approximate WC26 schedule values used only for bracket ordering.
+  const KO_BRACKET_SLOTS = [
+    { external_id: 'wc26_97',  phase: 'quarterfinal', parent_a: 89, parent_b: 90, match_date: '2026-07-03T18:00:00Z' },
+    { external_id: 'wc26_98',  phase: 'quarterfinal', parent_a: 91, parent_b: 92, match_date: '2026-07-04T14:00:00Z' },
+    { external_id: 'wc26_99',  phase: 'quarterfinal', parent_a: 93, parent_b: 94, match_date: '2026-07-03T21:00:00Z' },
+    { external_id: 'wc26_100', phase: 'quarterfinal', parent_a: 95, parent_b: 96, match_date: '2026-07-04T21:00:00Z' },
+    { external_id: 'wc26_101', phase: 'semifinal',    parent_a: 97, parent_b: 98, match_date: '2026-07-07T21:00:00Z' },
+    { external_id: 'wc26_102', phase: 'semifinal',    parent_a: 99, parent_b: 100, match_date: '2026-07-08T21:00:00Z' },
+  ]
+
+  const existingExternalIds = new Set((allKoMatches ?? []).map(m => m.external_id))
+
+  for (const slot of KO_BRACKET_SLOTS) {
+    if (existingExternalIds.has(slot.external_id)) continue
+
+    const teamA = winnerMap.get(slot.parent_a)
+    const teamB = winnerMap.get(slot.parent_b)
+
+    const row: Record<string, unknown> = {
+      external_id: slot.external_id,
+      phase: slot.phase,
+      home_placeholder: `Zwycięzca meczu ${slot.parent_a}`,
+      away_placeholder: `Zwycięzca meczu ${slot.parent_b}`,
+      match_date: slot.match_date,
+      status: 'scheduled',
+      data_source: 'cascade',
+      is_archived: false,
+    }
+
+    if (teamA) { row.team_a = teamA.team_name; row.team_a_code = teamA.team_code }
+    if (teamB) { row.team_b = teamB.team_name; row.team_b_code = teamB.team_code }
+
+    const { error: insertError } = await db.from('matches').insert(row)
+    if (insertError) {
+      errors.push(`INSERT ${slot.external_id}: ${insertError.message}`)
+    } else {
+      updated++
+      // Add newly created QF row to winnerMap if we happen to know the winner already
+      // (shouldn't occur at insert time — no scores yet — but guards future edge cases)
+    }
+  }
+
   return { updated, skipped, errors }
 }
