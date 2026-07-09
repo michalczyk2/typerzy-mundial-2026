@@ -440,6 +440,33 @@ export function AdminPanel() {
     }
   }
 
+  // TODO: usunąć po jednorazowym seedowaniu QF/SF
+  const handleSeedKoData = async () => {
+    setSeedKoLoading(true)
+    setSeedKoMsg('Seeding...')
+    try {
+      const res = await fetch('/api/admin/seed-ko-data', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setSeedKoMsg(`Błąd: ${json.error ?? res.status}`); return }
+      const r16 = (json.r16_winner ?? []) as { external_id: string; winner: string; ok: boolean; error?: string }[]
+      const qf  = (json.qf_upserts ?? []) as { external_id: string; ok: boolean; error?: string }[]
+      const sf  = (json.sf_upserts  ?? []) as { external_id: string; ok: boolean; error?: string }[]
+      const fmt = (rows: { external_id: string; ok: boolean; error?: string }[]) =>
+        rows.map(r => `${r.ok ? '✓' : '✗'} ${r.external_id}${r.error ? ` (${r.error})` : ''}`).join(' · ')
+      const allOk = [...r16, ...qf, ...sf].every(r => r.ok)
+      setSeedKoMsg(
+        `${allOk ? '✅ Wszystko OK' : '⚠️ Błędy'}\n` +
+        `R16 winner: ${fmt(r16)}\n` +
+        `QF: ${fmt(qf)}\n` +
+        `SF: ${fmt(sf)}`
+      )
+    } catch {
+      setSeedKoMsg('Błąd sieci')
+    } finally {
+      setSeedKoLoading(false)
+    }
+  }
+
   const handleModAction = async (endpoint: string) => {
     if (!IS_PRODUCTION_MODE) {
       setModActionStatus(s => ({ ...s, [endpoint]: '[MOCK] Brak efektu w trybie lokalnym' }))
@@ -867,6 +894,22 @@ export function AdminPanel() {
               )}
             </div>
           ))}
+        </div>
+        {/* TODO: usunąć po jednorazowym seedowaniu QF/SF */}
+        <div className="mt-3 pt-3 border-t border-yellow-800/40">
+          <Button
+            variant="secondary"
+            className="flex items-center gap-2 border-yellow-700/60 text-yellow-400 hover:bg-yellow-900/20"
+            onClick={handleSeedKoData}
+            disabled={seedKoLoading}
+          >
+            🌱 {seedKoLoading ? 'Seeding...' : 'Seed KO Data (jednorazowo)'}
+          </Button>
+          {seedKoMsg && (
+            <pre className={`mt-2 text-xs whitespace-pre-wrap font-mono ${seedKoMsg.startsWith('✅') ? 'text-emerald-400' : 'text-yellow-400'}`}>
+              {seedKoMsg}
+            </pre>
+          )}
         </div>
         {!IS_PRODUCTION_MODE && (
           <p className="text-gray-600 text-xs mt-3">Tryb lokalny — synchronizacja nie ma efektu.</p>
