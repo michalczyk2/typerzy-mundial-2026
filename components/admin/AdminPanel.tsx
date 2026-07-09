@@ -157,6 +157,7 @@ export function AdminPanel() {
   const [championMsg, setChampionMsg] = useState('')
   const [modStatus, setModStatus] = useState<ModStatusData>(null)
   const [modActionStatus, setModActionStatus] = useState<Record<string, string>>({})
+  const [meczDniaEnabled, setMeczDniaEnabled] = useState<boolean | null>(null)
   const [duplicates, setDuplicates] = useState<DuplicatePair[] | null>(null)
   const [duplicateSafetyViolations, setDuplicateSafetyViolations] = useState<DuplicateSafetyViolation[]>([])
   const [allDuplicatesSafe, setAllDuplicatesSafe] = useState(false)
@@ -284,6 +285,24 @@ export function AdminPanel() {
       .then(r => r.json())
       .then(data => setModStatus(data))
       .catch(() => {})
+    fetch('/api/admin/mecz-dnia')
+      .then(r => r.json())
+      .then(({ enabled }) => { if (typeof enabled === 'boolean') setMeczDniaEnabled(enabled) })
+      .catch(() => {})
+  }
+
+  const handleToggleMeczDnia = async () => {
+    if (!IS_PRODUCTION_MODE || meczDniaEnabled === null) return
+    const next = !meczDniaEnabled
+    try {
+      const res = await fetch('/api/admin/mecz-dnia', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) setMeczDniaEnabled(json.enabled)
+    } catch { /* ignore */ }
   }
 
   const handleAuditDuplicates = async () => {
@@ -1087,7 +1106,28 @@ export function AdminPanel() {
         <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wide mb-3 px-1">Mecz dnia i powiadomienia</h3>
         <div className="space-y-6">
       <Card>
-        <h2 className="text-white font-bold text-lg mb-3">🔥 Mecz dnia</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white font-bold text-lg">🔥 Mecz dnia</h2>
+          {IS_PRODUCTION_MODE && (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-medium ${meczDniaEnabled ? 'text-emerald-400' : 'text-gray-500'}`}>
+                {meczDniaEnabled === null ? '...' : meczDniaEnabled ? 'Włączony' : 'Wyłączony'}
+              </span>
+              <button
+                onClick={handleToggleMeczDnia}
+                disabled={meczDniaEnabled === null}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-40 ${
+                  meczDniaEnabled ? 'bg-emerald-600' : 'bg-gray-600'
+                }`}
+                title={meczDniaEnabled ? 'Wyłącz Mecz dnia' : 'Włącz Mecz dnia'}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  meczDniaEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          )}
+        </div>
 
         {!IS_PRODUCTION_MODE ? (
           <p className="text-gray-600 text-xs mb-3">Tryb lokalny — mecz dnia dostępny tylko w produkcji.</p>

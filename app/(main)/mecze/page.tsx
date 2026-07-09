@@ -17,6 +17,7 @@ interface ChampionState {
 }
 
 interface MatchOfDayData {
+  enabled?: boolean
   event: {
     id: string
     official_match_day: string
@@ -63,7 +64,10 @@ export default function MeczePage() {
     if (!IS_PRODUCTION_MODE) return
     fetch('/api/match-of-day/current')
       .then(r => r.ok ? r.json() : null)
-      .then(json => { if (json?.event) setModData(json) })
+      .then(json => {
+        if (json?.enabled === false) { setModData(null); return }
+        if (json?.event) setModData(json)
+      })
       .catch(() => {})
   }, [])
 
