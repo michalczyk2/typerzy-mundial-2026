@@ -13,6 +13,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = createAdminClient()
+
+    // Check feature flag — default true (backward compat) when key is missing
+    const { data: flagRow } = await db
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'mecz_dnia_enabled')
+      .maybeSingle()
+    if (flagRow?.value === 'false') {
+      return NextResponse.json({ event: null, enabled: false })
+    }
+
     const todayUtc = new Date().toISOString().slice(0, 10)
     const threeDaysAgoUtc = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
