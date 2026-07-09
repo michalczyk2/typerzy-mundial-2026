@@ -174,6 +174,8 @@ export function AdminPanel() {
   const [bracketMsg, setBracketMsg] = useState('')
   const [seedKoLoading, setSeedKoLoading] = useState(false)
   const [seedKoMsg, setSeedKoMsg] = useState('')
+  const [fixQfLoading, setFixQfLoading] = useState(false)
+  const [fixQfMsg, setFixQfMsg] = useState('')
   const [overrideMatchId, setOverrideMatchId] = useState('')
   const [overrideUserId, setOverrideUserId] = useState('')
   const [overrideScoreA, setOverrideScoreA] = useState('')
@@ -816,6 +818,19 @@ export function AdminPanel() {
     }
   }
 
+  // TODO: usunąć po jednorazowej korekcie danych QF (score_a/b: 0→NULL)
+  const handleFixQfScores = async () => {
+    if (!IS_PRODUCTION_MODE) { setFixQfMsg('[MOCK] Tryb lokalny — brak efektu.'); return }
+    setFixQfLoading(true)
+    setFixQfMsg('Naprawiam...')
+    try {
+      const res = await fetch('/api/admin/fix-qf-scores', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) setFixQfMsg(JSON.stringify(json.results))
+      else setFixQfMsg(`Błąd: ${json.error ?? res.statusText}`)
+    } catch { setFixQfMsg('Błąd sieci') } finally { setFixQfLoading(false) }
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -922,6 +937,16 @@ export function AdminPanel() {
             {bracketMsg && (
               <p className={`text-sm break-words ${bracketMsg.startsWith('Błąd') ? 'text-red-400' : bracketMsg.includes('⚠️') ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {bracketMsg}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleFixQfScores} disabled={fixQfLoading} variant="secondary">
+              🔧 {fixQfLoading ? 'Naprawiam...' : 'Wyzeruj score QF (jednorazowo)'}
+            </Button>
+            {fixQfMsg && (
+              <p className={`text-sm break-words ${fixQfMsg.startsWith('Błąd') ? 'text-red-400' : 'text-emerald-400'}`}>
+                {fixQfMsg}
               </p>
             )}
           </div>
