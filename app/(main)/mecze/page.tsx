@@ -48,6 +48,7 @@ export default function MeczePage() {
   const [champion, setChampion] = useState<ChampionState>({ pick: null, enabled: false })
   const [pickerOpen, setPickerOpen] = useState(false)
   const [modData, setModData] = useState<MatchOfDayData | null>(null)
+  const [meczDniaEnabled, setMeczDniaEnabled] = useState<boolean | null>(null)
   const [voting, setVoting] = useState(false)
 
   useEffect(() => {
@@ -62,13 +63,31 @@ export default function MeczePage() {
 
   useEffect(() => {
     if (!IS_PRODUCTION_MODE) return
-    fetch('/api/match-of-day/current')
-      .then(r => r.ok ? r.json() : null)
-      .then(json => {
-        if (json?.enabled === false) { setModData(null); return }
-        if (json?.event) setModData(json)
-      })
-      .catch(() => {})
+
+    const fetchModStatus = () => {
+      fetch('/api/match-of-day/current', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (json?.enabled === false) {
+            setMeczDniaEnabled(false)
+            setModData(null)
+            return
+          }
+          setMeczDniaEnabled(true)
+          if (json?.event) setModData(json)
+          else setModData(null)
+        })
+        .catch(() => { setMeczDniaEnabled(true) })
+    }
+
+    fetchModStatus()
+
+    // Re-fetch when page is restored from bfcache (browser back/forward)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) fetchModStatus()
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
   }, [])
 
   const handleVote = useCallback(async (eventId: string, bonusPoints: number) => {
@@ -99,9 +118,10 @@ export default function MeczePage() {
     return matches.filter(m => m.status === 'finished')
   }, [matches, filter])
 
-  const modMatchId = modData?.event?.match?.id ?? null
+  const modMatchId = meczDniaEnabled !== false && modData ? modData.event?.match?.id ?? null : null
 
   const canVote = IS_PRODUCTION_MODE
+    && meczDniaEnabled !== false
     && currentUser?.status === 'active'
     && modData?.isVotingOpen === true
 
@@ -124,7 +144,7 @@ export default function MeczePage() {
         <PushNotificationButton />
       </div>
 
-      {modData && (canVote || modData.event.status === 'settled' || !modData.isVotingOpen) && (
+      {meczDniaEnabled !== false && modData && (canVote || modData.event.status === 'settled' || !modData.isVotingOpen) && (
         <MatchOfDayBanner
           data={modData}
           onVote={canVote ? handleVote : async () => {}}

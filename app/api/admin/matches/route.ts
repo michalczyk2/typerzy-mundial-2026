@@ -19,8 +19,9 @@ export async function PATCH(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     const update: Record<string, unknown> = {}
-    if (score_a != null) update.score_a = score_a
-    if (score_b != null) update.score_b = score_b
+    // score_a/score_b: undefined = not provided (skip), null = explicitly clear, number = set
+    if (score_a !== undefined) update.score_a = score_a ?? null
+    if (score_b !== undefined) update.score_b = score_b ?? null
     if (status) update.status = status
     // 90-minute regulation score for KO matches decided in extra time — null clears
     // the override (falls back to score_a/score_b in scoring).
