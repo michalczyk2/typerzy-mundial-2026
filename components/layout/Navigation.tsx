@@ -12,6 +12,7 @@ const navItems = [
   { href:'/grupy', label:'Grupy', icon:'📊' },
   { href:'/turniej', label:'Drabinka', icon:'🏟️' },
   { href:'/finanse', label:'Finanse', icon:'💰' },
+  { href:'/podsumowanie', label:'Sezon', icon:'🏅' },
 ]
 
 export function Navigation() {
