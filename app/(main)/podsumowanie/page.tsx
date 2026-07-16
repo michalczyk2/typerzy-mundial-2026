@@ -4,12 +4,19 @@ import { useAppStore } from '@/lib/store'
 import { IS_PRODUCTION_MODE } from '@/lib/tournament-config'
 import { FlagImg } from '@/components/ui/FlagImg'
 import { cn } from '@/lib/utils'
+import type { User } from '@/types'
 import type { TeamPickStat, PerUserKoPick, RoundStat } from '@/app/api/data/podsumowanie/route'
 
 interface SummaryData {
   teamPickStats: TeamPickStat[]
   perUserKoPicks: PerUserKoPick[]
   roundStats: RoundStat[]
+}
+
+interface RankedEntry {
+  user: User
+  position: number
+  tied: boolean
 }
 
 const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
@@ -19,7 +26,22 @@ const MEDAL_BG = [
   'bg-orange-700/10 border-orange-700/30',
 ]
 const MEDAL_TEXT = ['text-yellow-400', 'text-gray-300', 'text-orange-400']
-const MEDAL_PTS = ['text-yellow-300', 'text-gray-200', 'text-orange-300']
+const MEDAL_PTS  = ['text-yellow-300', 'text-gray-200', 'text-orange-300']
+
+// Competition ranking: 1, 1, 3, 4 — skips numbers when players tie.
+function assignPositions(sorted: User[]): RankedEntry[] {
+  if (!sorted.length) return []
+  const entries: RankedEntry[] = sorted.map((u, i) => ({ user: u, position: i + 1, tied: false }))
+  for (let i = 1; i < entries.length; i++) {
+    if (entries[i].user.total_points === entries[i - 1].user.total_points) {
+      entries[i].position = entries[i - 1].position
+    }
+  }
+  const posCounts: Record<number, number> = {}
+  for (const e of entries) posCounts[e.position] = (posCounts[e.position] ?? 0) + 1
+  for (const e of entries) { if (posCounts[e.position] > 1) e.tied = true }
+  return entries
+}
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -53,6 +75,38 @@ function EmptyCard({ text }: { text: string }) {
   )
 }
 
+// Single podium card (used in both staggered and tiered layouts).
+function PodiumCard({
+  entry, medalIdx, size = 'md', showTieLabel = false,
+}: {
+  entry: RankedEntry
+  medalIdx: number
+  size?: 'lg' | 'md'
+  showTieLabel?: boolean
+}) {
+  return (
+    <div className={cn(
+      'rounded-xl border flex flex-col items-center gap-1 text-center flex-1 min-w-0',
+      size === 'lg' ? 'p-4' : 'p-3',
+      MEDAL_BG[medalIdx],
+    )}>
+      <span className={size === 'lg' ? 'text-4xl' : 'text-2xl'}>{MEDAL_EMOJI[medalIdx]}</span>
+      {showTieLabel && (
+        <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">
+          remis
+        </span>
+      )}
+      <span className={cn('font-bold truncate w-full', size === 'lg' ? 'text-sm' : 'text-xs', MEDAL_TEXT[medalIdx])}>
+        {entry.user.nick}
+      </span>
+      <span className={cn('font-black', size === 'lg' ? 'text-xl' : 'text-lg', MEDAL_PTS[medalIdx])}>
+        {entry.user.total_points}
+      </span>
+      <span className="text-gray-500 text-[10px]">pkt</span>
+    </div>
+  )
+}
+
 export default function PodsumowaniePage() {
   const { users, currentUser } = useAppStore()
   const [data, setData] = useState<SummaryData | null>(null)
@@ -74,18 +128,32 @@ export default function PodsumowaniePage() {
     [users]
   )
 
+  // Ranked with competition positions (ties share same number, next skips).
+  const rankedWithPos = useMemo(() => assignPositions(ranked), [ranked])
+
+  // Podium: all players at position 1, 2, or 3.
+  const podiumGroups = useMemo(() =>
+    [1, 2, 3]
+      .map(pos => ({
+        position: pos,
+        mi: pos - 1,  // medal index: 0=gold, 1=silver, 2=bronze
+        players: rankedWithPos.filter(e => e.position === pos),
+      }))
+      .filter(g => g.players.length > 0),
+    [rankedWithPos]
+  )
+
+  // Classic staggered layout only when exactly 3 solo players.
+  const isStaggered =
+    podiumGroups.length === 3 && podiumGroups.every(g => g.players.length === 1)
+
   const nickById = useMemo(() => {
     const m: Record<string, string> = {}
     for (const u of users) m[u.id] = u.nick
     return m
   }, [users])
 
-  // Top 3 for podium — displayed silver | gold | bronze
-  const podiumOrder = [ranked[1] ?? null, ranked[0] ?? null, ranked[2] ?? null]
-  // podiumOrder index → medal index: i=0→silver(1), i=1→gold(0), i=2→bronze(2)
-  const podiumMedalIdx = [1, 0, 2]
-
-  // Section 4 stats from store
+  // Section 4 stats — from store, no position needed.
   const exactRanking = useMemo(() =>
     [...ranked].sort((a, b) => (b.correct_scores ?? 0) - (a.correct_scores ?? 0)).slice(0, 5),
     [ranked]
@@ -102,7 +170,6 @@ export default function PodsumowaniePage() {
     [ranked]
   )
 
-  // Best/worst round per user, derived from roundStats
   const { bestRounds, worstRounds } = useMemo(() => {
     if (!data?.roundStats?.length) return { bestRounds: [], worstRounds: [] }
     const byUser: Record<string, { day: string; points: number }[]> = {}
@@ -142,27 +209,30 @@ export default function PodsumowaniePage() {
         <SectionHeader>Podium końcowe</SectionHeader>
         {ranked.length === 0 ? (
           <EmptyCard text="Brak danych rankingowych." />
-        ) : (
+        ) : isStaggered ? (
+          // Classic staggered: silver | gold (elevated) | bronze
           <div className="grid grid-cols-3 gap-3 items-end">
-            {podiumOrder.map((user, i) => {
-              const mi = podiumMedalIdx[i]
-              if (!user) return <div key={i} />
+            <PodiumCard entry={podiumGroups[1].players[0]} medalIdx={1} size="md" />
+            <PodiumCard entry={podiumGroups[0].players[0]} medalIdx={0} size="lg" />
+            <PodiumCard entry={podiumGroups[2].players[0]} medalIdx={2} size="md" />
+          </div>
+        ) : (
+          // Tiered layout: one row per position, side-by-side for ties.
+          <div className="space-y-2">
+            {podiumGroups.map(group => {
+              const isGold = group.position === 1
+              const tied   = group.players.length > 1
               return (
-                <div key={user.id}
-                  className={cn(
-                    'rounded-xl border p-3 flex flex-col items-center gap-1 text-center',
-                    i === 1 ? '' : 'mt-6',
-                    MEDAL_BG[mi]
-                  )}
-                >
-                  <span className={cn('text-3xl', i === 1 ? 'text-4xl' : '')}>{MEDAL_EMOJI[mi]}</span>
-                  <span className={cn('font-bold text-xs truncate w-full', MEDAL_TEXT[mi])}>
-                    {user.nick}
-                  </span>
-                  <span className={cn('font-black', i === 1 ? 'text-xl' : 'text-lg', MEDAL_PTS[mi])}>
-                    {user.total_points}
-                  </span>
-                  <span className="text-gray-500 text-[10px]">pkt</span>
+                <div key={group.position} className="flex gap-2">
+                  {group.players.map(e => (
+                    <PodiumCard
+                      key={e.user.id}
+                      entry={e}
+                      medalIdx={group.mi}
+                      size={isGold ? 'lg' : 'md'}
+                      showTieLabel={tied}
+                    />
+                  ))}
                 </div>
               )
             })}
@@ -185,7 +255,7 @@ export default function PodsumowaniePage() {
               </tr>
             </thead>
             <tbody>
-              {ranked.map((user, idx) => (
+              {rankedWithPos.map(({ user, position, tied }) => (
                 <tr key={user.id}
                   className={cn(
                     'border-b border-gray-800/40 last:border-0 transition-colors',
@@ -194,9 +264,13 @@ export default function PodsumowaniePage() {
                       : 'hover:bg-gray-900/40'
                   )}
                 >
-                  <td className="py-2.5 px-3 text-gray-600 font-mono text-xs">{idx + 1}</td>
+                  <td className="py-2.5 px-3 text-gray-600 font-mono text-xs">
+                    {position}{tied && <span className="text-gray-700">=</span>}
+                  </td>
                   <td className="py-2.5 px-3 font-medium text-white">
-                    {idx < 3 && <span className="mr-1 text-xs">{MEDAL_EMOJI[idx]}</span>}
+                    {position <= 3 && (
+                      <span className="mr-1 text-xs">{MEDAL_EMOJI[position - 1]}</span>
+                    )}
                     {user.nick}
                     {user.id === currentUser.id && (
                       <span className="text-emerald-500 text-[10px] ml-1">(Ty)</span>
@@ -262,7 +336,6 @@ export default function PodsumowaniePage() {
       <section>
         <SectionHeader>Ciekawostki</SectionHeader>
         <div className="space-y-3">
-          {/* Round stats — only when data available */}
           {IS_PRODUCTION_MODE && !loading && (
             <>
               {bestRounds.length > 0 ? (
@@ -303,7 +376,6 @@ export default function PodsumowaniePage() {
             </>
           )}
 
-          {/* Exact scores ranking — always from store */}
           <Card>
             <CardHeader>🎯 Najwięcej trafionych dokładnych wyników</CardHeader>
             <div className="divide-y divide-gray-800/40">
@@ -319,7 +391,6 @@ export default function PodsumowaniePage() {
             </div>
           </Card>
 
-          {/* Best streak — only if anyone has one */}
           {streakRanking.length > 0 && (
             <Card>
               <CardHeader>🔥 Najdłuższa passa trafionych typów</CardHeader>
@@ -337,7 +408,6 @@ export default function PodsumowaniePage() {
             </Card>
           )}
 
-          {/* Most active */}
           <Card>
             <CardHeader>📝 Najaktywniejszy typer</CardHeader>
             <div className="divide-y divide-gray-800/40">
