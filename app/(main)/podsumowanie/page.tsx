@@ -28,14 +28,15 @@ const MEDAL_BG = [
 const MEDAL_TEXT = ['text-yellow-400', 'text-gray-300', 'text-orange-400']
 const MEDAL_PTS  = ['text-yellow-300', 'text-gray-200', 'text-orange-300']
 
-// Competition ranking: 1, 1, 3, 4 — skips numbers when players tie.
+// Dense ranking: 1, 1, 2, 3 — ties share a position, the next player gets +1.
 function assignPositions(sorted: User[]): RankedEntry[] {
   if (!sorted.length) return []
-  const entries: RankedEntry[] = sorted.map((u, i) => ({ user: u, position: i + 1, tied: false }))
+  const entries: RankedEntry[] = sorted.map(u => ({ user: u, position: 1, tied: false }))
   for (let i = 1; i < entries.length; i++) {
-    if (entries[i].user.total_points === entries[i - 1].user.total_points) {
-      entries[i].position = entries[i - 1].position
-    }
+    entries[i].position =
+      entries[i].user.total_points === entries[i - 1].user.total_points
+        ? entries[i - 1].position
+        : entries[i - 1].position + 1
   }
   const posCounts: Record<number, number> = {}
   for (const e of entries) posCounts[e.position] = (posCounts[e.position] ?? 0) + 1
@@ -86,7 +87,7 @@ function PodiumCard({
 }) {
   return (
     <div className={cn(
-      'rounded-xl border flex flex-col items-center gap-1 text-center flex-1 min-w-0',
+      'rounded-xl border flex flex-col items-center justify-center gap-1 text-center flex-1 min-w-0',
       size === 'lg' ? 'p-4' : 'p-3',
       MEDAL_BG[medalIdx],
     )}>
@@ -128,24 +129,19 @@ export default function PodsumowaniePage() {
     [users]
   )
 
-  // Ranked with competition positions (ties share same number, next skips).
+  // Ranked with dense positions (ties share same number, next gets +1).
   const rankedWithPos = useMemo(() => assignPositions(ranked), [ranked])
 
-  // Podium: all players at position 1, 2, or 3.
-  const podiumGroups = useMemo(() =>
-    [1, 2, 3]
-      .map(pos => ({
-        position: pos,
-        mi: pos - 1,  // medal index: 0=gold, 1=silver, 2=bronze
-        players: rankedWithPos.filter(e => e.position === pos),
-      }))
-      .filter(g => g.players.length > 0),
-    [rankedWithPos]
-  )
+  // Podium: players grouped by dense position 1/2/3 → gold/silver/bronze.
+  const { gold, silver, bronze } = useMemo(() => ({
+    gold:   rankedWithPos.filter(e => e.position === 1),
+    silver: rankedWithPos.filter(e => e.position === 2),
+    bronze: rankedWithPos.filter(e => e.position === 3),
+  }), [rankedWithPos])
 
-  // Classic staggered layout only when exactly 3 solo players.
+  // Classic staggered layout only when each medal has exactly one player.
   const isStaggered =
-    podiumGroups.length === 3 && podiumGroups.every(g => g.players.length === 1)
+    gold.length === 1 && silver.length === 1 && bronze.length === 1
 
   const nickById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -212,30 +208,48 @@ export default function PodsumowaniePage() {
         ) : isStaggered ? (
           // Classic staggered: silver | gold (elevated) | bronze
           <div className="grid grid-cols-3 gap-3 items-end">
-            <PodiumCard entry={podiumGroups[1].players[0]} medalIdx={1} size="md" />
-            <PodiumCard entry={podiumGroups[0].players[0]} medalIdx={0} size="lg" />
-            <PodiumCard entry={podiumGroups[2].players[0]} medalIdx={2} size="md" />
+            <PodiumCard entry={silver[0]} medalIdx={1} size="md" />
+            <PodiumCard entry={gold[0]} medalIdx={0} size="lg" />
+            <PodiumCard entry={bronze[0]} medalIdx={2} size="md" />
           </div>
         ) : (
-          // Tiered layout: one row per position, side-by-side for ties.
+          // Tie layout: gold row on top, silver + bronze share the second row.
           <div className="space-y-2">
-            {podiumGroups.map(group => {
-              const isGold = group.position === 1
-              const tied   = group.players.length > 1
-              return (
-                <div key={group.position} className="flex gap-2">
-                  {group.players.map(e => (
-                    <PodiumCard
-                      key={e.user.id}
-                      entry={e}
-                      medalIdx={group.mi}
-                      size={isGold ? 'lg' : 'md'}
-                      showTieLabel={tied}
-                    />
-                  ))}
-                </div>
-              )
-            })}
+            {gold.length > 0 && (
+              <div className="flex gap-2 items-stretch">
+                {gold.map(e => (
+                  <PodiumCard
+                    key={e.user.id}
+                    entry={e}
+                    medalIdx={0}
+                    size="lg"
+                    showTieLabel={gold.length > 1}
+                  />
+                ))}
+              </div>
+            )}
+            {(silver.length > 0 || bronze.length > 0) && (
+              <div className="flex gap-2 items-stretch">
+                {silver.map(e => (
+                  <PodiumCard
+                    key={e.user.id}
+                    entry={e}
+                    medalIdx={1}
+                    size="md"
+                    showTieLabel={silver.length > 1}
+                  />
+                ))}
+                {bronze.map(e => (
+                  <PodiumCard
+                    key={e.user.id}
+                    entry={e}
+                    medalIdx={2}
+                    size="md"
+                    showTieLabel={bronze.length > 1}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>
