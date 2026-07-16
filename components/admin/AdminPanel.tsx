@@ -176,6 +176,8 @@ export function AdminPanel() {
   const [seedKoMsg, setSeedKoMsg] = useState('')
   const [fixQfLoading, setFixQfLoading] = useState(false)
   const [fixQfMsg, setFixQfMsg] = useState('')
+  const [seed3rdFinalLoading, setSeed3rdFinalLoading] = useState(false)
+  const [seed3rdFinalMsg, setSeed3rdFinalMsg] = useState('')
   const [overrideMatchId, setOverrideMatchId] = useState('')
   const [overrideUserId, setOverrideUserId] = useState('')
   const [overrideScoreA, setOverrideScoreA] = useState('')
@@ -818,6 +820,19 @@ export function AdminPanel() {
     }
   }
 
+  // TODO: usunąć po jednorazowym seedzie drużyn 3. miejsce i finał
+  const handleSeed3rdFinal = async () => {
+    if (!IS_PRODUCTION_MODE) { setSeed3rdFinalMsg('[MOCK] Tryb lokalny — brak efektu.'); return }
+    setSeed3rdFinalLoading(true)
+    setSeed3rdFinalMsg('Zapisuję...')
+    try {
+      const res = await fetch('/api/admin/seed-3rd-final', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) setSeed3rdFinalMsg(JSON.stringify(json.results))
+      else setSeed3rdFinalMsg(`Błąd: ${json.error ?? res.statusText}`)
+    } catch { setSeed3rdFinalMsg('Błąd sieci') } finally { setSeed3rdFinalLoading(false) }
+  }
+
   // TODO: usunąć po jednorazowej korekcie danych QF (score_a/b: 0→NULL)
   const handleFixQfScores = async () => {
     if (!IS_PRODUCTION_MODE) { setFixQfMsg('[MOCK] Tryb lokalny — brak efektu.'); return }
@@ -947,6 +962,16 @@ export function AdminPanel() {
             {fixQfMsg && (
               <p className={`text-sm break-words ${fixQfMsg.startsWith('Błąd') ? 'text-red-400' : 'text-emerald-400'}`}>
                 {fixQfMsg}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleSeed3rdFinal} disabled={seed3rdFinalLoading} variant="secondary">
+              🥉 {seed3rdFinalLoading ? 'Zapisuję...' : 'Seed 3. miejsce i Finał (jednorazowo)'}
+            </Button>
+            {seed3rdFinalMsg && (
+              <p className={`text-sm break-words ${seed3rdFinalMsg.startsWith('Błąd') ? 'text-red-400' : 'text-emerald-400'}`}>
+                {seed3rdFinalMsg}
               </p>
             )}
           </div>
